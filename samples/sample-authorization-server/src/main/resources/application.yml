@@ -6,6 +6,8 @@ spring:
       authorizationserver:
         client:
           default-client:
+            token:
+              access-token-time-to-live: 1h
             registration:
               client-id: "default-client"
               client-secret: "{noop}default-secret"
