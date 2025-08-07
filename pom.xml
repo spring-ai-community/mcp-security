@@ -10,6 +10,11 @@
 
     <packaging>pom</packaging>
     <url>https://github.com/spring-ai-community/mcp-security</url>
+    <modules>
+
+        <!-- samples -->
+        <module>samples/sample-authorization-server</module>
+    </modules>
 
     <scm>
         <url>https://github.com/spring-ai-community/mcp-security</url>
