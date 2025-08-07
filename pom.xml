@@ -14,6 +14,7 @@
 
         <!-- samples -->
         <module>samples/sample-authorization-server</module>
+        <module>samples/sample-mcp-server</module>
     </modules>
 
     <scm>
