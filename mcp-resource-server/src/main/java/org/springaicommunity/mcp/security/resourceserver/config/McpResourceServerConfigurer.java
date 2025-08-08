@@ -121,6 +121,9 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 	}
 
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer() {
+		if (this.customizer != null) {
+			return this.customizer;
+		}
 		return (protectedMetadata) -> {
 			protectedMetadata.authorizationServer(this.issuerUri)
 				.resourceName(this.resourceName)
