@@ -36,7 +36,9 @@ These are samples for testing MCP Security integration. It contains two samples:
 
 1. This should open a pane on the right side of the MCP inspector. Navigate to the "tools" tab, then list the tools.
 
-### Appendix: Obtaining an access token
+## Appendix
+
+### Obtaining an access token
 
 If you would like to obtain an access token for debugging, without the MCP inspector, call the Authorization Server
 directly, using the client credentials grant:
