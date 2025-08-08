@@ -1,0 +1,136 @@
+/*
+ * Copyright 2025-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.springaicommunity.mcp.security.resourceserver.config;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
+import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadata;
+import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
+import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+import org.springframework.util.Assert;
+
+/**
+ * TODO: dynamic resource id
+ *
+ * @author Daniel Garnier-Moiroux
+ */
+public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResourceServerConfigurer, HttpSecurity> {
+
+	private String issuerUri = null;
+
+	private final List<String> scopes = new ArrayList<>();
+
+	private String bearerMethod = "header";
+
+	private String resourceName = "Spring MCP Resource Server";
+
+	private Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer = null;
+
+	private ResourceIdentifier resourceIdentifier = null;
+
+	public McpResourceServerConfigurer authorizationServer(String issuerUri) {
+		this.issuerUri = issuerUri;
+		return this;
+	}
+
+	public McpResourceServerConfigurer scope(String scope) {
+		this.scopes.add(scope);
+		return this;
+	}
+
+	public McpResourceServerConfigurer bearerMethod(String bearerMethod) {
+		this.bearerMethod = bearerMethod;
+		return this;
+	}
+
+	public McpResourceServerConfigurer resourceName(String resourceName) {
+		this.resourceName = resourceName;
+		return this;
+	}
+
+	public McpResourceServerConfigurer resourceIdentifier(String resourceIdentifier) {
+		this.resourceIdentifier = new ResourceIdentifier(resourceIdentifier);
+		return this;
+	}
+
+	public McpResourceServerConfigurer protectedResourceMetadataCustomizer(
+			Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer) {
+		this.customizer = customizer;
+		return this;
+	}
+
+	@Override
+	public void init(HttpSecurity http) throws Exception {
+		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
+		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
+
+		var protectedResourceMetadataEndpointFilter = new OAuth2ProtectedResourceMetadataEndpointFilter(
+				this.resourceIdentifier);
+		protectedResourceMetadataEndpointFilter
+			.setProtectedResourceMetadataCustomizer(getProtectedMetadataCustomizer());
+		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier.getId());
+
+		//@formatter:off
+		http
+				.oauth2ResourceServer(resourceServer -> {
+					resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
+					resourceServer.authenticationEntryPoint(entryPoint);
+				})
+				.addFilterBefore(protectedResourceMetadataEndpointFilter, AbstractPreAuthenticatedProcessingFilter.class);
+		//@formatter:on
+	}
+
+	private JwtDecoder getJwtDecoder(HttpSecurity http) {
+		if (http.getSharedObject(ApplicationContext.class).getBeanNamesForType(JwtDecoder.class).length == 1) {
+			return http.getSharedObject(ApplicationContext.class).getBean(JwtDecoder.class);
+		}
+
+		var decoder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
+		OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
+			.createDefaultWithValidators(new JwtAudienceValidator(this.resourceIdentifier.getId()));
+		// TODO: add optional audience validator
+		// decoder.setJwtValidator(jwtValidator);
+
+		return decoder;
+	}
+
+	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer() {
+		return (protectedMetadata) -> {
+			protectedMetadata.authorizationServer(this.issuerUri)
+				.resourceName(this.resourceName)
+				.bearerMethod(this.bearerMethod)
+				.resource(this.resourceIdentifier.getId());
+		};
+	}
+
+	public static McpResourceServerConfigurer mcpAuthorization() {
+		return new McpResourceServerConfigurer();
+	}
+
+}

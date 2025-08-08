@@ -11,8 +11,10 @@
     <packaging>pom</packaging>
     <url>https://github.com/spring-ai-community/mcp-security</url>
     <modules>
+        <!-- Library -->
+        <module>mcp-resource-server</module>
 
-        <!-- samples -->
+        <!-- Samples -->
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
     </modules>
