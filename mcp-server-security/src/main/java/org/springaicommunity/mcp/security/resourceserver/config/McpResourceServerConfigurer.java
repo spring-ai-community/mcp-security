@@ -132,7 +132,7 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 		};
 	}
 
-	public static McpResourceServerConfigurer mcpAuthorization() {
+	public static McpResourceServerConfigurer mcpServerAuthorization() {
 		return new McpResourceServerConfigurer();
 	}
 
