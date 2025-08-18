@@ -30,28 +30,31 @@ import org.springframework.util.Assert;
  * @author Joe Grandja
  */
 public final class BearerResourceMetadataTokenAuthenticationEntryPoint implements AuthenticationEntryPoint {
-    private final AuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
 
-    private final String protectedResourceMetadataEndpointUri;
+	private final AuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
 
-    public BearerResourceMetadataTokenAuthenticationEntryPoint(String protectedResourceMetadataEndpointUri) {
-        Assert.hasText(protectedResourceMetadataEndpointUri, "protectedResourceMetadataEndpointUri cannot be empty");
-        this.protectedResourceMetadataEndpointUri = protectedResourceMetadataEndpointUri;
-    }
+	private final String protectedResourceMetadataEndpointUri;
 
-    @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
-        this.delegate.commence(request, response, authException);
+	public BearerResourceMetadataTokenAuthenticationEntryPoint(String protectedResourceMetadataEndpointUri) {
+		Assert.hasText(protectedResourceMetadataEndpointUri, "protectedResourceMetadataEndpointUri cannot be empty");
+		this.protectedResourceMetadataEndpointUri = protectedResourceMetadataEndpointUri;
+	}
 
-        String wwwAuthenticateHeader = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
-        if ("bearer".equalsIgnoreCase(wwwAuthenticateHeader)) {
-            wwwAuthenticateHeader += " ";
-        } else {
-            wwwAuthenticateHeader += ", ";
-        }
-        wwwAuthenticateHeader += "resource_metadata=" + this.protectedResourceMetadataEndpointUri;
+	@Override
+	public void commence(HttpServletRequest request, HttpServletResponse response,
+			AuthenticationException authException) throws IOException, ServletException {
+		this.delegate.commence(request, response, authException);
 
-        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticateHeader);
-    }
+		String wwwAuthenticateHeader = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
+		if ("bearer".equalsIgnoreCase(wwwAuthenticateHeader)) {
+			wwwAuthenticateHeader += " ";
+		}
+		else {
+			wwwAuthenticateHeader += ", ";
+		}
+		wwwAuthenticateHeader += "resource_metadata=" + this.protectedResourceMetadataEndpointUri;
+
+		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticateHeader);
+	}
 
 }

@@ -27,7 +27,7 @@
         </dependency>
         <dependency>
             <groupId>org.springaicommunity</groupId>
-            <artifactId>mcp-resource-server</artifactId>
+            <artifactId>mcp-server-security</artifactId>
             <!-- TODO: version property -->
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
