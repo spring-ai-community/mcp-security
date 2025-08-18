@@ -32,3 +32,6 @@ server:
     session:
       cookie:
         name: MCP_AUTHORIZATION_SERVER_SESSIONID
+logging:
+  level:
+    org.springframework.security: TRACE

@@ -9,7 +9,8 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>mcp-resource-server</artifactId>
+    <artifactId>mcp-server-security</artifactId>
+    <description>Security extras for Spring AI MCP Servers</description>
 
     <dependencies>
         <dependency>
