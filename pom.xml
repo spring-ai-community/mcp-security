@@ -17,6 +17,7 @@
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
+        <module>mcp-client-security</module>
     </modules>
 
     <scm>
@@ -103,6 +104,15 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>io.modelcontextprotocol.sdk</groupId>
+                <artifactId>mcp-bom</artifactId>
+                <version>${mcp.java.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
