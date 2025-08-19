@@ -39,7 +39,7 @@ import static org.springaicommunity.mcp.security.resourceserver.config.McpResour
 class McpServerConfiguration {
 
 	@Bean
-	public ToolCallbackProvider weatherTools(WeatherService weatherService) {
+	public ToolCallbackProvider weatherTools(HistoricalWeatherService weatherService) {
 		return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
 	}
 
