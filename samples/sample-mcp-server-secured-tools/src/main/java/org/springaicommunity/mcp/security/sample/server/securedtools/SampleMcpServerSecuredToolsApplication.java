@@ -1,4 +1,4 @@
-package org.springaicommunity.samplemcpserversecuredtools;
+package org.springaicommunity.mcp.security.sample.server.securedtools;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
