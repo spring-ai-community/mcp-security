@@ -18,6 +18,7 @@
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
         <module>samples/sample-mcp-server-secured-tools</module>
+        <module>samples/sample-mcp-client</module>
         <module>mcp-client-security</module>
     </modules>
 
