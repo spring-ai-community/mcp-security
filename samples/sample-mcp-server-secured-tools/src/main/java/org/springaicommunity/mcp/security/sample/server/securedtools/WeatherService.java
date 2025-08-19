@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.samplemcpserversecuredtools;
+package org.springaicommunity.mcp.security.sample.server.securedtools;
 
 import java.time.LocalDateTime;
 
