@@ -51,10 +51,15 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements SyncHtt
 
 	@Override
 	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body) {
-		if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes)
-				&& this.failOnMissingServletRequest) {
-			throw new IllegalStateException("Cannot use %s outside the context of an HttpServletRequest"
-				.formatted(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class.getSimpleName()));
+		if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes)) {
+			if (!this.failOnMissingServletRequest) {
+				return;
+			}
+			else {
+				throw new IllegalStateException("Cannot use %s outside the context of an HttpServletRequest"
+					.formatted(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class.getSimpleName()));
+
+			}
 		}
 
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
