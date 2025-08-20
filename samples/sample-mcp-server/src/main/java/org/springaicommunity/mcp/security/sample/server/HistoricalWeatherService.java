@@ -54,7 +54,6 @@ public class HistoricalWeatherService {
 		}
 	}
 
-	@PreAuthorize("isAuthenticated()")
 	@Tool(description = "Get 5-year historical temperature data, daily min and daily max, for a specific location")
 	public ToolResponse getHistoricalWeatherData(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
