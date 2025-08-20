@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -28,7 +29,7 @@ import org.springframework.web.client.RestClient;
  * @author Christian Tzolov
  */
 @Service
-class WeatherService {
+public class WeatherService {
 
 	private final RestClient restClient;
 
@@ -44,7 +45,8 @@ class WeatherService {
 		}
 	}
 
-	@Tool(description = "Get the temperature (in celsius) for a specific location")
+	@PreAuthorize("isAuthenticated()")
+	@Tool(description = "Get the current temperature (in celsius) for a specific location")
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
 
