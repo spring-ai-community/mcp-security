@@ -11,7 +11,7 @@ These are samples for testing MCP Security integration. It contains two samples:
    on http://localhost:9000. To log in when using the authorization code flow, use `user1` / `password`. To request
    tokens using the client credentials grant, use `default-client` and `default-secret`.
 
-1. Run the MCP server, with `./mvnw spring-boot:run`. The server will start on http://localhost:8090, and the SSE
+1. Run the MCP server called `sample-mcp-server`, with `./mvnw spring-boot:run`. The server will start on http://localhost:8090, and the SSE
    endpoint is http://localhost:8090/sse. It is a protected OAuth2 authorization server, and requires an access token to
    obtain responses. Optionally, to test the connection manually, [obtain an access token](#obtaining-an-access-token)
    and then run:
