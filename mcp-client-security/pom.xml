@@ -35,6 +35,7 @@
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp</artifactId>
+            <version>${mcp.java.sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
