@@ -13,13 +13,13 @@
     <modules>
         <!-- Library -->
         <module>mcp-server-security</module>
+        <module>mcp-client-security</module>
 
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
         <module>samples/sample-mcp-server-secured-tools</module>
         <module>samples/sample-mcp-client</module>
-        <module>mcp-client-security</module>
     </modules>
 
     <scm>
@@ -73,7 +73,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 
-        <mcp.java.sdk.version>0.11.1</mcp.java.sdk.version>
+        <mcp.java.sdk.version>0.12.0</mcp.java.sdk.version>
         <spring-ai.version>1.1.0-SNAPSHOT</spring-ai.version>
         <spring-boot.version>3.5.4</spring-boot.version>
 
