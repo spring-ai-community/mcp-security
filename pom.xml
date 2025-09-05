@@ -23,6 +23,7 @@
         <module>samples/sample-mcp-server-streamable-http-secured-tools</module>
         <module>samples/sample-mcp-client</module>
         <module>samples/sample-mcp-client-webflux</module>
+        <module>samples/integration-tests</module>
     </modules>
 
     <scm>

@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: sample-authorization-server
+  security:
+    oauth2:
+      authorizationserver:
+        client:
+          default-client:
+            token:
+              access-token-time-to-live: 1h
+            registration:
+              client-id: "default-client"
+              client-secret: "{noop}default-secret"
+              client-authentication-methods:
+                - "client_secret_basic"
+                - "client_secret_post"
+                - "none"
+              authorization-grant-types:
+                - "authorization_code"
+                - "client_credentials"
+              redirect-uris:
+                - "http://127.0.0.1:1/authorize/oauth2/code/authserver" # port is a wildcard
+                - "http://localhost:6274/oauth/callback" # mcp-inspector
+                - "http://127.0.0.1:6274/oauth/callback" # mcp-inspector
+    user:
+      name: test-user
+      password: test-password
+
+server:
+  servlet:
+    session:
+      cookie:
+        name: MCP_AUTHORIZATION_SERVER_SESSIONID
+logging:
+  level:
+    org.springframework.security: TRACE
