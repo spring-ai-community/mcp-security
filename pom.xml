@@ -18,7 +18,9 @@
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
+        <module>samples/sample-mcp-server-streamable-http</module>
         <module>samples/sample-mcp-server-secured-tools</module>
+        <module>samples/sample-mcp-server-streamable-http-secured-tools</module>
         <module>samples/sample-mcp-client</module>
     </modules>
 
