@@ -23,8 +23,10 @@ import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -47,11 +49,21 @@ class McpServerConfiguration {
 	public SecurityFilterChain securityFilterChain(HttpSecurity http,
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+
+            // MCP-specific stuff
 			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
-				mcpAuthorization.authorizationServer(issuerUrl).resourceIdentifier("http://localhost:8090/sse");
+				mcpAuthorization
+                        // where is the auth server?
+                        .authorizationServer(issuerUrl)
+                        // what's my OAuth2 "resource id" (== my URL + /sse or + /mcp)
+                        // TODO: maybe auto-detect
+                        .resourceIdentifier("http://localhost:8090/sse");
 			})
+
+
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+			.csrf(CsrfConfigurer::disable)
 			.build();
 	}
 

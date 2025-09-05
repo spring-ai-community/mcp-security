@@ -1,32 +1,37 @@
 package org.springaicommunity.mcp.security.sample.client;
 
-import io.modelcontextprotocol.client.McpSyncClient;
-import java.util.List;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 class DemoController {
 
+	private final InMemoryMcpClientRepository mcpClientRepo;
+
 	private ChatClient chatClient;
 
-	private final List<McpSyncClient> mcpClients;
-
-	public DemoController(ChatClient.Builder chatClientBuilder, List<McpSyncClient> mcpClients) {
+	DemoController(ChatClient.Builder chatClientBuilder, InMemoryMcpClientRepository mcpClientRepository) {
 		this.chatClient = chatClientBuilder.build();
-		this.mcpClients = mcpClients;
+		this.mcpClientRepo = mcpClientRepository;
 	}
 
 	@GetMapping("/")
 	String index(String query) {
 		var currentWeatherBlock = "";
 		if (StringUtils.hasText(query)) {
-			var chatResponse = chatClient.prompt("What is the weather in %s right now?".formatted(query))
-				.toolCallbacks(new SyncMcpToolCallbackProvider(mcpClients))
+			var chatResponse = chatClient.prompt("""
+					What is the weather in %s right now?
+					Compare to historical data over the past 5 years.
+					Format the output in plain HTML, no CSS.""".formatted(query))
+				.toolCallbacks(new SyncMcpToolCallbackProvider(mcpClientRepo.getClients()))
 				.call()
 				.content();
 
@@ -38,6 +43,12 @@ class DemoController {
 					</form>
 					""".formatted(query, chatResponse);
 		}
+
+		var currentMcpServersBlock = this.mcpClientRepo.getClientNames()
+			.stream()
+			.map("    <li>%s</li>"::formatted)
+			.collect(Collectors.joining("\n"));
+
 		return """
 				<h1>Demo controller</h1>
 				%s
@@ -47,7 +58,25 @@ class DemoController {
 				    <input type="text" name="query" value="" placeholder="Paris" />
 				    <button type="submit">Ask the LLM</button>
 				</form>
-				""".formatted(currentWeatherBlock);
+
+				<h2>Registered MCP servers:</h2>
+				<ul>
+				%s
+				</ul>
+				<form action="/mcp/add" method="GET">
+					<input type="text" name="name" placeholder="My MCP server" value="weather data history" />
+					<input type="text" name="url" placeholder="http://localhost:8092" value="http://localhost:8092" />
+					<button type="submit">Add</button>
+				</form>
+				""".formatted(currentWeatherBlock, currentMcpServersBlock);
+	}
+
+	// TODO: this should be a POST but that won't work with Spring Security
+	@GetMapping("/mcp/add")
+	void addMcpServer(@RequestParam String url, @RequestParam String name, HttpServletResponse response)
+			throws IOException {
+		this.mcpClientRepo.addSseClient(url, name);
+		response.sendRedirect("/");
 	}
 
 }
