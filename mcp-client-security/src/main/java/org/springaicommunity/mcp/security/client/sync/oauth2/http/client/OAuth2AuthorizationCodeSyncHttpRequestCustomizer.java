@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync;
+package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
-import io.modelcontextprotocol.client.transport.SyncHttpRequestCustomizer;
+import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.common.McpTransportContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.http.HttpRequest;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * @author Daniel Garnier-Moiroux
  */
-public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements SyncHttpRequestCustomizer {
+public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -46,25 +49,25 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements SyncHtt
 	}
 
 	public void setFailOnMissingServletRequest(boolean failOnMissingServletRequest) {
+		// TODO: does this make sense?
 		this.failOnMissingServletRequest = failOnMissingServletRequest;
 	}
 
 	@Override
-	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body) {
-		if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes)) {
-			if (!this.failOnMissingServletRequest) {
-				return;
-			}
-			else {
-				throw new IllegalStateException("Cannot use %s outside the context of an HttpServletRequest"
-					.formatted(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class.getSimpleName()));
-
-			}
+	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
+			McpTransportContext context) {
+		if (!(context
+			.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY) instanceof Authentication authentication)
+				|| !(context.get(
+						AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY) instanceof ServletRequestAttributes requestAttributes)) {
+			return;
 		}
 
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.clientRegistrationId)
-			.principal(SecurityContextHolder.getContext().getAuthentication())
+			.principal(authentication)
+			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest())
+			.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse())
 			.build();
 		OAuth2AccessToken accessToken = this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());

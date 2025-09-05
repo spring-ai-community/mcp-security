@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync;
+package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
-import io.modelcontextprotocol.client.transport.SyncHttpRequestCustomizer;
+import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.common.McpTransportContext;
 import java.net.URI;
 import java.net.http.HttpRequest;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
 /**
  * @author Daniel Garnier-Moiroux
  */
-public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements SyncHttpRequestCustomizer {
+public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
 	private final AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -42,7 +42,8 @@ public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements SyncHtt
 	}
 
 	@Override
-	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body) {
+	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
+			McpTransportContext context) {
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.clientRegistrationId)
 			.principal("mcp-client-service")

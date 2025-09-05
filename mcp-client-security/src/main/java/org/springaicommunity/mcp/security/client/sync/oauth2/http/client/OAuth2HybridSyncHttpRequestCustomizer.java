@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync;
+package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
-import io.modelcontextprotocol.client.transport.SyncHttpRequestCustomizer;
+import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.common.McpTransportContext;
 import java.net.URI;
 import java.net.http.HttpRequest;
 
@@ -32,7 +33,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 /**
  * @author Daniel Garnier-Moiroux
  */
-public class OAuth2HybridSyncHttpRequestCustomizer implements SyncHttpRequestCustomizer {
+public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -53,7 +54,8 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements SyncHttpRequestCus
 	}
 
 	@Override
-	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body) {
+	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
+			McpTransportContext context) {
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken().getTokenValue());
 	}
 
