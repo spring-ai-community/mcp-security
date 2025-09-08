@@ -45,8 +45,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = "spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}")
+@ActiveProfiles("sync")
 class StreamableHttpToolsSecuredTests {
 
 	@Value("${authorization.server.url}")
