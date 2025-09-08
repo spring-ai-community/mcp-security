@@ -78,7 +78,7 @@ public class InMemoryMcpClientRepository {
 			}
 			throw e;
 		}
-		clients.put(url, client);
+		clients.put(name, client);
 	}
 
 	public void removeClient(String url) {
