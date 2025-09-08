@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
@@ -26,6 +27,7 @@ import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfig
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServer;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -39,12 +41,16 @@ import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFac
 import org.springframework.experimental.boot.server.exec.MavenClasspathEntry;
 import org.springframework.experimental.boot.test.context.DynamicPortUrl;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -63,6 +69,15 @@ class StreamableHttpAllSecuredTests {
 	WebClient webClient = new WebClient();
 
 	McpSyncClient mcpClient;
+
+	@Autowired
+	private OAuth2AuthorizedClientManager clientMananger;
+
+	@Autowired
+	private InMemoryClientRegistrationRepository clientRegistrationRepository;
+
+	@Autowired
+	private OAuth2AuthorizedClientService authorizedClientService;
 
 	@BeforeEach
 	void setUp() {
@@ -98,6 +113,37 @@ class StreamableHttpAllSecuredTests {
 			// representation.
 			.isInstanceOf(RuntimeException.class)
 			.hasMessageStartingWith("Failed to send message: DummyEvent");
+	}
+
+	@Test
+	@DisplayName("When no user is present, can use client_credentials and get a token")
+	void whenClientCredentialsCanCallToo() {
+		var requestCustomizer = new OAuth2ClientCredentialsSyncHttpRequestCustomizer(
+				new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
+						authorizedClientService),
+				"authserver-client-credentials");
+
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.objectMapper(new ObjectMapper())
+			.clientBuilder(HttpClient.newBuilder())
+			.httpRequestCustomizer(requestCustomizer)
+			.build();
+		this.mcpClient = McpClient.sync(transport)
+			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
+			// No authentication context provider required, as this does not rely on
+			// thread locals
+			.build();
+
+		var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+		assertThat(resp.content()).hasSize(1)
+			.first()
+			.asInstanceOf(type(McpSchema.TextContent.class))
+			.extracting(McpSchema.TextContent::text)
+			// the "sub" of the token used in the request is the client id, in
+			// client_credentials
+			.isEqualTo("Hello default-client");
 	}
 
 	@Test
