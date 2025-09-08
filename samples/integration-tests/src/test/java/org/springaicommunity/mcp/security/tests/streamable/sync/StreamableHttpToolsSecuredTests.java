@@ -35,8 +35,11 @@ import org.springframework.experimental.boot.test.context.DynamicPortUrl;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -46,6 +49,9 @@ class StreamableHttpToolsSecuredTests {
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
 
+	@Value("${mcp.server.url}")
+	String mcpServerUrl;
+
 	@LocalServerPort
 	int port;
 
@@ -54,9 +60,17 @@ class StreamableHttpToolsSecuredTests {
 
 	WebClient webClient = new WebClient();
 
+	RestClient restClient = RestClient.create();
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+	}
+
+	@Test
+	void mcpServerUnsecured() {
+		assertThatThrownBy(() -> restClient.get().uri(mcpServerUrl).retrieve().toBodilessEntity())
+			.isInstanceOf(HttpClientErrorException.NotFound.class);
 	}
 
 	@Test
