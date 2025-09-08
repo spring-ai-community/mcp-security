@@ -30,7 +30,8 @@ public class InMemoryMcpClientRepository {
 	private final WebClient.Builder webClientBuilder;
 
 	public InMemoryMcpClientRepository(List<McpSyncClient> clients, ObjectMapper objectMapper,
-			McpClientCommonProperties commonProperties, @Qualifier("mcpWebClientBuilder") WebClient.Builder webClientBuilder) {
+			McpClientCommonProperties commonProperties,
+			@Qualifier("mcpWebClientBuilder") WebClient.Builder webClientBuilder) {
 		this.objectMapper = objectMapper;
 		this.commonProperties = commonProperties;
 		this.webClientBuilder = webClientBuilder.clone();

@@ -50,16 +50,15 @@ class McpServerConfiguration {
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 
-            // MCP-specific stuff
+			// MCP-specific stuff
 			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
 				mcpAuthorization
-                        // where is the auth server?
-                        .authorizationServer(issuerUrl)
-                        // what's my OAuth2 "resource id" (== my URL + /sse or + /mcp)
-                        // TODO: maybe auto-detect
-                        .resourceIdentifier("http://localhost:8090/sse");
+					// where is the auth server?
+					.authorizationServer(issuerUrl)
+					// what's my OAuth2 "resource id" (== my URL + /sse or + /mcp)
+					// TODO: maybe auto-detect
+					.resourceIdentifier("http://localhost:8090/sse");
 			})
-
 
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
