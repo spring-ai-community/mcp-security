@@ -23,10 +23,4 @@ class McpController {
 		return "Called [client: %s, tool: %s], got response [%s]".formatted(clientName, toolName, toolResponse);
 	}
 
-	// TODO: should be POST, but limit of Spring Security
-	@GetMapping("/tool/add")
-	public String addServer(String toolName) {
-		return "";
-	}
-
 }

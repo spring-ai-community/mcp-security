@@ -17,7 +17,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @Import({ InMemoryMcpClientRepository.class, McpController.class })
 @EnableWebSecurity
-class McpClientConfiguration {
+public class McpClientConfiguration {
 
 	@Bean
 	McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {

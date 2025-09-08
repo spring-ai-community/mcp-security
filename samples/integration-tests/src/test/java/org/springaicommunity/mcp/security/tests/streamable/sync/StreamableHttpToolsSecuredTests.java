@@ -1,4 +1,4 @@
-package org.springaicommunity.mcp.security.tests;
+package org.springaicommunity.mcp.security.tests.streamable.sync;
 
 import io.modelcontextprotocol.client.McpSyncClient;
 import java.io.IOException;
@@ -12,8 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
-import org.springaicommunity.mcp.security.sample.authorizationserver.SampleAuthorizationServerApplication;
-import org.springaicommunity.mcp.security.tests.servers.StreamableHttpMcpServer;
+import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
+import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
+import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfiguration;
+import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServerToolsSecured;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +38,7 @@ import static org.springframework.experimental.boot.server.exec.MavenClasspathEn
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class StreamableHttpTests {
+class StreamableHttpToolsSecuredTests {
 
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
@@ -60,7 +62,8 @@ class StreamableHttpTests {
 
 		var response = webClient.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");
 		var contentAsString = response.getWebResponse().getContentAsString();
-		assertThat(contentAsString).isEqualTo("Called [client: greeter, tool: greeter], got response [Hello world!]");
+		assertThat(contentAsString)
+			.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
 	}
 
 	private void ensureAuthServerLogin() throws IOException {
@@ -85,20 +88,20 @@ class StreamableHttpTests {
 
 		@Bean
 		@DynamicPortUrl(name = "mcp.server.url")
-		public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri)
-				throws Exception {
+		public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri) {
 			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
-				.setAdditionalBeanClassNames(StreamableHttpMcpServer.class.getName())
+				.setAdditionalBeanClassNames(StreamableHttpMcpServerToolsSecured.class.getName())
 				.systemProperties(
 						props -> props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri))
 				.classpath((classpath) -> classpath
 					.entries(springBootStarter("web"), springBootStarter("oauth2-resource-server"),
 							springAiStarter("mcp-server-webmvc"))
-					.scan(StreamableHttpMcpServer.class)
-					.scan(McpResourceServerConfigurer.class)
+					.classes(StreamableHttpMcpServerToolsSecured.class)
+					.classes(McpResourceServerConfigurer.class)
+					.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
+					.classes(AllowAllCorsConfigurationSource.class)
 					.scan(ResourceIdentifier.class)
-					.scan(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 				// TODO: reference config explicitly
 				);
 		}
@@ -107,12 +110,14 @@ class StreamableHttpTests {
 		@DynamicPortUrl(name = "authorization.server.url")
 		static CommonsExecWebServerFactoryBean authorizationServer() {
 			return CommonsExecWebServerFactoryBean.builder()
-				.mainClass(SampleAuthorizationServerApplication.class.getName())
+				.useGenericSpringBootMain()
+				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
 				.classpath((classpath) -> classpath
 					// Add spring-boot-starter-authorization-server & transitive
 					// dependencies
 					.entries(springBootStarter("oauth2-authorization-server"))
-					.scan(SampleAuthorizationServerApplication.class)
+					.classes(AuthorizationServerConfiguration.class)
+					.classes(AllowAllCorsConfigurationSource.class)
 				// TODO: reference config explicitly
 				);
 		}

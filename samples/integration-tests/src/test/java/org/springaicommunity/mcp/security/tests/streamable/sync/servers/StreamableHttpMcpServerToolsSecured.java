@@ -1,8 +1,9 @@
-package org.springaicommunity.mcp.security.tests.servers;
+package org.springaicommunity.mcp.security.tests.streamable.sync.servers;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.List;
+import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -15,9 +16,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import static org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer.mcpServerAuthorization;
 
+/**
+ * An MCP server where only tool calling is secured with OAuth2, and not connecting or
+ * listing tools.
+ */
 @Configuration
 @EnableWebSecurity
-public class StreamableHttpMcpServer {
+public class StreamableHttpMcpServerToolsSecured {
 
 	private final AuthenticationTrustResolverImpl trustResolver = new AuthenticationTrustResolverImpl();
 
@@ -39,7 +44,9 @@ public class StreamableHttpMcpServer {
 						.textContent(List.of("not authenticated"))
 						.build();
 				}
-				return McpSchema.CallToolResult.builder().textContent(List.of("Hello world!")).build();
+				return McpSchema.CallToolResult.builder()
+					.textContent(List.of("Hello " + authentication.getName()))
+					.build();
 			})
 			.build();
 

@@ -48,28 +48,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.springaicommunity</groupId>
-            <artifactId>sample-authorization-server</artifactId>
-            <!-- TODO: version property -->
-            <version>0.1.0-SNAPSHOT</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springaicommunity</groupId>
-            <artifactId>sample-mcp-server-streamable-http-secured-tools</artifactId>
-            <!-- TODO: version property -->
-            <version>0.1.0-SNAPSHOT</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springaicommunity</groupId>
-            <artifactId>sample-mcp-server-streamable-http</artifactId>
-            <!-- TODO: version property -->
-            <version>0.1.0-SNAPSHOT</version>
-        </dependency>
-
-
-        <dependency>
             <groupId>org.springframework.experimental.boot</groupId>
             <artifactId>spring-boot-testjars</artifactId>
             <version>0.0.6</version>
