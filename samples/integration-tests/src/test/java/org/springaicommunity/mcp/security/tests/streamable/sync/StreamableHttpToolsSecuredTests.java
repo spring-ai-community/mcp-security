@@ -1,15 +1,20 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
-import java.util.List;
+import java.net.http.HttpClient;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
@@ -19,7 +24,7 @@ import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServerToolsSecured;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -35,11 +40,9 @@ import org.springframework.experimental.boot.test.context.DynamicPortUrl;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -55,26 +58,50 @@ class StreamableHttpToolsSecuredTests {
 	@LocalServerPort
 	int port;
 
-	@Autowired
-	List<McpSyncClient> mcpClients;
-
 	WebClient webClient = new WebClient();
 
-	RestClient restClient = RestClient.create();
+	McpSyncClient mcpClient;
 
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.objectMapper(new ObjectMapper())
+			.clientBuilder(HttpClient.newBuilder())
+			.build();
+		this.mcpClient = McpClient.sync(transport)
+			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
 	}
 
+	/**
+	 * You do not need tokens to list tools.
+	 */
 	@Test
 	void mcpServerUnsecured() {
-		assertThatThrownBy(() -> restClient.get().uri(mcpServerUrl).retrieve().toBodilessEntity())
-			.isInstanceOf(HttpClientErrorException.NotFound.class);
+		var resp = mcpClient.listTools();
+
+		assertThat(resp.tools()).hasSize(1).first().extracting(McpSchema.Tool::name).isEqualTo("greeter");
+	}
+
+	/**
+	 * You need a valid access token to call a tool.
+	 */
+	@Test
+	void callToolSecured() {
+		var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+		assertThat(resp.isError()).isTrue();
+		assertThat(resp.content()).first()
+			.asInstanceOf(type(McpSchema.TextContent.class))
+			.extracting(McpSchema.TextContent::text)
+			.isEqualTo("not authenticated");
 	}
 
 	@Test
-	void callTool() throws IOException {
+	void callToolWithToken() throws IOException {
 		ensureAuthServerLogin();
 
 		var response = webClient.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");

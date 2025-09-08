@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
-
 public class AllowAllCorsConfigurationSource implements CorsConfigurationSource {
 
 	@Override
