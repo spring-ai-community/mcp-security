@@ -1,6 +1,7 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync;
 
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import java.io.IOException;
 import java.util.List;
 import org.htmlunit.WebClient;
@@ -9,6 +10,7 @@ import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
@@ -31,6 +33,7 @@ import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFac
 import org.springframework.experimental.boot.server.exec.MavenClasspathEntry;
 import org.springframework.experimental.boot.test.context.DynamicPortUrl;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,11 +92,15 @@ class StreamableHttpToolsSecuredTests {
 		@Bean
 		@DynamicPortUrl(name = "mcp.server.url")
 		public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri) {
+			// The properties file is inferred from the bean name, here it's in
+			// resources/testjars/mcpServer
 			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
 				.setAdditionalBeanClassNames(StreamableHttpMcpServerToolsSecured.class.getName())
-				.systemProperties(
-						props -> props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri))
+				.systemProperties(props -> {
+					props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
+					props.putIfAbsent("spring.ai.mcp.server.protocol", "STREAMABLE");
+				})
 				.classpath((classpath) -> classpath
 					.entries(springBootStarter("web"), springBootStarter("oauth2-resource-server"),
 							springAiStarter("mcp-server-webmvc"))
@@ -101,25 +108,25 @@ class StreamableHttpToolsSecuredTests {
 					.classes(McpResourceServerConfigurer.class)
 					.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 					.classes(AllowAllCorsConfigurationSource.class)
-					.scan(ResourceIdentifier.class)
-				// TODO: reference config explicitly
-				);
+					.scan(ResourceIdentifier.class));
 		}
 
 		@Bean
 		@DynamicPortUrl(name = "authorization.server.url")
 		static CommonsExecWebServerFactoryBean authorizationServer() {
+			// The properties file is inferred from the bean name, here it's in
+			// resources/testjars/authorizationServer
 			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
 				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
-				.classpath((classpath) -> classpath
-					// Add spring-boot-starter-authorization-server & transitive
-					// dependencies
-					.entries(springBootStarter("oauth2-authorization-server"))
+				.classpath((classpath) -> classpath.entries(springBootStarter("oauth2-authorization-server"))
 					.classes(AuthorizationServerConfiguration.class)
-					.classes(AllowAllCorsConfigurationSource.class)
-				// TODO: reference config explicitly
-				);
+					.classes(AllowAllCorsConfigurationSource.class));
+		}
+
+		@Bean
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
 		}
 
 	}
