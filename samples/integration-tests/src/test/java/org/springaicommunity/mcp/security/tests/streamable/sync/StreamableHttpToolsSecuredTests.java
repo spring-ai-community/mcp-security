@@ -12,6 +12,7 @@ import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
@@ -75,6 +76,11 @@ class StreamableHttpToolsSecuredTests {
 			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
 			.build();
+	}
+
+	@AfterEach
+	void tearDown() {
+		this.mcpClient.closeGracefully();
 	}
 
 	/**

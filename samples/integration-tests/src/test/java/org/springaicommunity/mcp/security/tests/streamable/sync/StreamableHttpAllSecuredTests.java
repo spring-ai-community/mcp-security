@@ -2,7 +2,6 @@ package org.springaicommunity.mcp.security.tests.streamable.sync;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -15,7 +14,6 @@ import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HybridSyncHttpRequestCustomizer;
@@ -52,6 +50,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
@@ -70,11 +69,6 @@ class StreamableHttpAllSecuredTests {
 
 	WebClient webClient = new WebClient();
 
-	McpSyncClient mcpClient;
-
-	@Autowired
-	private OAuth2AuthorizedClientManager clientMananger;
-
 	@Autowired
 	private InMemoryClientRegistrationRepository clientRegistrationRepository;
 
@@ -90,15 +84,6 @@ class StreamableHttpAllSecuredTests {
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
-		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
-			.clientBuilder(HttpClient.newBuilder())
-			.build();
-		this.mcpClient = McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
-			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
-			.build();
 	}
 
 	@Test
@@ -108,19 +93,22 @@ class StreamableHttpAllSecuredTests {
 			.objectMapper(new ObjectMapper())
 			.clientBuilder(HttpClient.newBuilder())
 			.build();
-		this.mcpClient = McpClient.sync(transport)
+		var mcpClientBuilder = McpClient.sync(transport)
 			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
-			.build();
+			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
 
-		assertThatThrownBy(() -> this.mcpClient.initialize())
-			.hasMessage("Client failed to initialize by explicit API call")
-			.rootCause()
-			// Note: this should be better handled by the Java-SDK. Today, the HTTP 401
-			// response is wrapped in a RuntimeException with a poor String
-			// representation.
-			.isInstanceOf(RuntimeException.class)
-			.hasMessageStartingWith("Failed to send message: DummyEvent");
+		try (var mcpClient = mcpClientBuilder.build()) {
+			assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
+				.rootCause()
+				// Note: this should be better handled by the Java-SDK.
+				// Today, the HTTP 401 response is wrapped in a RuntimeException with a
+				// poor String representation.
+				.isInstanceOf(RuntimeException.class)
+				.hasMessageStartingWith("Failed to send message: DummyEvent");
+		}
+		catch (Exception e) {
+			fail(e);
+		}
 	}
 
 	@Test
@@ -136,22 +124,26 @@ class StreamableHttpAllSecuredTests {
 			.clientBuilder(HttpClient.newBuilder())
 			.httpRequestCustomizer(requestCustomizer)
 			.build();
-		this.mcpClient = McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
+		var mcpClientBuilder = McpClient.sync(transport)
 			// No authentication context provider required, as this does not rely on
 			// thread locals
-			.build();
+			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
 
-		var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+		try (var mcpClient = mcpClientBuilder.build()) {
+			var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
 
-		assertThat(resp.content()).hasSize(1)
-			.first()
-			.asInstanceOf(type(McpSchema.TextContent.class))
-			.extracting(McpSchema.TextContent::text)
-			// the "sub" of the token used in the request is the client id, in
-			// client_credentials
-			.isEqualTo("Hello default-client");
+			assertThat(resp.content()).hasSize(1)
+				.first()
+				.asInstanceOf(type(McpSchema.TextContent.class))
+				.extracting(McpSchema.TextContent::text)
+				// the "sub" of the token used in the request is the client id, in
+				// client_credentials
+				.isEqualTo("Hello default-client");
+		}
+		catch (Exception e) {
+			fail(e);
+		}
 	}
 
 	@Test
