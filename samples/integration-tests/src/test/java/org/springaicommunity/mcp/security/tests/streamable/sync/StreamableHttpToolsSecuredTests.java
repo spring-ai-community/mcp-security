@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
@@ -27,6 +29,7 @@ import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfig
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServerToolsSecured;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -68,6 +71,12 @@ class StreamableHttpToolsSecuredTests {
 	int port;
 
 	WebClient webClient = new WebClient();
+
+	@Autowired
+	private org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
+
+	@Autowired
+	private OAuth2AuthorizedClientManager clientManager;
 
 	@Nested
 	class HttpClientTests {
@@ -126,6 +135,57 @@ class StreamableHttpToolsSecuredTests {
 			var contentAsString = response.getWebResponse().getContentAsString();
 			assertThat(contentAsString)
 				.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
+		}
+
+	}
+
+	@Nested
+	class WebClientTests {
+
+		McpSyncClient mcpClient;
+
+		@BeforeEach
+		void setUp() {
+			var clientBuilder = webClientBuilder.clone()
+				.baseUrl(mcpServerUrl)
+				.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
+			webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+			var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
+				.objectMapper(new ObjectMapper())
+				.build();
+			this.mcpClient = McpClient.sync(transport)
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
+				.build();
+		}
+
+		@AfterEach
+		void tearDown() {
+			this.mcpClient.closeGracefully();
+		}
+
+		/**
+		 * You do not need tokens to list tools.
+		 */
+		@Test
+		void mcpServerUnsecured() {
+			var resp = mcpClient.listTools();
+
+			assertThat(resp.tools()).hasSize(1).first().extracting(McpSchema.Tool::name).isEqualTo("greeter");
+		}
+
+		/**
+		 * You need a valid access token to call a tool.
+		 */
+		@Test
+		void callToolSecured() {
+			var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+			assertThat(resp.isError()).isTrue();
+			assertThat(resp.content()).first()
+				.asInstanceOf(type(McpSchema.TextContent.class))
+				.extracting(McpSchema.TextContent::text)
+				.isEqualTo("not authenticated");
 		}
 
 	}
