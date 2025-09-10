@@ -3,6 +3,7 @@ package org.springaicommunity.mcp.security.tests.streamable.sync;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HybridSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2ClientCredentialsExchangeFilterFunction;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
@@ -77,13 +79,16 @@ class StreamableHttpAllSecuredTests {
 	WebClient webClient = new WebClient();
 
 	@Autowired
+	org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
+
+	@Autowired
 	private InMemoryClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
 	private OAuth2AuthorizedClientService authorizedClientService;
 
 	@Autowired
-	private OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
+	private OAuth2AuthorizedClientManager clientManager;
 
 	@Autowired
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
@@ -158,9 +163,9 @@ class StreamableHttpAllSecuredTests {
 		}
 
 		@Test
-		@DisplayName("When no user is present and hybrid customizer, can use client_credentials and get a token")
+		@DisplayName("Can use hybrid request customizer to use both client_credentials and authorization_code flows")
 		void whenHybridAndClientCredentialsCanCall() throws IOException {
-			var requestCustomizer = new OAuth2HybridSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
+			var requestCustomizer = new OAuth2HybridSyncHttpRequestCustomizer(clientManager,
 					new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
 							authorizedClientService),
 					"authserver", "authserver-client-credentials");
@@ -186,6 +191,70 @@ class StreamableHttpAllSecuredTests {
 			assertThat(contentAsString)
 				.isEqualTo("Called [client: test-client-hybrid, tool: greeter], got response [Hello test-user]");
 
+		}
+
+	}
+
+	@Nested
+	class WebClientTests {
+
+		@Test
+		@DisplayName("When the user is not present and there is no access token, cannot initialize")
+		void whenNoTokenThenCannotInitialize() {
+			var clientBuilder = webClientBuilder.clone().baseUrl(mcpServerUrl);
+			var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
+				.objectMapper(new ObjectMapper())
+				.build();
+			var mcpClientBuilder = McpClient.sync(transport)
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+
+			try (var mcpClient = mcpClientBuilder.build()) {
+				assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
+					.rootCause()
+					// Note: this should be better handled by the Java-SDK.
+					// Today, the HTTP 401 response is wrapped in a RuntimeException with
+					// a
+					// poor String representation.
+					.isInstanceOf(RuntimeException.class)
+					.hasMessageStartingWith("401 Unauthorized from POST");
+			}
+			catch (Exception e) {
+				fail(e);
+			}
+		}
+
+		@Test
+		@DisplayName("When no user is present, can use client_credentials and get a token")
+		void whenClientCredentialsCanCall() {
+			var clientBuilder = webClientBuilder.clone()
+				.baseUrl(mcpServerUrl)
+				.filter(new McpOAuth2ClientCredentialsExchangeFilterFunction(clientManager,
+						clientRegistrationRepository, "authserver-client-credentials"));
+
+			var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
+				.objectMapper(new ObjectMapper())
+				.build();
+			var mcpClientBuilder = McpClient.sync(transport)
+				// No authentication context provider required, as this does not rely on
+				// thread locals
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+
+			try (var mcpClient = mcpClientBuilder.build()) {
+				var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+				assertThat(resp.content()).hasSize(1)
+					.first()
+					.asInstanceOf(type(McpSchema.TextContent.class))
+					.extracting(McpSchema.TextContent::text)
+					// the "sub" of the token used in the request is the client id, in
+					// client_credentials
+					.isEqualTo("Hello default-client");
+			}
+			catch (Exception e) {
+				fail(e);
+			}
 		}
 
 	}
@@ -259,7 +328,9 @@ class StreamableHttpAllSecuredTests {
 		@Bean
 		@DynamicPortUrl(name = "authorization.server.url")
 		static CommonsExecWebServerFactoryBean authorizationServer() {
-			return CommonsExecWebServerFactoryBean.builder()
+            // The properties file is inferred from the bean name, here it's in
+            // resources/testjars/authorizationServer
+            return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
 				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
 				.classpath((classpath) -> classpath
@@ -268,7 +339,6 @@ class StreamableHttpAllSecuredTests {
 					.entries(springBootStarter("oauth2-authorization-server"))
 					.classes(AuthorizationServerConfiguration.class)
 					.classes(AllowAllCorsConfigurationSource.class)
-				// TODO: reference config explicitly
 				);
 		}
 
