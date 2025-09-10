@@ -13,6 +13,7 @@ import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
@@ -54,7 +55,13 @@ import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+/**
+ * Note: Here specify the main configuration class so that nested tests know which
+ * configuration to pick up. Otherwise, configuration scanning does not find the nested
+ * config class in {@link Nested} tests.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		classes = StreamableHttpAllSecuredTests.StreamableHttpConfig.class)
 @ActiveProfiles("sync")
 class StreamableHttpAllSecuredTests {
 
@@ -86,52 +93,82 @@ class StreamableHttpAllSecuredTests {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 	}
 
-	@Test
-	@DisplayName("When the user is not present and there is no access token, cannot initialize")
-	void whenNoTokenThenCannotInitialize() {
-		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
-			.clientBuilder(HttpClient.newBuilder())
-			.build();
-		var mcpClientBuilder = McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+	@Nested
+	class HttpClientTransportTests {
 
-		try (var mcpClient = mcpClientBuilder.build()) {
-			assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
-				.rootCause()
-				// Note: this should be better handled by the Java-SDK.
-				// Today, the HTTP 401 response is wrapped in a RuntimeException with a
-				// poor String representation.
-				.isInstanceOf(RuntimeException.class)
-				.hasMessageStartingWith("Failed to send message: DummyEvent");
+		@Test
+		@DisplayName("When the user is not present and there is no access token, cannot initialize")
+		void whenNoTokenThenCannotInitialize() {
+			var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+				.objectMapper(new ObjectMapper())
+				.clientBuilder(HttpClient.newBuilder())
+				.build();
+			var mcpClientBuilder = McpClient.sync(transport)
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+
+			try (var mcpClient = mcpClientBuilder.build()) {
+				assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
+					.rootCause()
+					// Note: this should be better handled by the Java-SDK.
+					// Today, the HTTP 401 response is wrapped in a RuntimeException with
+					// a
+					// poor String representation.
+					.isInstanceOf(RuntimeException.class)
+					.hasMessageStartingWith("Failed to send message: DummyEvent");
+			}
+			catch (Exception e) {
+				fail(e);
+			}
 		}
-		catch (Exception e) {
-			fail(e);
+
+		@Test
+		@DisplayName("When no user is present, can use client_credentials and get a token")
+		void whenClientCredentialsCanCall() {
+			var requestCustomizer = new OAuth2ClientCredentialsSyncHttpRequestCustomizer(
+					new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
+							authorizedClientService),
+					"authserver-client-credentials");
+
+			var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+				.objectMapper(new ObjectMapper())
+				.clientBuilder(HttpClient.newBuilder())
+				.httpRequestCustomizer(requestCustomizer)
+				.build();
+			var mcpClientBuilder = McpClient.sync(transport)
+				// No authentication context provider required, as this does not rely on
+				// thread locals
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+
+			try (var mcpClient = mcpClientBuilder.build()) {
+				var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+				assertThat(resp.content()).hasSize(1)
+					.first()
+					.asInstanceOf(type(McpSchema.TextContent.class))
+					.extracting(McpSchema.TextContent::text)
+					// the "sub" of the token used in the request is the client id, in
+					// client_credentials
+					.isEqualTo("Hello default-client");
+			}
+			catch (Exception e) {
+				fail(e);
+			}
 		}
-	}
 
-	@Test
-	@DisplayName("When no user is present, can use client_credentials and get a token")
-	void whenClientCredentialsCanCall() {
-		var requestCustomizer = new OAuth2ClientCredentialsSyncHttpRequestCustomizer(
-				new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
-						authorizedClientService),
-				"authserver-client-credentials");
+		@Test
+		@DisplayName("When no user is present and hybrid customizer, can use client_credentials and get a token")
+		void whenHybridAndClientCredentialsCanCall() throws IOException {
+			var requestCustomizer = new OAuth2HybridSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
+					new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
+							authorizedClientService),
+					"authserver", "authserver-client-credentials");
 
-		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
-			.clientBuilder(HttpClient.newBuilder())
-			.httpRequestCustomizer(requestCustomizer)
-			.build();
-		var mcpClientBuilder = McpClient.sync(transport)
-			// No authentication context provider required, as this does not rely on
-			// thread locals
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
+			inMemoryMcpClientRepository.addClient(mcpServerUrl, "test-client-hybrid", requestCustomizer);
 
-		try (var mcpClient = mcpClientBuilder.build()) {
-			var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+			var resp = inMemoryMcpClientRepository.getClientByName("test-client-hybrid")
+				.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
 
 			assertThat(resp.content()).hasSize(1)
 				.first()
@@ -140,40 +177,16 @@ class StreamableHttpAllSecuredTests {
 				// the "sub" of the token used in the request is the client id, in
 				// client_credentials
 				.isEqualTo("Hello default-client");
+
+			ensureAuthServerLogin();
+			var callToolResponse = webClient
+				.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=test-client-hybrid&toolName=greeter");
+			var contentAsString = callToolResponse.getWebResponse().getContentAsString();
+			// The "sub" of the token is "test-user" in authorization_code flow
+			assertThat(contentAsString)
+				.isEqualTo("Called [client: test-client-hybrid, tool: greeter], got response [Hello test-user]");
+
 		}
-		catch (Exception e) {
-			fail(e);
-		}
-	}
-
-	@Test
-	@DisplayName("When no user is present and hybrid customizer, can use client_credentials and get a token")
-	void whenHybridAndClientCredentialsCanCall() throws IOException {
-		var requestCustomizer = new OAuth2HybridSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
-				new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
-						authorizedClientService),
-				"authserver", "authserver-client-credentials");
-
-		inMemoryMcpClientRepository.addClient(mcpServerUrl, "test-client-hybrid", requestCustomizer);
-
-		var resp = inMemoryMcpClientRepository.getClientByName("test-client-hybrid")
-			.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
-
-		assertThat(resp.content()).hasSize(1)
-			.first()
-			.asInstanceOf(type(McpSchema.TextContent.class))
-			.extracting(McpSchema.TextContent::text)
-			// the "sub" of the token used in the request is the client id, in
-			// client_credentials
-			.isEqualTo("Hello default-client");
-
-		ensureAuthServerLogin();
-		var callToolResponse = webClient
-			.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=test-client-hybrid&toolName=greeter");
-		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
-		// The "sub" of the token is "test-user" in authorization_code flow
-		assertThat(contentAsString)
-			.isEqualTo("Called [client: test-client-hybrid, tool: greeter], got response [Hello test-user]");
 
 	}
 
