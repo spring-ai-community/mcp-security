@@ -18,10 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HybridSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
+import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServer;
@@ -79,6 +81,12 @@ class StreamableHttpAllSecuredTests {
 	@Autowired
 	private OAuth2AuthorizedClientService authorizedClientService;
 
+	@Autowired
+	private OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
+
+	@Autowired
+	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
@@ -117,7 +125,7 @@ class StreamableHttpAllSecuredTests {
 
 	@Test
 	@DisplayName("When no user is present, can use client_credentials and get a token")
-	void whenClientCredentialsCanCallToo() {
+	void whenClientCredentialsCanCall() {
 		var requestCustomizer = new OAuth2ClientCredentialsSyncHttpRequestCustomizer(
 				new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
 						authorizedClientService),
@@ -144,6 +152,37 @@ class StreamableHttpAllSecuredTests {
 			// the "sub" of the token used in the request is the client id, in
 			// client_credentials
 			.isEqualTo("Hello default-client");
+	}
+
+	@Test
+	@DisplayName("When no user is present and hybrid customizer, can use client_credentials and get a token")
+	void whenHybridAndClientCredentialsCanCall() throws IOException {
+		var requestCustomizer = new OAuth2HybridSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
+				new AuthorizedClientServiceOAuth2AuthorizedClientManager(clientRegistrationRepository,
+						authorizedClientService),
+				"authserver", "authserver-client-credentials");
+
+		inMemoryMcpClientRepository.addClient(mcpServerUrl, "test-client-hybrid", requestCustomizer);
+
+		var resp = inMemoryMcpClientRepository.getClientByName("test-client-hybrid")
+			.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+
+		assertThat(resp.content()).hasSize(1)
+			.first()
+			.asInstanceOf(type(McpSchema.TextContent.class))
+			.extracting(McpSchema.TextContent::text)
+			// the "sub" of the token used in the request is the client id, in
+			// client_credentials
+			.isEqualTo("Hello default-client");
+
+		ensureAuthServerLogin();
+		var callToolResponse = webClient
+			.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=test-client-hybrid&toolName=greeter");
+		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
+		// The "sub" of the token is "test-user" in authorization_code flow
+		assertThat(contentAsString)
+			.isEqualTo("Called [client: test-client-hybrid, tool: greeter], got response [Hello test-user]");
+
 	}
 
 	@Test

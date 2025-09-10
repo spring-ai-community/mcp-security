@@ -43,8 +43,7 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 
 	private final String clientCredentialsClientRegistrationId;
 
-	public OAuth2HybridSyncHttpRequestCustomizer(
-			AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager,
+	public OAuth2HybridSyncHttpRequestCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 			AuthorizedClientServiceOAuth2AuthorizedClientManager serviceAuthorizedClientManager,
 			String authorizationCodeClientRegistrationId, String clientCredentialsClientRegistrationId) {
 		this.authorizedClientManager = authorizedClientManager;

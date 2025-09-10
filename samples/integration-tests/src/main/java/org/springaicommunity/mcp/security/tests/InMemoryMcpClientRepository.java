@@ -51,18 +51,19 @@ public class InMemoryMcpClientRepository {
 		return new ArrayList<>(this.clients.keySet());
 	}
 
-	public void addClient(String url, String name) {
+	public void addClient(String url, String name, McpSyncHttpClientRequestCustomizer requestCustomizer) {
 		var transport = HttpClientStreamableHttpTransport.builder(url)
 			.clientBuilder(HttpClient.newBuilder())
-			.objectMapper(objectMapper)
+			.objectMapper(this.objectMapper)
 			.httpRequestCustomizer(requestCustomizer)
 			.build();
 
-		var clientInfo = new McpSchema.Implementation("spring-ai-mcp-client - " + name, commonProperties.getVersion());
+		var clientInfo = new McpSchema.Implementation("spring-ai-mcp-client - " + name,
+				this.commonProperties.getVersion());
 
 		var client = McpClient.sync(transport)
 			.clientInfo(clientInfo)
-			.requestTimeout(commonProperties.getRequestTimeout())
+			.requestTimeout(this.commonProperties.getRequestTimeout())
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
 			.build();
 
@@ -79,6 +80,10 @@ public class InMemoryMcpClientRepository {
 			throw e;
 		}
 		clients.put(name, client);
+	}
+
+	public void addClient(String url, String name) {
+		addClient(url, name, this.requestCustomizer);
 	}
 
 	public void removeClient(String url) {
