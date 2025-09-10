@@ -236,7 +236,7 @@ class StreamableHttpAllSecuredTests {
 	}
 
 	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-SNAPSHOT");
+		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-M1");
 	}
 
 }
