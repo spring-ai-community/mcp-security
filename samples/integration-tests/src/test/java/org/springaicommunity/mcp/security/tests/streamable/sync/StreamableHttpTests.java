@@ -63,9 +63,9 @@ import static org.springframework.experimental.boot.server.exec.MavenClasspathEn
  * config class in {@link Nested} tests.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		classes = StreamableHttpAllSecuredTests.StreamableHttpConfig.class)
+		classes = StreamableHttpTests.StreamableHttpConfig.class)
 @ActiveProfiles("sync")
-class StreamableHttpAllSecuredTests {
+class StreamableHttpTests {
 
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
@@ -328,9 +328,9 @@ class StreamableHttpAllSecuredTests {
 		@Bean
 		@DynamicPortUrl(name = "authorization.server.url")
 		static CommonsExecWebServerFactoryBean authorizationServer() {
-            // The properties file is inferred from the bean name, here it's in
-            // resources/testjars/authorizationServer
-            return CommonsExecWebServerFactoryBean.builder()
+			// The properties file is inferred from the bean name, here it's in
+			// resources/testjars/authorizationServer
+			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
 				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
 				.classpath((classpath) -> classpath
@@ -338,8 +338,7 @@ class StreamableHttpAllSecuredTests {
 					// dependencies
 					.entries(springBootStarter("oauth2-authorization-server"))
 					.classes(AuthorizationServerConfiguration.class)
-					.classes(AllowAllCorsConfigurationSource.class)
-				);
+					.classes(AllowAllCorsConfigurationSource.class));
 		}
 
 		@Bean

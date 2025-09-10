@@ -14,6 +14,7 @@ import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -46,8 +47,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
+/**
+ * Note: Here specify the main configuration class so that nested tests know which
+ * configuration to pick up. Otherwise, configuration scanning does not find the nested
+ * config class in {@link Nested} tests.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = "spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}")
+		properties = "spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}",
+		classes = StreamableHttpToolsSecuredTests.StreamableHttpToolsSecuredConfig.class)
 @ActiveProfiles("sync")
 class StreamableHttpToolsSecuredTests {
 
@@ -62,59 +69,65 @@ class StreamableHttpToolsSecuredTests {
 
 	WebClient webClient = new WebClient();
 
-	McpSyncClient mcpClient;
+	@Nested
+	class HttpClientTests {
 
-	@BeforeEach
-	void setUp() {
-		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
-		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
-			.clientBuilder(HttpClient.newBuilder())
-			.build();
-		this.mcpClient = McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
-			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
-			.build();
-	}
+		McpSyncClient mcpClient;
 
-	@AfterEach
-	void tearDown() {
-		this.mcpClient.closeGracefully();
-	}
+		@BeforeEach
+		void setUp() {
+			webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+			var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+				.objectMapper(new ObjectMapper())
+				.clientBuilder(HttpClient.newBuilder())
+				.build();
+			this.mcpClient = McpClient.sync(transport)
+				.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
+				.requestTimeout(new McpClientCommonProperties().getRequestTimeout())
+				.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+				.build();
+		}
 
-	/**
-	 * You do not need tokens to list tools.
-	 */
-	@Test
-	void mcpServerUnsecured() {
-		var resp = mcpClient.listTools();
+		@AfterEach
+		void tearDown() {
+			this.mcpClient.closeGracefully();
+		}
 
-		assertThat(resp.tools()).hasSize(1).first().extracting(McpSchema.Tool::name).isEqualTo("greeter");
-	}
+		/**
+		 * You do not need tokens to list tools.
+		 */
+		@Test
+		void mcpServerUnsecured() {
+			var resp = mcpClient.listTools();
 
-	/**
-	 * You need a valid access token to call a tool.
-	 */
-	@Test
-	void callToolSecured() {
-		var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+			assertThat(resp.tools()).hasSize(1).first().extracting(McpSchema.Tool::name).isEqualTo("greeter");
+		}
 
-		assertThat(resp.isError()).isTrue();
-		assertThat(resp.content()).first()
-			.asInstanceOf(type(McpSchema.TextContent.class))
-			.extracting(McpSchema.TextContent::text)
-			.isEqualTo("not authenticated");
-	}
+		/**
+		 * You need a valid access token to call a tool.
+		 */
+		@Test
+		void callToolSecured() {
+			var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
 
-	@Test
-	void callToolWithToken() throws IOException {
-		ensureAuthServerLogin();
+			assertThat(resp.isError()).isTrue();
+			assertThat(resp.content()).first()
+				.asInstanceOf(type(McpSchema.TextContent.class))
+				.extracting(McpSchema.TextContent::text)
+				.isEqualTo("not authenticated");
+		}
 
-		var response = webClient.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");
-		var contentAsString = response.getWebResponse().getContentAsString();
-		assertThat(contentAsString)
-			.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
+		@Test
+		void callToolWithToken() throws IOException {
+			ensureAuthServerLogin();
+
+			var response = webClient
+				.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");
+			var contentAsString = response.getWebResponse().getContentAsString();
+			assertThat(contentAsString)
+				.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
+		}
+
 	}
 
 	private void ensureAuthServerLogin() throws IOException {
@@ -135,7 +148,7 @@ class StreamableHttpToolsSecuredTests {
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
 			OAuth2AuthorizationServerJwtAutoConfiguration.class })
 	@Import(McpClientConfiguration.class)
-	static class StreamableHttpConfig {
+	static class StreamableHttpToolsSecuredConfig {
 
 		@Bean
 		@DynamicPortUrl(name = "mcp.server.url")
