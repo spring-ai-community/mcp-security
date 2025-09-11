@@ -25,7 +25,7 @@ import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServe
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
-import org.springaicommunity.mcp.security.tests.common.server.AuthorizationServer;
+import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServerToolsSecured;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -207,7 +207,7 @@ class StreamableHttpToolsSecuredTests {
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
 			OAuth2AuthorizationServerJwtAutoConfiguration.class })
-	@Import(McpClientConfiguration.class)
+	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class })
 	static class StreamableHttpToolsSecuredConfig {
 
 		@Bean
@@ -230,19 +230,6 @@ class StreamableHttpToolsSecuredTests {
 					.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 					.classes(AllowAllCorsConfigurationSource.class)
 					.scan(ResourceIdentifier.class));
-		}
-
-		@Bean
-		@DynamicPortUrl(name = "authorization.server.url")
-		static CommonsExecWebServerFactoryBean authorizationServer() {
-			// The properties file is inferred from the bean name, here it's in
-			// resources/testjars/authorizationServer
-			return CommonsExecWebServerFactoryBean.builder()
-				.useGenericSpringBootMain()
-				.setAdditionalBeanClassNames(AuthorizationServer.class.getName())
-				.classpath((classpath) -> classpath.entries(springBootStarter("oauth2-authorization-server"))
-					.classes(AuthorizationServer.class)
-					.classes(AllowAllCorsConfigurationSource.class));
 		}
 
 		@Bean
