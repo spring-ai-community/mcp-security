@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
@@ -23,6 +24,7 @@ import org.springaicommunity.mcp.security.tests.common.configuration.Authorizati
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
+import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -134,7 +136,7 @@ class StreamableHttpToolsSecuredTests {
 	@EnableWebMvc
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
-			OAuth2AuthorizationServerJwtAutoConfiguration.class })
+			OAuth2AuthorizationServerJwtAutoConfiguration.class, StreamableHttpWebFluxTransportAutoConfiguration.class })
 	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class, McpServerConfiguration.class })
 	static class StreamableHttpToolsSecuredConfig {
 
