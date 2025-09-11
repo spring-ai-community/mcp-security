@@ -18,16 +18,18 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.http.HttpRequest;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
@@ -55,11 +57,14 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 	@Override
 	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
 			McpTransportContext context) {
-		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken().getTokenValue());
+		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken(context).getTokenValue());
 	}
 
-	public OAuth2AccessToken getAccessToken() {
-		if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes)) {
+	public OAuth2AccessToken getAccessToken(McpTransportContext context) {
+		var authentication = context.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY);
+		var requestAttributes = context.get(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY);
+
+		if (!(requestAttributes instanceof ServletRequestAttributes attrs)) {
 			OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 				.withClientRegistrationId(this.clientCredentialsClientRegistrationId)
 				.principal("mcp-client-service")
@@ -69,9 +74,13 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.authorizationCodeClientRegistrationId)
-			.principal(SecurityContextHolder.getContext().getAuthentication())
+			.principal((Authentication) authentication)
+			.attribute(HttpServletRequest.class.getName(), attrs.getRequest())
+			.attribute(HttpServletResponse.class.getName(), attrs.getResponse())
 			.build();
+
 		return this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
+
 	}
 
 }
