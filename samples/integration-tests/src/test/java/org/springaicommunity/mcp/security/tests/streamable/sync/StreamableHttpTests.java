@@ -26,7 +26,7 @@ import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdenti
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
-import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfiguration;
+import org.springaicommunity.mcp.security.tests.common.AuthorizationServerTestjarConfiguration;
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServer;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -117,8 +117,7 @@ class StreamableHttpTests {
 					.rootCause()
 					// Note: this should be better handled by the Java-SDK.
 					// Today, the HTTP 401 response is wrapped in a RuntimeException with
-					// a
-					// poor String representation.
+					// a poor String representation.
 					.isInstanceOf(RuntimeException.class)
 					.hasMessageStartingWith("Failed to send message: DummyEvent");
 			}
@@ -332,12 +331,12 @@ class StreamableHttpTests {
 			// resources/testjars/authorizationServer
 			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
-				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
+				.setAdditionalBeanClassNames(AuthorizationServerTestjarConfiguration.class.getName())
 				.classpath((classpath) -> classpath
 					// Add spring-boot-starter-authorization-server & transitive
 					// dependencies
 					.entries(springBootStarter("oauth2-authorization-server"))
-					.classes(AuthorizationServerConfiguration.class)
+					.classes(AuthorizationServerTestjarConfiguration.class)
 					.classes(AllowAllCorsConfigurationSource.class));
 		}
 

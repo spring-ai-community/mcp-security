@@ -28,7 +28,7 @@ import static org.springframework.security.oauth2.server.authorization.config.an
 
 @Configuration
 @EnableWebSecurity
-public class AuthorizationServerConfiguration {
+public class AuthorizationServerTestjarConfiguration {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

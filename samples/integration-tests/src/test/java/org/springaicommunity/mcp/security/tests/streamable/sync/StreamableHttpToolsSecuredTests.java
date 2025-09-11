@@ -25,7 +25,7 @@ import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServe
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
-import org.springaicommunity.mcp.security.tests.common.AuthorizationServerConfiguration;
+import org.springaicommunity.mcp.security.tests.common.AuthorizationServerTestjarConfiguration;
 import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServerToolsSecured;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -239,9 +239,9 @@ class StreamableHttpToolsSecuredTests {
 			// resources/testjars/authorizationServer
 			return CommonsExecWebServerFactoryBean.builder()
 				.useGenericSpringBootMain()
-				.setAdditionalBeanClassNames(AuthorizationServerConfiguration.class.getName())
+				.setAdditionalBeanClassNames(AuthorizationServerTestjarConfiguration.class.getName())
 				.classpath((classpath) -> classpath.entries(springBootStarter("oauth2-authorization-server"))
-					.classes(AuthorizationServerConfiguration.class)
+					.classes(AuthorizationServerTestjarConfiguration.class)
 					.classes(AllowAllCorsConfigurationSource.class));
 		}
 

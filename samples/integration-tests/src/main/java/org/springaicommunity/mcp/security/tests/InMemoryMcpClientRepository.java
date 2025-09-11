@@ -74,16 +74,23 @@ public class InMemoryMcpClientRepository {
 			// We expect the nested reactive calls to propagate the inner exceptions to
 			// be able to propagate them back up to the Servlet filter chain; they will
 			// be intercepted and trigger OAuth2 authorization flows.
+			//
+			// If we do not propagate ClientAuthorizationRequiredException, the app will
+			// crash in a loop.
 			if (e.getCause() instanceof ClientAuthorizationRequiredException crae) {
 				throw crae;
 			}
 			throw e;
 		}
-		clients.put(name, client);
+		addClient(name, client);
 	}
 
 	public void addClient(String url, String name) {
 		addClient(url, name, this.requestCustomizer);
+	}
+
+	public void addClient(String name, McpSyncClient client) {
+		this.clients.put(name, client);
 	}
 
 	public void removeClient(String url) {
