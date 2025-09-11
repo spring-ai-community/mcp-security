@@ -20,13 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
-import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
-import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
-import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
-import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
-import org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServerToolsSecured;
+import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,16 +35,12 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFactoryBean;
-import org.springframework.experimental.boot.server.exec.MavenClasspathEntry;
-import org.springframework.experimental.boot.test.context.DynamicPortUrl;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
-import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 /**
  * Note: Here specify the main configuration class so that nested tests know which
@@ -56,8 +48,11 @@ import static org.springframework.experimental.boot.server.exec.MavenClasspathEn
  * config class in {@link Nested} tests.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = "spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}",
-		classes = StreamableHttpToolsSecuredTests.StreamableHttpToolsSecuredConfig.class)
+		classes = StreamableHttpToolsSecuredTests.StreamableHttpToolsSecuredConfig.class,
+		properties = """
+				spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}
+				mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServerToolsSecured
+				""")
 @ActiveProfiles("sync")
 class StreamableHttpToolsSecuredTests {
 
@@ -207,40 +202,14 @@ class StreamableHttpToolsSecuredTests {
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
 			OAuth2AuthorizationServerJwtAutoConfiguration.class })
-	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class })
+	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class, McpServerConfiguration.class })
 	static class StreamableHttpToolsSecuredConfig {
-
-		@Bean
-		@DynamicPortUrl(name = "mcp.server.url")
-		public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri) {
-			// The properties file is inferred from the bean name, here it's in
-			// resources/testjars/mcpServer
-			return CommonsExecWebServerFactoryBean.builder()
-				.useGenericSpringBootMain()
-				.setAdditionalBeanClassNames(StreamableHttpMcpServerToolsSecured.class.getName())
-				.systemProperties(props -> {
-					props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
-					props.putIfAbsent("spring.ai.mcp.server.protocol", "STREAMABLE");
-				})
-				.classpath((classpath) -> classpath
-					.entries(springBootStarter("web"), springBootStarter("oauth2-resource-server"),
-							springAiStarter("mcp-server-webmvc"))
-					.classes(StreamableHttpMcpServerToolsSecured.class)
-					.classes(McpResourceServerConfigurer.class)
-					.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
-					.classes(AllowAllCorsConfigurationSource.class)
-					.scan(ResourceIdentifier.class));
-		}
 
 		@Bean
 		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
 			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
 		}
 
-	}
-
-	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-M1");
 	}
 
 }

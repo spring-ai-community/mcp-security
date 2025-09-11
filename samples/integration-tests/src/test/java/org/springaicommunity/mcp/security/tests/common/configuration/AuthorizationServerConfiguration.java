@@ -5,12 +5,17 @@ import org.springaicommunity.mcp.security.tests.common.server.AuthorizationServe
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFactoryBean;
 import org.springframework.experimental.boot.test.context.DynamicPortUrl;
+import static org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration.ORDER;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 @Configuration
+@Order(ORDER)
 public class AuthorizationServerConfiguration {
+
+	public final static int ORDER = McpServerConfiguration.ORDER - 1;
 
 	@Bean
 	@DynamicPortUrl(name = "authorization.server.url")
