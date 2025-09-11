@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.mcp.security.tests.common;
+package org.springaicommunity.mcp.security.tests.common.server;
 
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
@@ -28,7 +28,7 @@ import static org.springframework.security.oauth2.server.authorization.config.an
 
 @Configuration
 @EnableWebSecurity
-public class AuthorizationServerTestjarConfiguration {
+public class AuthorizationServer {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
