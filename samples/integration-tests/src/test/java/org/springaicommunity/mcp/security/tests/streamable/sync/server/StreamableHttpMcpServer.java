@@ -1,4 +1,4 @@
-package org.springaicommunity.mcp.security.tests.streamable.sync.servers;
+package org.springaicommunity.mcp.security.tests.streamable.sync.server;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;

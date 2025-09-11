@@ -26,7 +26,7 @@ import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdenti
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.AuthorizationServerTestjarConfiguration;
-import org.springaicommunity.mcp.security.tests.streamable.sync.servers.StreamableHttpMcpServerToolsSecured;
+import org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServerToolsSecured;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Autowired;
