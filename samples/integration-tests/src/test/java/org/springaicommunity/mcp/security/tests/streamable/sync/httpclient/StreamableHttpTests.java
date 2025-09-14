@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2ClientCredentialsSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HybridSyncHttpRequestCustomizer;
@@ -42,7 +43,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.util.UriComponentsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -87,8 +87,8 @@ class StreamableHttpTests {
 	}
 
 	@Test
-	@DisplayName("When the user is not present and there is no access token, cannot initialize")
-	void whenNoTokenThenCannotInitialize() {
+	@DisplayName("When there is no oauth2 capabilities token, cannot initialize")
+	void whenNoOAuthCapabilitiesCannotInitialize() {
 		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
 			.objectMapper(new ObjectMapper())
 			.clientBuilder(HttpClient.newBuilder())
@@ -108,6 +108,33 @@ class StreamableHttpTests {
 		}
 		catch (Exception e) {
 			fail(e);
+		}
+	}
+
+	@Test
+	@DisplayName("When the user is not present, cannot initialize with authorization_code flow")
+	void noUser() throws IOException {
+		ensureAuthServerLogin();
+
+		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.clientBuilder(HttpClient.newBuilder())
+			.objectMapper(new ObjectMapper())
+			.httpRequestCustomizer(requestCustomizer)
+			.build();
+
+		var mcpClientBuilder = McpClient.sync(transport)
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+
+		try (var mcpClient = mcpClientBuilder.build()) {
+			assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
+				.rootCause()
+				// Note: this should be better handled by the Java-SDK.
+				// Today, the HTTP 401 response is wrapped in a RuntimeException with
+				// a poor String representation.
+				.isInstanceOf(RuntimeException.class)
+				.hasMessageStartingWith("Failed to send message: DummyEvent");
 		}
 	}
 
@@ -154,7 +181,17 @@ class StreamableHttpTests {
 						authorizedClientService),
 				"authserver", "authserver-client-credentials");
 
-		inMemoryMcpClientRepository.addClient(mcpServerUrl, "test-client-hybrid", requestCustomizer);
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.clientBuilder(HttpClient.newBuilder())
+			.objectMapper(new ObjectMapper())
+			.httpRequestCustomizer(requestCustomizer)
+			.build();
+
+		var client = McpClient.sync(transport)
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+
+		inMemoryMcpClientRepository.addClient("test-client-hybrid", client);
 
 		var resp = inMemoryMcpClientRepository.getClientByName("test-client-hybrid")
 			.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
@@ -178,27 +215,28 @@ class StreamableHttpTests {
 	}
 
 	@Test
-	@DisplayName("When the user is present, they can add a tool and then call it")
+	@DisplayName("When the user is present, can call tool")
 	void addToolThenCall() throws IOException {
 		ensureAuthServerLogin();
 
-		var uri = UriComponentsBuilder.newInstance()
-			.scheme("http")
-			.host("127.0.0.1")
-			.port(port)
-			.path("/tool/add")
-			.queryParam("clientName", "greeter")
-			.queryParam("url", mcpServerUrl)
-			.toUriString();
+		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
 
-		var addToolResponse = webClient.getPage(uri);
-		assertThat(addToolResponse.getWebResponse().getStatusCode()).isEqualTo(201);
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.clientBuilder(HttpClient.newBuilder())
+			.objectMapper(new ObjectMapper())
+			.httpRequestCustomizer(requestCustomizer)
+			.build();
+
+		var client = McpClient.sync(transport)
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+		inMemoryMcpClientRepository.addClient("test-client-authcode", client);
 
 		var callToolResponse = webClient
-			.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");
+			.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=test-client-authcode&toolName=greeter");
 		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
 		assertThat(contentAsString)
-			.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
+			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
 	}
 
 	private void ensureAuthServerLogin() throws IOException {

@@ -2,9 +2,7 @@ package org.springaicommunity.mcp.security.tests;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,12 +21,6 @@ class McpController {
 			.content()
 			.get(0)).text();
 		return "Called [client: %s, tool: %s], got response [%s]".formatted(clientName, toolName, toolResponse);
-	}
-
-	@GetMapping("/tool/add")
-	@ResponseStatus(HttpStatus.CREATED)
-	public void addClient(String clientName, String url) {
-		this.repository.addClient(url, clientName);
 	}
 
 }

@@ -14,8 +14,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2ClientCredentialsExchangeFilterFunction;
+import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
@@ -37,7 +40,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.util.UriComponentsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -74,6 +76,9 @@ class StreamableHttpWebClientTests {
 	@Autowired
 	private OAuth2AuthorizedClientManager clientManager;
 
+	@Autowired
+	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
@@ -95,8 +100,7 @@ class StreamableHttpWebClientTests {
 				.rootCause()
 				// Note: this should be better handled by the Java-SDK.
 				// Today, the HTTP 401 response is wrapped in a RuntimeException with
-				// a
-				// poor String representation.
+				// a poor String representation.
 				.isInstanceOf(RuntimeException.class)
 				.hasMessageStartingWith("401 Unauthorized from POST");
 		}
@@ -143,23 +147,27 @@ class StreamableHttpWebClientTests {
 	void addToolThenCall() throws IOException {
 		ensureAuthServerLogin();
 
-		var uri = UriComponentsBuilder.newInstance()
-			.scheme("http")
-			.host("127.0.0.1")
-			.port(port)
-			.path("/tool/add")
-			.queryParam("clientName", "greeter")
-			.queryParam("url", mcpServerUrl)
-			.toUriString();
+		var clientBuilder = webClientBuilder.clone()
+			.baseUrl(mcpServerUrl)
+			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
 
-		var addToolResponse = webClient.getPage(uri);
-		assertThat(addToolResponse.getWebResponse().getStatusCode()).isEqualTo(201);
+		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
+			.objectMapper(new ObjectMapper())
+			.build();
+		var mcpClientBuilder = McpClient.sync(transport)
+			.clientInfo(
+					new McpSchema.Implementation("test-client-authcode", new McpClientCommonProperties().getVersion()))
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
 
-		var callToolResponse = webClient
-			.getPage("http://127.0.0.1:" + port + "/tool/call?clientName=greeter&toolName=greeter");
-		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
-		assertThat(contentAsString)
-			.isEqualTo("Called [client: greeter, tool: greeter], got response [Hello test-user]");
+		try (var mcpClient = mcpClientBuilder.build()) {
+			inMemoryMcpClientRepository.addClient("test-client-authcode", mcpClient);
+			var callToolResponse = webClient.getPage("http://127.0.0.1:" + port
+					+ "/tool/call?clientName=test-client-authcode&toolName=greeter&mode=webClient");
+			var contentAsString = callToolResponse.getWebResponse().getContentAsString();
+			assertThat(contentAsString)
+				.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
+		}
 	}
 
 	private void ensureAuthServerLogin() throws IOException {

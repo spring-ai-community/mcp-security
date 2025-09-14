@@ -136,7 +136,8 @@ class StreamableHttpToolsSecuredTests {
 	@EnableWebMvc
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
-			OAuth2AuthorizationServerJwtAutoConfiguration.class, StreamableHttpWebFluxTransportAutoConfiguration.class })
+			OAuth2AuthorizationServerJwtAutoConfiguration.class,
+			StreamableHttpWebFluxTransportAutoConfiguration.class })
 	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class, McpServerConfiguration.class })
 	static class StreamableHttpToolsSecuredConfig {
 
