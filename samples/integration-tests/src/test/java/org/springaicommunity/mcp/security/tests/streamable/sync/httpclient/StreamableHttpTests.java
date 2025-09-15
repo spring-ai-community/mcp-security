@@ -3,6 +3,7 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.httpclient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import java.net.http.HttpClient;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +37,8 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 		properties = "mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer")
 class StreamableHttpTests extends StreamableHttpAbstractTests {
 
+	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+
 	@Configuration
 	@EnableWebMvc
 	@EnableWebSecurity
@@ -55,7 +58,7 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 	@Override
 	public McpClientTransport buildNoSecurityTransport() {
 		return HttpClientStreamableHttpTransport.builder(this.mcpServerUrl)
-			.objectMapper(new ObjectMapper())
+			.jsonMapper(jsonMapper)
 			.clientBuilder(HttpClient.newBuilder())
 			.build();
 	}
@@ -66,7 +69,7 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 
 		return HttpClientStreamableHttpTransport.builder(this.mcpServerUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.objectMapper(new ObjectMapper())
+			.jsonMapper(jsonMapper)
 			.httpRequestCustomizer(requestCustomizer)
 			.build();
 	}
@@ -80,7 +83,7 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 
 		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.objectMapper(new ObjectMapper())
+			.jsonMapper(jsonMapper)
 			.httpRequestCustomizer(requestCustomizer)
 			.build();
 		return transport;
@@ -94,7 +97,7 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 				"authserver-client-credentials");
 
 		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
+			.jsonMapper(jsonMapper)
 			.clientBuilder(HttpClient.newBuilder())
 			.httpRequestCustomizer(requestCustomizer)
 			.build();

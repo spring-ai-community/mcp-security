@@ -3,6 +3,7 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import org.junit.jupiter.api.Nested;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -43,10 +44,12 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 	@Autowired
 	org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
 
+	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+
 	@Override
 	public McpClientTransport buildNoSecurityTransport() {
 		var clientBuilder = webClientBuilder.clone().baseUrl(mcpServerUrl);
-		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
 	}
 
 	@Override
@@ -55,7 +58,7 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 			.baseUrl(mcpServerUrl)
 			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
 
-		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
 	}
 
 	@Override
@@ -67,7 +70,7 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 							authorizedClientService),
 					"authserver", "authserver-client-credentials"));
 
-		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
 	}
 
 	@Override
@@ -77,7 +80,7 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 			.filter(new McpOAuth2ClientCredentialsExchangeFilterFunction(clientManager, clientRegistrationRepository,
 					"authserver-client-credentials"));
 
-		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
 	}
 
 	@Configuration
