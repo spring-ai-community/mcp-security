@@ -23,6 +23,8 @@ import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransport
 import reactor.core.publisher.Mono;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -41,16 +43,29 @@ public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunc
 
 	private static final String HTTP_SERVLET_RESPONSE_ATTR_NAME = HttpServletResponse.class.getName();
 
+	private final AuthorizedClientServiceOAuth2AuthorizedClientManager serviceAuthorizedClientManager;
+
+	private final String clientCredentialsClientRegistrationId;
+
 	public McpOAuth2HybridExchangeFilterFunction(OAuth2AuthorizedClientManager clientManager,
-			String clientRegistrationId) {
+			AuthorizedClientServiceOAuth2AuthorizedClientManager serviceAuthorizedClientManager,
+			String authorizationCodeClientRegistrationId, String clientCredentialsClientRegistrationId) {
 		this.delegate = new ServletOAuth2AuthorizedClientExchangeFilterFunction(clientManager);
-		this.delegate.setDefaultClientRegistrationId(clientRegistrationId);
+		this.serviceAuthorizedClientManager = serviceAuthorizedClientManager;
+		this.clientCredentialsClientRegistrationId = clientCredentialsClientRegistrationId;
+		this.delegate.setDefaultClientRegistrationId(authorizationCodeClientRegistrationId);
 	}
 
 	@Override
 	public Mono<ClientResponse> filter(ClientRequest request, ExchangeFunction next) {
 		return updateRequestWithMcpTransportContext(request).flatMap(req -> this.delegate.filter(req, next))
-			.switchIfEmpty(next.exchange(request));
+			.switchIfEmpty(Mono.defer(() -> {
+				var accessToken = getClientCredentialsAccessToken();
+				var requestWithToken = ClientRequest.from(request)
+					.headers(headers -> headers.setBearerAuth(accessToken))
+					.build();
+				return next.exchange(requestWithToken);
+			}));
 	}
 
 	public Mono<ClientRequest> updateRequestWithMcpTransportContext(ClientRequest request) {
@@ -72,6 +87,14 @@ public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunc
 			});
 			return Mono.just(req.build());
 		});
+	}
+
+	private String getClientCredentialsAccessToken() {
+		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
+			.withClientRegistrationId(this.clientCredentialsClientRegistrationId)
+			.principal("mcp-client-service")
+			.build();
+		return serviceAuthorizedClientManager.authorize(authorizeRequest).getAccessToken().getTokenValue();
 	}
 
 }

@@ -51,7 +51,7 @@ public class McpOAuth2ClientCredentialsExchangeFilterFunction implements Exchang
 	 */
 	@Override
 	public Mono<ClientResponse> filter(ClientRequest request, ExchangeFunction next) {
-		// TODO: polish
+		// TODO: use AuthorizedClientServiceOAuth2AuthorizedClientManager instead
 		var accessToken = getClientCredentialsAccessToken();
 		var requestWithToken = ClientRequest.from(request)
 			.headers(headers -> headers.setBearerAuth(accessToken))
