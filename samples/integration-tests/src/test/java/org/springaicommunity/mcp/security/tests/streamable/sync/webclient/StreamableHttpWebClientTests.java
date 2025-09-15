@@ -1,49 +1,32 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.spec.McpSchema;
-import java.io.IOException;
-import org.htmlunit.WebClient;
-import org.htmlunit.html.HtmlButton;
-import org.htmlunit.html.HtmlInput;
-import org.htmlunit.html.HtmlPage;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import io.modelcontextprotocol.spec.McpClientTransport;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2ClientCredentialsExchangeFilterFunction;
-import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2HybridExchangeFilterFunction;
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
+import org.springaicommunity.mcp.security.tests.common.tests.StreamableHttpAbstractTests;
 
-import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerJwtAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 /**
  * Note: Here specify the main configuration class so that nested tests know which
@@ -54,132 +37,43 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 		classes = StreamableHttpWebClientTests.StreamableHttpConfig.class,
 		properties = "mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer")
 @ActiveProfiles("sync")
-class StreamableHttpWebClientTests {
-
-	@Value("${authorization.server.url}")
-	String authorizationServerUrl;
-
-	@LocalServerPort
-	int port;
-
-	@Value("${mcp.server.url}")
-	String mcpServerUrl;
-
-	WebClient webClient = new WebClient();
+class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 
 	@Autowired
 	org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
 
-	@Autowired
-	private InMemoryClientRegistrationRepository clientRegistrationRepository;
-
-	@Autowired
-	private OAuth2AuthorizedClientManager clientManager;
-
-	@Autowired
-	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
-
-	@BeforeEach
-	void setUp() {
-		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
-	}
-
-	@Test
-	@DisplayName("When the user is not present and there is no access token, cannot initialize")
-	void whenNoTokenThenCannotInitialize() {
+	@Override
+	public McpClientTransport buildNoSecurityTransport() {
 		var clientBuilder = webClientBuilder.clone().baseUrl(mcpServerUrl);
-		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
-			.objectMapper(new ObjectMapper())
-			.build();
-		var mcpClientBuilder = McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
-
-		try (var mcpClient = mcpClientBuilder.build()) {
-			assertThatThrownBy(mcpClient::initialize).hasMessage("Client failed to initialize by explicit API call")
-				.rootCause()
-				// Note: this should be better handled by the Java-SDK.
-				// Today, the HTTP 401 response is wrapped in a RuntimeException with
-				// a poor String representation.
-				.isInstanceOf(RuntimeException.class)
-				.hasMessageStartingWith("401 Unauthorized from POST");
-		}
-		catch (Exception e) {
-			fail(e);
-		}
+		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
 	}
 
-	@Test
-	@DisplayName("When no user is present, can use client_credentials and get a token")
-	void whenClientCredentialsCanCall() {
+	@Override
+	public McpClientTransport buildAuthorizationCodeTransport() {
+		var clientBuilder = webClientBuilder.clone()
+			.baseUrl(mcpServerUrl)
+			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
+
+		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+	}
+
+	@Override
+	public McpClientTransport buildHybridTransport() {
+		var clientBuilder = webClientBuilder.clone()
+			.baseUrl(mcpServerUrl)
+			.filter(new McpOAuth2HybridExchangeFilterFunction(clientManager, "authserver"));
+
+		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
+	}
+
+	@Override
+	public McpClientTransport buildClientCredentialsTransport() {
 		var clientBuilder = webClientBuilder.clone()
 			.baseUrl(mcpServerUrl)
 			.filter(new McpOAuth2ClientCredentialsExchangeFilterFunction(clientManager, clientRegistrationRepository,
 					"authserver-client-credentials"));
 
-		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
-			.objectMapper(new ObjectMapper())
-			.build();
-		var mcpClientBuilder = McpClient.sync(transport)
-			// No authentication context provider required, as this does not rely on
-			// thread locals
-			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
-
-		try (var mcpClient = mcpClientBuilder.build()) {
-			var resp = mcpClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
-
-			assertThat(resp.content()).hasSize(1)
-				.first()
-				.asInstanceOf(type(McpSchema.TextContent.class))
-				.extracting(McpSchema.TextContent::text)
-				// the "sub" of the token used in the request is the client id, in
-				// client_credentials
-				.isEqualTo("Hello default-client");
-		}
-		catch (Exception e) {
-			fail(e);
-		}
-	}
-
-	@Test
-	@DisplayName("When the user is present, they can add a tool and then call it")
-	void addToolThenCall() throws IOException {
-		ensureAuthServerLogin();
-
-		var clientBuilder = webClientBuilder.clone()
-			.baseUrl(mcpServerUrl)
-			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
-
-		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
-			.objectMapper(new ObjectMapper())
-			.build();
-		var mcpClientBuilder = McpClient.sync(transport)
-			.clientInfo(
-					new McpSchema.Implementation("test-client-authcode", new McpClientCommonProperties().getVersion()))
-			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
-			.requestTimeout(new McpClientCommonProperties().getRequestTimeout());
-
-		try (var mcpClient = mcpClientBuilder.build()) {
-			inMemoryMcpClientRepository.addClient("test-client-authcode", mcpClient);
-			var callToolResponse = webClient.getPage("http://127.0.0.1:" + port
-					+ "/tool/call?clientName=test-client-authcode&toolName=greeter&mode=webClient");
-			var contentAsString = callToolResponse.getWebResponse().getContentAsString();
-			assertThat(contentAsString)
-				.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
-		}
-	}
-
-	private void ensureAuthServerLogin() throws IOException {
-		HtmlPage loginPage = this.webClient.getPage(authorizationServerUrl);
-
-		if (loginPage.getWebResponse().getStatusCode() == 404) {
-			// Already logged in
-			return;
-		}
-		loginPage.<HtmlInput>querySelector("#username").type("test-user");
-		loginPage.<HtmlInput>querySelector("#password").type("test-password");
-		loginPage.<HtmlButton>querySelector("button").click();
+		return WebClientStreamableHttpTransport.builder(clientBuilder).objectMapper(new ObjectMapper()).build();
 	}
 
 	@Configuration
