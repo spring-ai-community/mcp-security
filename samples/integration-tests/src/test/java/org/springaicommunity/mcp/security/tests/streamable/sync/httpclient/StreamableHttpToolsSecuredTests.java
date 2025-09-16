@@ -52,6 +52,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 		properties = """
 				spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}
 				mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServerToolsSecured
+				mcp.server.protocol=STREAMABLE
 				""")
 @ActiveProfiles("sync")
 class StreamableHttpToolsSecuredTests {

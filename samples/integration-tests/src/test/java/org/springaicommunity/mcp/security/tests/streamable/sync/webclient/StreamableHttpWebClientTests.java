@@ -38,8 +38,10 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
  * config class in {@link Nested} tests.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		classes = StreamableHttpWebClientTests.StreamableHttpConfig.class,
-		properties = "mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer")
+		classes = StreamableHttpWebClientTests.StreamableHttpConfig.class, properties = """
+				mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer
+				mcp.server.protocol=STREAMABLE
+				""")
 @ActiveProfiles("sync")
 class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 

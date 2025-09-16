@@ -27,6 +27,7 @@ public class McpServerConfiguration {
 	@Bean
 	@DynamicPortUrl(name = "mcp.server.url")
 	public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri,
+			@Value("${mcp.server.protocol}") String mcpServerProtocol,
 			@Value("${mcp.server.class}") String mcpServerClass) {
 		// The properties file is inferred from the bean name, here it's in
 		// resources/testjars/mcpServer
@@ -36,7 +37,7 @@ public class McpServerConfiguration {
 			.setAdditionalBeanClassNames(mcpServerClass)
 			.systemProperties(props -> {
 				props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
-				props.putIfAbsent("spring.ai.mcp.server.protocol", "STREAMABLE");
+				props.putIfAbsent("spring.ai.mcp.server.protocol", mcpServerProtocol);
 			})
 			.classpath((classpath) -> classpath
 				.entries(springBootStarter("web"), springBootStarter("oauth2-resource-server"),

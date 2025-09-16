@@ -1,11 +1,13 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.server;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.List;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,16 +21,34 @@ import static org.springaicommunity.mcp.security.resourceserver.config.McpResour
 @EnableWebSecurity
 public class StreamableHttpMcpServer {
 
+	private McpSchema.Tool TOOL = McpSchema.Tool.builder()
+		.name("greeter")
+		.description("Greets you nicely!")
+		.inputSchema(new McpSchema.JsonSchema("object", null, null, null, null, null))
+		.build();
+
 	@Bean
-	List<McpServerFeatures.SyncToolSpecification> tools() {
-		McpSchema.Tool greeterTool = McpSchema.Tool.builder()
-			.name("greeter")
-			.description("Greets you nicely!")
-			.inputSchema(new McpSchema.JsonSchema("object", null, null, null, null, null))
+	@ConditionalOnProperty(name = "spring.ai.mcp.server.protocol", havingValue = "STREAMABLE")
+	List<McpServerFeatures.SyncToolSpecification> streamableTools() {
+		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
+			.tool(TOOL)
+			.callHandler((exchange, request) -> {
+				var authentication = SecurityContextHolder.getContext().getAuthentication();
+				return McpSchema.CallToolResult.builder()
+					.textContent(List.of("Hello " + authentication.getName()))
+					.build();
+			})
 			.build();
 
-		McpServerFeatures.SyncToolSpecification tool = McpServerFeatures.SyncToolSpecification.builder()
-			.tool(greeterTool)
+		return List.of(tool);
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "spring.ai.mcp.server.protocol", havingValue = "STATELESS")
+	List<McpStatelessServerFeatures.SyncToolSpecification> statelessTools() {
+		McpStatelessServerFeatures.SyncToolSpecification tool = McpStatelessServerFeatures.SyncToolSpecification
+			.builder()
+			.tool(TOOL)
 			.callHandler((exchange, request) -> {
 				var authentication = SecurityContextHolder.getContext().getAuthentication();
 				return McpSchema.CallToolResult.builder()

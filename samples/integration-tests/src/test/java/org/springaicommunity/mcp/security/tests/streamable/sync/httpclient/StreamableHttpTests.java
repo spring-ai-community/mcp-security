@@ -35,8 +35,10 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
  * configuration to pick up. Otherwise, configuration scanning does not find the nested
  * config class in {@link Nested} tests.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = "mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = """
+		mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer
+		mcp.server.protocol=STREAMABLE
+		""")
 class StreamableHttpTests extends StreamableHttpAbstractTests {
 
 	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
