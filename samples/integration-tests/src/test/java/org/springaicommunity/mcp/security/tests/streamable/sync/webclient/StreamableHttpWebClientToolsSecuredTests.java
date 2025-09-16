@@ -5,12 +5,8 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
@@ -25,18 +21,13 @@ import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 
-import org.springframework.ai.mcp.client.common.autoconfigure.NamedClientMcpTransport;
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
-import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpStreamableHttpClientProperties;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration;
-import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerJwtAutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
@@ -89,7 +80,7 @@ class StreamableHttpWebClientToolsSecuredTests {
 			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
 		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
-			.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+			.objectMapper(new ObjectMapper())
 			.build();
 		this.mcpClient = McpClient.sync(transport)
 			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))
@@ -143,50 +134,13 @@ class StreamableHttpWebClientToolsSecuredTests {
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
 			OAuth2AuthorizationServerJwtAutoConfiguration.class,
-			StreamableHttpHttpClientTransportAutoConfiguration.class,
-			StreamableHttpWebFluxTransportAutoConfiguration.class })
+			StreamableHttpHttpClientTransportAutoConfiguration.class })
 	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class, McpServerConfiguration.class })
-	// TODO: remove with streamableHttpHttpClientTransports
-	@EnableConfigurationProperties({ McpStreamableHttpClientProperties.class, McpClientCommonProperties.class })
 	static class StreamableHttpToolsSecuredConfig {
 
 		@Bean
 		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
 			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
-		}
-
-		/**
-		 * Hotfix until {@link StreamableHttpWebFluxTransportAutoConfiguration} catches up
-		 * with MCP 0.13.0.
-		 */
-		@Bean
-		public List<NamedClientMcpTransport> streamableHttpWebFluxClientTransports(
-				McpStreamableHttpClientProperties streamableProperties,
-				ObjectProvider<org.springframework.web.reactive.function.client.WebClient.Builder> webClientBuilderProvider,
-				ObjectProvider<ObjectMapper> objectMapperProvider) {
-
-			List<NamedClientMcpTransport> streamableHttpTransports = new ArrayList<>();
-
-			var webClientBuilderTemplate = webClientBuilderProvider
-				.getIfAvailable(org.springframework.web.reactive.function.client.WebClient::builder);
-			var objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-
-			for (Map.Entry<String, McpStreamableHttpClientProperties.ConnectionParameters> serverParameters : streamableProperties
-				.getConnections()
-				.entrySet()) {
-				var webClientBuilder = webClientBuilderTemplate.clone().baseUrl(serverParameters.getValue().url());
-				String streamableHttpEndpoint = serverParameters.getValue().endpoint() != null
-						? serverParameters.getValue().endpoint() : "/mcp";
-
-				var transport = WebClientStreamableHttpTransport.builder(webClientBuilder)
-					.endpoint(streamableHttpEndpoint)
-					.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
-					.build();
-
-				streamableHttpTransports.add(new NamedClientMcpTransport(serverParameters.getKey(), transport));
-			}
-
-			return streamableHttpTransports;
 		}
 
 	}
