@@ -1,5 +1,7 @@
 package org.springaicommunity.mcp.security.tests.common.configuration;
 
+import java.util.List;
+import org.eclipse.aether.repository.RemoteRepository;
 import org.junit.jupiter.api.Order;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
@@ -47,7 +49,20 @@ public class McpServerConfiguration {
 	}
 
 	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-M1");
+		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-SNAPSHOT",
+				List.of(newCentralRepository(), newSpringMilestoneRepository(), newSpringSnapshotRepository()));
+	}
+
+	private static RemoteRepository newCentralRepository() {
+		return new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2/").build();
+	}
+
+	private static RemoteRepository newSpringSnapshotRepository() {
+		return new RemoteRepository.Builder("spring-snapshot", "default", "https://repo.spring.io/snapshot/").build();
+	}
+
+	private static RemoteRepository newSpringMilestoneRepository() {
+		return new RemoteRepository.Builder("spring-milestone", "default", "https://repo.spring.io/milestone/").build();
 	}
 
 }

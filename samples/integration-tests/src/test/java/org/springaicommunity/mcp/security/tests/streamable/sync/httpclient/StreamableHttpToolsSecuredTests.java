@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -24,6 +24,8 @@ import org.springaicommunity.mcp.security.tests.common.configuration.Authorizati
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
+import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
+import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -71,7 +73,7 @@ class StreamableHttpToolsSecuredTests {
 	void setUp() {
 		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.objectMapper(new ObjectMapper())
+			.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
 			.clientBuilder(HttpClient.newBuilder())
 			.build();
 		this.mcpClient = McpClient.sync(transport)
@@ -136,8 +138,8 @@ class StreamableHttpToolsSecuredTests {
 	@EnableWebMvc
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
-			OAuth2AuthorizationServerJwtAutoConfiguration.class,
-			StreamableHttpWebFluxTransportAutoConfiguration.class })
+			OAuth2AuthorizationServerJwtAutoConfiguration.class, SseHttpClientTransportAutoConfiguration.class,
+			SseWebFluxTransportAutoConfiguration.class, StreamableHttpWebFluxTransportAutoConfiguration.class })
 	@Import({ McpClientConfiguration.class, AuthorizationServerConfiguration.class, McpServerConfiguration.class })
 	static class StreamableHttpToolsSecuredConfig {
 

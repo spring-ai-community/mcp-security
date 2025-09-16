@@ -15,7 +15,9 @@ import org.springaicommunity.mcp.security.tests.common.configuration.Authorizati
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.tests.StreamableHttpAbstractTests;
 
+import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration;
+import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -87,8 +89,8 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 	@EnableWebMvc
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
-			OAuth2AuthorizationServerJwtAutoConfiguration.class,
-			StreamableHttpHttpClientTransportAutoConfiguration.class })
+			OAuth2AuthorizationServerJwtAutoConfiguration.class, SseHttpClientTransportAutoConfiguration.class,
+			SseWebFluxTransportAutoConfiguration.class, StreamableHttpHttpClientTransportAutoConfiguration.class })
 	@Import({ AuthorizationServerConfiguration.class, McpServerConfiguration.class, McpClientConfiguration.class })
 	static class StreamableHttpConfig {
 
