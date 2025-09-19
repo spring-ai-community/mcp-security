@@ -20,8 +20,6 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.security.oauth2.core.ClaimAccessor;
-import org.springframework.security.oauth2.server.authorization.OAuth2ClientMetadataClaimNames;
-import org.springframework.security.oauth2.server.authorization.OAuth2ClientRegistration;
 
 /**
  * A {@link ClaimAccessor} for the claims that are contained in the OAuth 2.0 Client
