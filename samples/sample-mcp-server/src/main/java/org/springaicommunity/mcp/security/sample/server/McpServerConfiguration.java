@@ -23,7 +23,6 @@ import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -57,7 +56,7 @@ class McpServerConfiguration {
 					.authorizationServer(issuerUrl)
 					// what's my OAuth2 "resource id" (== my URL + /sse or + /mcp)
 					// TODO: maybe auto-detect
-					.resourceIdentifier("http://localhost:8090/sse");
+					.resourcePath("http://localhost:8090/sse");
 			})
 
 			// MCP inspector

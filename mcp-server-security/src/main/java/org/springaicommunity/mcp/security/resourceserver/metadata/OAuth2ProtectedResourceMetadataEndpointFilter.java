@@ -68,10 +68,6 @@ public final class OAuth2ProtectedResourceMetadataEndpointFilter extends OncePer
 		this.protectedResourceMetadataCustomizer = protectedResourceMetadataCustomizer;
 	}
 
-	public String getMetadataEndpointUri() {
-		return this.resourceIdentifier.getId().concat(OAUTH2_PROTECTED_RESOURCE_METADATA_ENDPOINT_URI);
-	}
-
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
@@ -82,7 +78,7 @@ public final class OAuth2ProtectedResourceMetadataEndpointFilter extends OncePer
 		}
 
 		OAuth2ProtectedResourceMetadata.Builder builder = OAuth2ProtectedResourceMetadata.builder()
-			.resource(this.resourceIdentifier.getId());
+			.resource(this.resourceIdentifier.getResource());
 
 		this.protectedResourceMetadataCustomizer.accept(builder);
 

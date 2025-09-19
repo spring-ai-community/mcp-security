@@ -19,12 +19,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.util.UrlUtils;
 import org.springframework.util.Assert;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * @author Joe Grandja
@@ -33,11 +36,11 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 
 	private final AuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
 
-	private final String protectedResourceMetadataEndpointUri;
+	private final ResourceIdentifier resourceIdentifier;
 
-	public BearerResourceMetadataTokenAuthenticationEntryPoint(String protectedResourceMetadataEndpointUri) {
-		Assert.hasText(protectedResourceMetadataEndpointUri, "protectedResourceMetadataEndpointUri cannot be empty");
-		this.protectedResourceMetadataEndpointUri = protectedResourceMetadataEndpointUri;
+	public BearerResourceMetadataTokenAuthenticationEntryPoint(ResourceIdentifier resourceIdentifier) {
+		Assert.notNull(resourceIdentifier, "resourceIdentifier cannot be null");
+		this.resourceIdentifier = resourceIdentifier;
 	}
 
 	@Override
@@ -52,9 +55,17 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 		else {
 			wwwAuthenticateHeader += ", ";
 		}
-		wwwAuthenticateHeader += "resource_metadata=" + this.protectedResourceMetadataEndpointUri;
+		wwwAuthenticateHeader += "resource_metadata=" + buildResourceMetadataPath(request, this.resourceIdentifier);
 
 		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticateHeader);
+	}
+
+	private String buildResourceMetadataPath(HttpServletRequest request, ResourceIdentifier resourceIdentifier) {
+		return UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))
+			.replacePath("/.well-known/oauth-protected-resource" + resourceIdentifier.getPath())
+			.replaceQuery(null)
+			.fragment(null)
+			.toUriString();
 	}
 
 }

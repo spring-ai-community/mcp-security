@@ -15,22 +15,38 @@
  */
 package org.springaicommunity.mcp.security.resourceserver.metadata;
 
+import org.springframework.security.web.util.UrlUtils;
 import org.springframework.util.Assert;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * @author Joe Grandja
  */
 public final class ResourceIdentifier {
 
-	private final String id;
+	private final String path;
 
-	public ResourceIdentifier(String id) {
-		Assert.hasText(id, "id cannot be empty");
-		this.id = id;
+	public ResourceIdentifier(String path) {
+		Assert.hasText(path, "path cannot be empty");
+		this.path = path;
 	}
 
-	public String getId() {
-		return this.id;
+	public String getPath() {
+		return this.path;
+	}
+
+	public String getResource() {
+		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
+			.getRequestAttributes();
+		var request = requestAttributes.getRequest();
+
+		return UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))
+			.replacePath(this.getPath())
+			.replaceQuery(null)
+			.fragment(null)
+			.toUriString();
 	}
 
 }

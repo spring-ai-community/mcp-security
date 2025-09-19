@@ -59,7 +59,7 @@ public class StreamableHttpMcpServerToolsSecured {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
 			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
 				// TODO
-				mcpAuthorization.authorizationServer(issuerUrl).resourceIdentifier("http://localhost:8092/mcp");
+				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("http://localhost:8092/mcp");
 			})
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))

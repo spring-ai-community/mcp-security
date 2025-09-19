@@ -65,7 +65,7 @@ public class StreamableHttpMcpServer {
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
-				mcpAuthorization.authorizationServer(issuerUrl).resourceIdentifier("http://localhost:8092/mcp");
+				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("http://localhost:8092/mcp");
 			})
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))

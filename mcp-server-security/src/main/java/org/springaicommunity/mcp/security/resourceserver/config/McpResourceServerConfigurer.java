@@ -19,16 +19,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
+import org.springaicommunity.mcp.security.resourceserver.jwt.JwtResourceValidator;
 import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadata;
 import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
 import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
 
-import org.springframework.context.ApplicationContext;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -52,7 +51,9 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer = null;
 
-	private ResourceIdentifier resourceIdentifier = null;
+	private ResourceIdentifier resourceIdentifier = new ResourceIdentifier("/mcp");
+
+	private boolean validateAudienceClaim = false;
 
 	public McpResourceServerConfigurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
@@ -74,7 +75,7 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 		return this;
 	}
 
-	public McpResourceServerConfigurer resourceIdentifier(String resourceIdentifier) {
+	public McpResourceServerConfigurer resourcePath(String resourceIdentifier) {
 		this.resourceIdentifier = new ResourceIdentifier(resourceIdentifier);
 		return this;
 	}
@@ -82,6 +83,11 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 	public McpResourceServerConfigurer protectedResourceMetadataCustomizer(
 			Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer) {
 		this.customizer = customizer;
+		return this;
+	}
+
+	public McpResourceServerConfigurer validateAudienceClaim(boolean validateAudienceClaim) {
+		this.validateAudienceClaim = validateAudienceClaim;
 		return this;
 	}
 
@@ -94,7 +100,8 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 				this.resourceIdentifier);
 		protectedResourceMetadataEndpointFilter
 			.setProtectedResourceMetadataCustomizer(getProtectedMetadataCustomizer());
-		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier.getId());
+
+		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
 
 		//@formatter:off
 		http
@@ -107,15 +114,13 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 	}
 
 	private JwtDecoder getJwtDecoder(HttpSecurity http) {
-		if (http.getSharedObject(ApplicationContext.class).getBeanNamesForType(JwtDecoder.class).length == 1) {
-			return http.getSharedObject(ApplicationContext.class).getBean(JwtDecoder.class);
-		}
-
 		var decoder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
-		OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
-			.createDefaultWithValidators(new JwtAudienceValidator(this.resourceIdentifier.getId()));
-		// TODO: add optional audience validator
-		// decoder.setJwtValidator(jwtValidator);
+
+		if (this.validateAudienceClaim) {
+			OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
+				.createDefaultWithValidators(new JwtResourceValidator(this.resourceIdentifier));
+			decoder.setJwtValidator(jwtValidator);
+		}
 
 		return decoder;
 	}
@@ -124,12 +129,9 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 		if (this.customizer != null) {
 			return this.customizer;
 		}
-		return (protectedMetadata) -> {
-			protectedMetadata.authorizationServer(this.issuerUri)
-				.resourceName(this.resourceName)
-				.bearerMethod(this.bearerMethod)
-				.resource(this.resourceIdentifier.getId());
-		};
+		return (protectedMetadata) -> protectedMetadata.authorizationServer(this.issuerUri)
+			.resourceName(this.resourceName)
+			.bearerMethod(this.bearerMethod);
 	}
 
 	public static McpResourceServerConfigurer mcpServerAuthorization() {

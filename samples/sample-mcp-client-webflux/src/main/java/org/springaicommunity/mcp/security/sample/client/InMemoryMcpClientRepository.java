@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -50,7 +50,9 @@ public class InMemoryMcpClientRepository {
 
 	public void addSseClient(String url, String name) {
 		var builder = webClientBuilder.baseUrl(url);
-		var transport = WebClientStreamableHttpTransport.builder(builder).objectMapper(objectMapper).build();
+		var transport = WebClientStreamableHttpTransport.builder(builder)
+			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+			.build();
 
 		var clientInfo = new McpSchema.Implementation("spring-ai-mcp-client - " + name, commonProperties.getVersion());
 

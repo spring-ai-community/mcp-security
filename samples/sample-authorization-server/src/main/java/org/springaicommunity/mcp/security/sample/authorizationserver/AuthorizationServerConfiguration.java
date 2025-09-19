@@ -15,17 +15,29 @@
  */
 package org.springaicommunity.mcp.security.sample.authorizationserver;
 
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
+import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ClientRegistrationEndpointConfigurer;
+import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContext;
+import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
+import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.util.UriComponentsBuilder;
 import static org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer.authorizationServer;
 
 @Configuration
@@ -37,10 +49,17 @@ class AuthorizationServerConfiguration {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(authorizationServer(), authServer -> {
 				authServer.oidc(Customizer.withDefaults());
+				authServer.authorizationServerMetadataEndpoint(
+						authorizationServerMetadataEndpoint -> authorizationServerMetadataEndpoint
+							.authorizationServerMetadataCustomizer(authorizationServerMetadataCustomizer()));
 			})
+			.with(new OAuth2ClientRegistrationEndpointConfigurer(), Customizer.withDefaults())
 			.formLogin(Customizer.withDefaults())
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+			// dgarnier
+			.csrf(csrf -> csrf.ignoringRequestMatchers(
+					OAuth2ClientRegistrationEndpointConfigurer.OAUTH2_CLIENT_REGISTRATION_ENDPOINT_URI))
 			.build();
 	}
 
@@ -54,6 +73,27 @@ class AuthorizationServerConfiguration {
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", configuration);
 		return source;
+	}
+
+	private static Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer() {
+		return (builder) -> {
+			AuthorizationServerContext authorizationServerContext = AuthorizationServerContextHolder.getContext();
+			String issuer = authorizationServerContext.getIssuer();
+
+			String clientRegistrationEndpoint = UriComponentsBuilder.fromUriString(issuer)
+				.path(OAuth2ClientRegistrationEndpointConfigurer.OAUTH2_CLIENT_REGISTRATION_ENDPOINT_URI)
+				.build()
+				.toUriString();
+
+			builder.clientRegistrationEndpoint(clientRegistrationEndpoint);
+		};
+	}
+
+	@Bean
+	public OAuth2TokenGenerator<?> tokenGenerator(JWKSource<SecurityContext> jwkSource) {
+		JwtGenerator jwtGenerator = new JwtGenerator(new NimbusJwtEncoder(jwkSource));
+		jwtGenerator.setJwtCustomizer(new ResourceIdentifierAudienceTokenCustomizer());
+		return jwtGenerator;
 	}
 
 }

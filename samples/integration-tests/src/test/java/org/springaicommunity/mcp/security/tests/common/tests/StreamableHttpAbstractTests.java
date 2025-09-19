@@ -96,7 +96,7 @@ public abstract class StreamableHttpAbstractTests {
 	}
 
 	@Test
-	@DisplayName("With authorization_code, when no user is present, cannot initializer")
+	@DisplayName("With authorization_code, when no user is present, cannot initialize")
 	void noUser() throws IOException {
 		ensureAuthServerLogin();
 
