@@ -24,12 +24,13 @@ spring:
                 - "http://127.0.0.1:8081/authorize/oauth2/code/authserver"
                 - "http://localhost:8081/authorize/oauth2/code/authserver"
                 - "http://localhost:6274/oauth/callback" # mcp-inspector
+                - "https://claude.ai/api/mcp/auth_callback"
     user:
       name: user1
       password: password
 
 server:
-  port: 9000
+  port: ${PORT:9000}
   servlet:
     session:
       cookie:

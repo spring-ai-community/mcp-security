@@ -53,7 +53,7 @@ public class HistoricalWeatherService {
 		}
 	}
 
-	@Tool(name = "Temperature history",
+	@Tool(name = "temperature-history",
 			description = "Get 5-year historical temperature data (in Celsius), including daily min and daily max temperatures, for a specific location")
 	public ToolResponse getHistoricalWeatherData(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
