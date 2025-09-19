@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>sample-mcp-server-streamable-http-secured-tools</artifactId>
+    <artifactId>sample-mcp-server-secured-tools</artifactId>
     <name>sample-mcp-server-streamable-http-secured-tools</name>
     <description>Sample MCP Server, only the tool calls are secured</description>
 

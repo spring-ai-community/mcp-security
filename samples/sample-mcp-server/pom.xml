@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>sample-mcp-server-streamable-http</artifactId>
+    <artifactId>sample-mcp-server</artifactId>
     <name>sample-mcp-server-streamable-http</name>
     <description>Sample Streamable HTTP server</description>
 
