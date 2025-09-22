@@ -1,9 +1,11 @@
 package org.springaicommunity.mcp.security.tests.common.tests;
 
+import java.io.IOException;
+import java.util.regex.Pattern;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
-import java.io.IOException;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
@@ -22,6 +24,9 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.json.JsonContent;
+import org.springframework.test.json.JsonContentAssert;
+import org.springframework.web.client.RestClient;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -64,6 +69,29 @@ public abstract class StreamableHttpAbstractTests {
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+	}
+
+	@Test
+	@DisplayName("Can fetch resource metadata")
+	void resourceMetadata() {
+		var restClient = RestClient.builder().defaultStatusHandler(status -> true, (request, response) -> {
+		}).build();
+		var response = restClient.post().uri(mcpServerUrl + "/mcp").retrieve().toBodilessEntity();
+
+		assertThat(response.getStatusCode().value()).isEqualTo(401);
+		var wwwAuthenticate = response.getHeaders().get("www-authenticate").get(0);
+		var pattern = Pattern.compile("^Bearer resource_metadata=(?<metadataUrl>.*)$");
+		assertThat(wwwAuthenticate).matches(pattern);
+
+		var matcher = pattern.matcher(wwwAuthenticate);
+		assertThat(matcher.find()).isTrue();
+		var metadataUrl = matcher.group("metadataUrl");
+		assertThat(metadataUrl).contains(".well-known/oauth-protected-resource");
+
+		var protectedResourceMetadata = restClient.get().uri(metadataUrl).retrieve().body(String.class);
+		new JsonContentAssert(new JsonContent(protectedResourceMetadata))
+			.hasPathSatisfying("$.resource", r -> assertThat(r).isEqualTo(mcpServerUrl + "/mcp"))
+			.hasPathSatisfying("$.authorization_servers[0]", as -> assertThat(as).isEqualTo(authorizationServerUrl));
 	}
 
 	@Test
