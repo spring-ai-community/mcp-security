@@ -33,6 +33,9 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunction {
 
 	private final ServletOAuth2AuthorizedClientExchangeFilterFunction delegate;
