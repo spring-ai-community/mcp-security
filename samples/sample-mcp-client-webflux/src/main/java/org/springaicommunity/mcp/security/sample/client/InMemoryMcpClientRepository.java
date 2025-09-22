@@ -1,20 +1,20 @@
 package org.springaicommunity.mcp.security.sample.client;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -48,7 +48,7 @@ public class InMemoryMcpClientRepository {
 		return new ArrayList<>(this.clients.keySet());
 	}
 
-	public void addSseClient(String url, String name) {
+	public void addClient(String url, String name) {
 		var builder = webClientBuilder.baseUrl(url);
 		var transport = WebClientStreamableHttpTransport.builder(builder)
 			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
@@ -62,26 +62,7 @@ public class InMemoryMcpClientRepository {
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
 			.build();
 
-		try {
-			client.initialize();
-		}
-		catch (RuntimeException e) {
-			// We expect the nested reactive calls to propagate the inner exceptions to
-			// be able to propagate them back up to the Servlet filter chain; they will
-			// be intercepted and trigger OAuth2 authorization flows.
-			if (e.getCause() instanceof ClientAuthorizationRequiredException crae) {
-				throw crae;
-			}
-			throw e;
-		}
 		clients.put(url, client);
-	}
-
-	public void removeSseClient(String url) {
-		var client = clients.remove(url);
-		if (client != null) {
-			client.closeGracefully();
-		}
 	}
 
 }

@@ -65,7 +65,7 @@ class DemoController {
 				</ul>
 				<form action="/mcp/add" method="GET">
 					<input type="text" name="name" placeholder="My MCP server" value="weather data history" />
-					<input type="text" name="url" placeholder="http://localhost:8092" value="http://localhost:8092" />
+					<input type="text" name="url" placeholder="http://localhost:8090" value="http://localhost:8090" />
 					<button type="submit">Add</button>
 				</form>
 				""".formatted(currentWeatherBlock, currentMcpServersBlock);
@@ -75,7 +75,7 @@ class DemoController {
 	@GetMapping("/mcp/add")
 	void addMcpServer(@RequestParam String url, @RequestParam String name, HttpServletResponse response)
 			throws IOException {
-		this.mcpClientRepo.addSseClient(url, name);
+		this.mcpClientRepo.addClient(url, name);
 		response.sendRedirect("/");
 	}
 
