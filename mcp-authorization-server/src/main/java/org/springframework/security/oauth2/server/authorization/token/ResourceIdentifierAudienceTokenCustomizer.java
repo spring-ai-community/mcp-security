@@ -6,8 +6,6 @@ import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationToken;
-import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
-import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
 /**
  * Unconditionally add the resource claim to the access token.
@@ -32,8 +30,9 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 			String authorizationRequestResource = (String) authorizationRequest.getAdditionalParameters()
 				.get(RESOURCE_PARAM_NAME);
 
-			context.getClaims().claim(JwtClaimNames.AUD, authorizationRequestResource);
-
+			if (authorizationRequestResource != null) {
+				context.getClaims().claim(JwtClaimNames.AUD, authorizationRequestResource);
+			}
 		}
 		else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())
 				&& context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)) {

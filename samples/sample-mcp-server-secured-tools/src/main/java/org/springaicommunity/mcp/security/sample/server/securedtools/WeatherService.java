@@ -46,7 +46,7 @@ public class WeatherService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@Tool(name = "Current temperature",
+	@Tool(name = "current-temperature",
 			description = "Get the current temperature (in celsius) for a specific location")
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
