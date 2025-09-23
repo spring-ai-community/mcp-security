@@ -16,12 +16,13 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
+import java.net.URI;
+import java.net.http.HttpRequest;
+
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.net.URI;
-import java.net.http.HttpRequest;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
@@ -38,19 +39,12 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
-	private boolean failOnMissingServletRequest = true;
-
 	private final String clientRegistrationId;
 
 	public OAuth2AuthorizationCodeSyncHttpRequestCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 			String clientRegistrationId) {
 		this.authorizedClientManager = authorizedClientManager;
 		this.clientRegistrationId = clientRegistrationId;
-	}
-
-	public void setFailOnMissingServletRequest(boolean failOnMissingServletRequest) {
-		// TODO: does this make sense?
-		this.failOnMissingServletRequest = failOnMissingServletRequest;
 	}
 
 	@Override

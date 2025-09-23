@@ -34,10 +34,7 @@ class McpConfiguration {
 	McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
 			ClientRegistrationRepository clientRegistrationRepository) {
 		var registrationId = findUniqueClientRegistration(clientRegistrationRepository);
-		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
-				registrationId);
-		requestCustomizer.setFailOnMissingServletRequest(false);
-		return requestCustomizer;
+		return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager, registrationId);
 	}
 
 	@Bean
