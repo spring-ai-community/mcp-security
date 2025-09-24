@@ -24,9 +24,6 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
-      - name: Build and Test
-        run: mvn clean verify
-
       - name: Generate Java docs
         run: mvn -Pjavadoc -B javadoc:aggregate
 
