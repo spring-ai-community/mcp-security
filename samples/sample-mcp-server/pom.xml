@@ -29,7 +29,6 @@
         <dependency>
             <groupId>org.springaicommunity</groupId>
             <artifactId>mcp-server-security</artifactId>
-            <!-- TODO: version property -->
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
