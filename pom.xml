@@ -318,6 +318,13 @@
         </profile>
         <profile>
             <id>release</id>
+
+            <modules>
+                <module>mcp-server-security</module>
+                <module>mcp-client-security</module>
+                <module>mcp-authorization-server</module>
+            </modules>
+
             <build>
                 <plugins>
                     <plugin>
