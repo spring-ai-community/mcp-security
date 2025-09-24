@@ -318,13 +318,6 @@
         </profile>
         <profile>
             <id>release</id>
-
-            <modules>
-                <module>mcp-server-security</module>
-                <module>mcp-client-security</module>
-                <module>mcp-authorization-server</module>
-            </modules>
-
             <build>
                 <plugins>
                     <plugin>
@@ -334,6 +327,9 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
+                            <excludeArtifacts>
+                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webflux,sample-mcp-server-secured-tools,integration-tests
+                            </excludeArtifacts>
                             <!-- <autoPublish>true</autoPublish> -->
                         </configuration>
                     </plugin>
