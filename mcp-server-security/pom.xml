@@ -10,7 +10,11 @@
     </parent>
 
     <artifactId>mcp-server-security</artifactId>
-    <description>Security extras for Spring AI MCP Servers</description>
+    <description>
+        Security extras for Spring AI MCP Servers, including
+        protected resource metadata, and resource identifier
+        validation.
+    </description>
 
     <dependencies>
         <dependency>

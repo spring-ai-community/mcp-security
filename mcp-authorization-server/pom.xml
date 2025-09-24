@@ -10,7 +10,11 @@
     </parent>
 
     <artifactId>mcp-authorization-server</artifactId>
-    <description>Security extras for Spring AI MCP Clients</description>
+    <description>
+        Security extras for Spring Authorization server,
+        to provide support for the MCP authorization spec, including
+        OAuth2 dynamic client registration and resource identifiers.
+    </description>
 
     <dependencies>
         <dependency>
