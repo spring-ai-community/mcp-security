@@ -127,7 +127,7 @@ bearer token:
 @Service
 public class MyToolsService {
 
-    // Note: you can also use Spring Security's @Tool
+    // Note: you can also use Spring AI's @Tool
     @McpTool(name = "greeter", description = "A tool that greets a user, by name")
     @PreAuthorize("isAuthenticated()")
     public String greet(@ToolParam(description = "The name of the user") String name, ToolContext toolContext) {
@@ -271,7 +271,7 @@ That data is passed through
 `McpTransportContext` ([MCP docs](https://modelcontextprotocol.io/sdk/java/mcp-client#adding-context-information)).
 To make that information available, you also need to add an `AuthenticationMcpTransportContextProvider` to your MCP Sync
 Client.
-Tying it all together:
+Tying it all together, taking `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` as an example:
 
 ```java
 
