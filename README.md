@@ -294,11 +294,55 @@ class McpConfiguration {
 }
 ```
 
+### Use with `spring-ai-starter-mcp-client-webflux`
+
+When using `spring-ai-starter-mcp-client-webflux`, the underlying MCP client transport will be based on a Spring
+reactive `WebClient`.
+In that case, you can expose a bean of type `WebClient.Builder`, configured with an MCP implementation of
+`ExchangeFilterFunction`.
+Depending on your [authorization flow](#authorization-flows) of choice, you may use one of the following
+implementations:
+
+- `McpOAuth2AuthorizationCodeExchangeFilterFunction` (preferred)
+- `McpOAuth2ClientCredentialsExchangeFilterFunction` (machine-to-machine)
+- `McpOAuth2HybridExchangeFilterFunction` (last resort)
+
+All these request customizers rely on request and authentication data.
+That data is passed through
+`McpTransportContext` ([MCP docs](https://modelcontextprotocol.io/sdk/java/mcp-client#adding-context-information)).
+To make that information available, you also need to add an `AuthenticationMcpTransportContextProvider` to your MCP Sync
+Client.
+Tying it all together, taking `McpOAuth2AuthorizationCodeExchangeFilterFunction` as an example:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    McpSyncClientCustomizer syncClientCustomizer() {
+        return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+    }
+
+    @Bean
+    WebClient.Builder mcpWebClientBuilder(OAuth2AuthorizedClientManager clientManager) {
+        // The clientRegistration name, "authserver", must match the name in application.properties
+        return WebClient.builder()
+                .filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
+    }
+}
+```
+
 ### Known limitations
 
-TODO
+- Spring WebFlux servers are not supported.
+- Spring AI autoconfiguration initializes the MCP client app start.
+  Most MCP servers want require calls to be authenticated with a token.
 
-- Mention Tool confusion on initialization
+Note:
+
+- Unlike the `mcp-server-security` module, the client implementation supports the SSE transport, both with `HttpClient`
+  and `WebClient`.
 
 ## Authorization Server
 
