@@ -32,11 +32,26 @@ The project enables developers to:
 Provides OAuth 2.0 resource server capabilities for MCP servers.
 This module is compatible with Spring WebMVC-based servers only.
 
+### Add to your project
+
+*Maven*
+
+```xml
+
+<dependency>
+    <groupId>org.springaicommunity</groupId>
+    <artifactId>mcp-server-security</artifactId>
+    <version>0.0.1</version>
+</dependency>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-server-security:0.0.1")
+```
+
 ### Usage
-
-To configure, import the dependency in your project.
-
-// TODO: add import instructions for both maven and gradle
 
 Ensure that MCP server is enabled in your `application.properties`:
 
@@ -57,10 +72,11 @@ In this example, we have set the authz server's issuer URI in the well known Spr
 @EnableWebSecurity
 class McpServerConfiguration {
 
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private String issuerUrl;
+
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl
-    ) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 // Enforce authentication with token on EVERY request
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
@@ -95,14 +111,15 @@ It is also possible to secure the tools only, and not the rest of the MCP Server
 @EnableMethodSecurity // ⚠ enable annotation-driven security
 class McpServerConfiguration {
 
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private String issuerUrl;
+
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl
-    ) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 // Open every request on the server
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()) // ⚠
-                // Configure OAuth2 on the MCP server
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                // ⚠ Configure OAuth2 on the MCP server
                 .with(
                         McpResourceServerConfigurer.mcpServerAuthorization(),
                         (mcpAuthorization) -> {
@@ -169,9 +186,22 @@ This module supports `McpSyncClient`s only.
 
 ### Add to your project
 
-To configure, import the dependency in your project.
+*Maven*
 
-// TODO: add import instructions for both maven and gradle
+```xml
+
+<dependency>
+    <groupId>org.springaicommunity</groupId>
+    <artifactId>mcp-client-security</artifactId>
+    <version>0.0.1</version>
+</dependency>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-client-security:0.0.1")
+```
 
 ### Authorization flows
 
@@ -352,11 +382,25 @@ with the RFCs and features relevant to the MCP authorization spec, such as Dynam
 Indicators.
 It provides a simple configurer for an MCP server.
 
+### Add to your project
+
+*Maven*
+
+```xml
+<dependency>
+    <groupId>org.springaicommunity</groupId>
+    <artifactId>mcp-authorization-server</artifactId>
+    <version>0.0.1</version>
+</dependency>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-authorization-server:0.0.1")
+```
+
 ### Usage
-
-To configure, import the dependency in your project.
-
-// TODO: add import instructions for both maven and gradle
 
 Then configure the authorization server (
 see [reference documentatio](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/getting-started.html#oauth2AuthorizationServer-developing-your-first-application)).
