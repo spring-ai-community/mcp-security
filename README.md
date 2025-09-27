@@ -145,11 +145,19 @@ bearer token:
 public class MyToolsService {
 
     // Note: you can also use Spring AI's @Tool
-    @McpTool(name = "greeter", description = "A tool that greets a user, by name")
     @PreAuthorize("isAuthenticated()")
-    public String greet(@ToolParam(description = "The name of the user") String name, ToolContext toolContext) {
-        return "Hello, " + name + "!";
-
+    @McpTool(name = "greeter", description = "A tool that greets you, in the selected language")
+    public String greet(
+            @ToolParam(description = "The language for the greeting (example: english, french, ...)") String language
+    ) {
+        if (!StringUtils.hasText(language)) {
+            language = "";
+        }
+        return switch (language.toLowerCase()) {
+            case "english" -> "Hello you!";
+            case "french" -> "Salut toi!";
+            default -> "I don't understand language \"%s\". So I'm just going to say Hello!".formatted(language);
+        };
     }
 
 }
@@ -160,12 +168,22 @@ Note that you can also access the current authentication directly from the tool 
 
 ```java
 
-@McpTool(name = "greeter", description = "A tool that greets a user, by name")
+@McpTool(name = "greeter", description = "A tool that greets the user by name, in the selected language")
 @PreAuthorize("isAuthenticated()")
-public String greet(ToolContext toolContext) {
+public String greet(
+        @ToolParam(description = "The language for the greeting (example: english, french, ...)") String language
+) {
+    if (!StringUtils.hasText(language)) {
+        language = "";
+    }
     var authentication = SecurityContextHolder.getContext().getAuthentication();
-    return "Hello, " + authentication.getName() + "!";
-
+    var name = authentication.getName();
+    return switch (language.toLowerCase()) {
+        case "english" -> "Hello, %s!".formatted(name);
+        case "french" -> "Salut %s!".formatted(name);
+        default -> ("I don't understand language \"%s\". " +
+                    "So I'm just going to say Hello %s!").formatted(language, name);
+    };
 }
 ```
 
