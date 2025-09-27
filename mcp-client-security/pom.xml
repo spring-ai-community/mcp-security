@@ -14,6 +14,43 @@
         Security extras for Spring AI MCP Clients, enabling
         OAuth2 authorization flows.
     </description>
+    <name>Spring AI Community - MCP Client Security</name>
+    <url>https://github.com/spring-ai-community/mcp-security</url>
+
+    <scm>
+        <url>https://github.com/spring-ai-community/mcp-security</url>
+        <connection>git://github.com/spring-ai-community/mcp-security.git</connection>
+        <developerConnection>git@github.com/spring-ai-community/mcp-security.git</developerConnection>
+    </scm>
+
+    <organization>
+        <name>Spring AI Community</name>
+        <url>https://github.com/spring-ai-community</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>Apache License</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Daniel Garnier-Moiroux</name>
+            <email>git@garnier.wf</email>
+            <id>kehrlann</id>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>Github Issues</system>
+        <url>https://github.com/spring-ai-community/mcp-security/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>Github Actions</system>
+        <url>https://github.com/spring-ai-community/mcp-security/actions</url>
+    </ciManagement>
 
     <dependencies>
         <dependency>

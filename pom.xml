@@ -31,14 +31,13 @@
         <developerConnection>git@github.com/spring-ai-community/mcp-security.git</developerConnection>
     </scm>
 
-    <name>MCP Java SDK - Security Parent</name>
+    <name>Spring AI Community - MCP-Security parent</name>
     <description>This module enables developers to integrate Security and Authorization into their Spring AI MCP client
         and server projects
     </description>
 
-
     <organization>
-        <name>Spring AI Communnity</name>
+        <name>Spring AI Community</name>
         <url>https://github.com/spring-ai-community</url>
     </organization>
 
@@ -54,9 +53,6 @@
             <name>Daniel Garnier-Moiroux</name>
             <email>git@garnier.wf</email>
             <id>kehrlann</id>
-        </developer>
-        <developer>
-            <name>Joe Grandja</name>
         </developer>
     </developers>
 
