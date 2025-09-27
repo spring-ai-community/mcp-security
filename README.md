@@ -346,7 +346,88 @@ Note:
 
 ## Authorization Server
 
-TODO
+Enhances Spring
+Security's [OAuth 2.0 Authorization Server support](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/index.html)
+with the RFCs and features relevant to the MCP authorization spec, such as Dynamic Client Registration and Resource
+Indicators.
+It provides a simple configurer for an MCP server.
+
+### Usage
+
+To configure, import the dependency in your project.
+
+// TODO: add import instructions for both maven and gradle
+
+Then configure the authorization server (
+see [reference documentatio](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/getting-started.html#oauth2AuthorizationServer-developing-your-first-application)).
+Here is an example `application.yml` for registering a default client:
+
+```yaml
+spring:
+  application:
+    name: sample-authorization-server
+  security:
+    oauth2:
+      authorizationserver:
+        client:
+          default-client:
+            token:
+              access-token-time-to-live: 1h
+            registration:
+              client-id: "default-client"
+              client-secret: "{noop}default-secret"
+              client-authentication-methods:
+                - "client_secret_basic"
+                - "none"
+              authorization-grant-types:
+                - "authorization_code"
+                - "client_credentials"
+              redirect-uris:
+                - "http://127.0.0.1:8080/authorize/oauth2/code/authserver"
+                - "http://localhost:8080/authorize/oauth2/code/authserver"
+                # mcp-inspector
+                - "http://localhost:6274/oauth/callback"
+                # claude code
+                - "https://claude.ai/api/mcp/auth_callback"
+    user:
+      # A single user, named "user"
+      name: user
+      password: password
+
+server:
+  servlet:
+    session:
+      cookie:
+        # Override the default cookie name (JSESSIONID).
+        # This allows running multiple Spring apps on localhost, and they'll each have their own cookie.
+        # Otherwise, since the cookies do not take the port into account, they are confused.
+        name: MCP_AUTHORIZATION_SERVER_SESSIONID
+```
+
+This is only an example, and you'll likely want to write your own configuration.
+With this configuration, there will be a single user registered (username: `user`, password: `password`).
+There will also be a single OAuth2 Client (`default-client-id` / `default-client-secret`).
+You can then activate all the authorization server capabilities with the usual Spring Security APIs,
+the security filter chain:
+
+```java
+@Bean
+SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    return http
+            // all requests must be authenticated
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            // enable authorization server customizations
+            .with(mcpAuthorizationServer(), withDefaults())
+            // enable form-based login, for user "user"/"password"
+            .formLogin(withDefaults())
+            .build();
+}
+```
+
+### Known limitations
+
+- Spring WebFlux servers are not supported.
+- Every client supports ALL `resource` identifiers.
 
 ## Samples
 
