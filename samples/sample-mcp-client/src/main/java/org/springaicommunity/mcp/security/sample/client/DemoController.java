@@ -16,9 +16,10 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.stream.Collectors;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;

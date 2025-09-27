@@ -16,11 +16,15 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
+import java.util.List;
+
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
+import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
