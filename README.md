@@ -12,6 +12,8 @@ Security and Authorization support for Model Context Protocol in Spring AI.
 - [MCP Client Security](#mcp-client-security)
 - [Authorization Server](#authorization-server)
 - [Samples](#samples)
+- [Integrations](#integrations) (Cursor, Claude Desktop, ...)
+- [License](#license)
 
 ## Overview
 
