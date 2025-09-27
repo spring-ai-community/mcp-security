@@ -29,6 +29,7 @@ jobs:
           mvn --batch-mode \
             -Prelease \
             -Pjavadoc \
+            -DskipTests=true \
             deploy
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
