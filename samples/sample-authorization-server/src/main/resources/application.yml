@@ -26,7 +26,7 @@ spring:
                 - "http://localhost:6274/oauth/callback" # mcp-inspector
                 - "https://claude.ai/api/mcp/auth_callback"
     user:
-      name: user1
+      name: user
       password: password
 
 server:
