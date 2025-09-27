@@ -56,11 +56,12 @@ public class StreamableHttpMcpServerToolsSecured {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
-		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
-				// TODO
-				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
-			})
+		return http.authorizeHttpRequests(auth -> {
+			auth.requestMatchers("/mcp").permitAll();
+			auth.anyRequest().denyAll();
+		}).with(mcpServerAuthorization(), (mcpAuthorization) -> {
+			mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
+		})
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))
 			.csrf(CsrfConfigurer::disable)

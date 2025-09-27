@@ -92,7 +92,7 @@ class DemoController {
 	@GetMapping("/mcp/add")
 	void addMcpServer(@RequestParam String url, @RequestParam String name, HttpServletResponse response)
 			throws IOException {
-		this.mcpClientRepo.addSseClient(url, name);
+		this.mcpClientRepo.addClient(url, name);
 		response.sendRedirect("/");
 	}
 

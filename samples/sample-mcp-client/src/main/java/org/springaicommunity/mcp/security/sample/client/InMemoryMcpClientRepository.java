@@ -66,7 +66,7 @@ public class InMemoryMcpClientRepository {
 		return new ArrayList<>(this.clients.keySet());
 	}
 
-	public void addSseClient(String url, String name) {
+	public void addClient(String url, String name) {
 		var transport = HttpClientStreamableHttpTransport.builder(url)
 			.clientBuilder(HttpClient.newBuilder())
 			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
@@ -82,13 +82,6 @@ public class InMemoryMcpClientRepository {
 			.build();
 
 		clients.put(url, client);
-	}
-
-	public void removeSseClient(String url) {
-		var client = clients.remove(url);
-		if (client != null) {
-			client.closeGracefully();
-		}
 	}
 
 }
