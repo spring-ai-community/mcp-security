@@ -411,6 +411,7 @@ You can then activate all the authorization server capabilities with the usual S
 the security filter chain:
 
 ```java
+
 @Bean
 SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     return http
@@ -431,16 +432,23 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
 ## Samples
 
-TODO
+The `samples` directory contains samples for these libraries.
+A [README.md](https://github.com/spring-ai-community/mcp-security/tree/main/samples) contains instructions for running
+those samples.
 
-- Mention running the samples
-- Mention integration tests
+A special directory is `samples/integration-tests`, which contains integration tests for all the submodules in this
+project.
+
+## Integrations
+
+This is a work-in-progress, but with `mcp-server-security`, and a supporting `mcp-authorization-server`, you should be
+able to integrate with Cursor, Claude Code, and the MCP inspector.
+
+Note: if you use the MCP Inspector you may need to turn off CSRF and CORS protection.
 
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-TODO: do a pass on all code samples
 
 ---
 
