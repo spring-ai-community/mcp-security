@@ -31,7 +31,8 @@ The project enables developers to:
 
 ## MCP Server Security
 
-Provides OAuth 2.0 resource server capabilities for MCP servers.
+Provides OAuth 2.0 resource server capabilities
+for [Spring AI's MCP servers](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html).
 This module is compatible with Spring WebMVC-based servers only.
 
 ### Add to your project
@@ -205,7 +206,9 @@ public String greet(
 
 ## MCP Client Security
 
-Provides OAuth 2 support for MCP clients, with both HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
+Provides OAuth 2 support
+for [Spring AI's MCP clients](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html),
+with both HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
 WebClient-based clients (from `spring-ai-starter-mcp-client-webflux`).
 This module supports `McpSyncClient`s only.
 
