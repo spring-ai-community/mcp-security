@@ -66,7 +66,8 @@ spring.ai.mcp.server.protocol=STREAMABLE
 Then, configure the security for your project in the usual Spring-Security way, adding the provided configurer.
 Create a configuration class, and reference the authorization server's URI.
 In this example, we have set the authz server's issuer URI in the well known Spring property
-`spring.security.oauth2.resourceserver.jwt.issuer-uri`. This property is not a requirement.
+`spring.security.oauth2.resourceserver.jwt.issuer-uri`.
+Using this exact name is not a requirement, and you may use a custom property.
 
 ```java
 
@@ -90,7 +91,7 @@ class McpServerConfiguration {
                             mcpAuthorization.authorizationServer(issuerUrl);
                             // OPTIONAL: enforce the `aud` claim in the JWT token.
                             // Not all authorization servers support resource indicators,
-                            // so it may be absent.
+                            // so it may be absent. Defaults to `false`.
                             // See RFC 8707 Resource Indicators for OAuth 2.0
                             // https://www.rfc-editor.org/rfc/rfc8707.html
                             mcpAuthorization.validateAUdienceClaim(true);
@@ -104,13 +105,14 @@ class McpServerConfiguration {
 ### Special case: only secure tool calls
 
 It is also possible to secure the tools only, and not the rest of the MCP Server. For example, both `initialize` and
-`tools/list` are made public, but `tools/call` is authenticated. To enable this, update the security configuration:
+`tools/list` are made public, but `tools/call` is authenticated.
+To enable this, update the security configuration, turn on method security and requests to `/mcp` are allowed:
 
 ```java
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // ⚠ enable annotation-driven security
+@EnableMethodSecurity // ⬅️ enable annotation-driven security
 class McpServerConfiguration {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
@@ -119,9 +121,12 @@ class McpServerConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // Open every request on the server
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                // ⚠ Configure OAuth2 on the MCP server
+                // ⬇️ Open every request on the server
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatcher("/mcp").permitAll();
+                    auth.anyRequest().authenticated();
+                })
+                // Configure OAuth2 on the MCP server
                 .with(
                         McpResourceServerConfigurer.mcpServerAuthorization(),
                         (mcpAuthorization) -> {
@@ -196,11 +201,11 @@ public String greet(
   or [stateless transport](https://modelcontextprotocol.io/sdk/java/mcp-server#stateless-streamable-http-webmvc). (the
   link for stateless does not work out of the box, reload the page if required)
 - WebFlux-based servers are not supported.
-- Opaque tokens are not supported. Please use JWT.
+- Opaque tokens are not supported. Use JWT.
 
 ## MCP Client Security
 
-Provide OAuth 2 support for MCP clients, with both HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
+Provides OAuth 2 support for MCP clients, with both HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
 WebClient-based clients (from `spring-ai-starter-mcp-client-webflux`).
 This module supports `McpSyncClient`s only.
 
@@ -241,10 +246,10 @@ For our MCP clients, there are three flows available for obtaining tokens:
 🤔 Which flow should I use?
 
 - If there are user-level permission, AND you know every MCP request will be made within the context of a user request
-  (such as: adding tools manually in the GUI), then use the `authorization_code` flow, with either
+  (ensure there are not `tools/list` call no app startup), then use the `authorization_code` flow, with either
   `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` or `McpOAuth2AuthorizationCodeExchangeFilterFunction`.
 - If there are no user-level permissions, and you want to secure "client-to-server" communication with an access token,
-  use the `client_credentials` flow, either with `OAuth2ClientCredentialsSyncHttpRequestCustomizer` or
+  use the `client_credentials` flow, with either `OAuth2ClientCredentialsSyncHttpRequestCustomizer` or
   `McpOAuth2ClientCredentialsExchangeFilterFunction`.
 - If there are user-level permission, AND you configure your MCP clients using Spring Boot properties (such as
   `spring.ai.mcp.client.streamable-http.connections.<server-name>.url=<server-url>`), then, on application startup,
@@ -306,7 +311,7 @@ If you already have a filter chain configured, ensure that `.oauth2Client(...)` 
 
 ### Use with `spring-ai-starter-mcp-client`
 
-When using `spring-ai-starter-mcp-client`, the underlying MCP client transport will be based on the Java SDK's
+When using `spring-ai-starter-mcp-client`, the underlying MCP client transport will be based on the JDK's
 `HttpClient`.
 In that case, you can expose a bean of type `McpSyncHttpClientRequestCustomizer`.
 Depending on your [authorization flow](#authorization-flows) of choice, you may use one of the following
@@ -330,15 +335,22 @@ class McpConfiguration {
 
     @Bean
     McpSyncClientCustomizer syncClientCustomizer() {
-        return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+        return (name, syncSpec) ->
+                syncSpec.transportContextProvider(
+                        new AuthenticationMcpTransportContextProvider()
+                );
     }
 
     @Bean
     McpSyncHttpClientRequestCustomizer requestCustomizer(
-            OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
-            ClientRegistrationRepository clientRegistrationRepository) {
-        // The clientRegistration name, "authserver", must match the name in application.properties
-        return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager, "authserver");
+            OAuth2AuthorizedClientManager clientManager
+    ) {
+        // The clientRegistration name, "authserver",
+        // must match the name in application.properties
+        return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
+                clientManager,
+                "authserver"
+        );
     }
 
 }
@@ -371,23 +383,127 @@ class McpConfiguration {
 
     @Bean
     McpSyncClientCustomizer syncClientCustomizer() {
-        return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+        return (name, syncSpec) ->
+                syncSpec.transportContextProvider(
+                        new AuthenticationMcpTransportContextProvider()
+                );
     }
 
     @Bean
     WebClient.Builder mcpWebClientBuilder(OAuth2AuthorizedClientManager clientManager) {
         // The clientRegistration name, "authserver", must match the name in application.properties
-        return WebClient.builder()
-                .filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
+        return WebClient.builder().filter(
+                new McpOAuth2AuthorizationCodeExchangeFilterFunction(
+                        clientManager,
+                        "authserver"
+                )
+        );
     }
 }
+```
+
+### Work around Spring AI autoconfiguration
+
+Spring AI integrates MCP tools as if they were regular "tools" (e.g. `@Tool` methods).
+As such, they are discovered when application starts up.
+This means that any MCP client that is configured through configuration properties, such
+as `spring.ai.mcp.client.streamable-http.connections.<SERVER-NAME>.url=...` will be initialized.
+In practice, there will be multiple calls issued to the MCP Server (`initialize` followed by `tools/list`).
+The server will require a token for these calls, and, without a user present, this is an issue in the general case.
+There are a few ways around this:
+
+**Disable the @Tool auto-configuration**
+
+You can turn off Spring AI's `@Tool` autoconfiguration altogether.
+This will disable all method and function-based tool calling, and only MCP tools will be available.
+The easiest way to do so is to publish an empty `ToolCallbackResolver` bean:
+
+```java
+
+@Configuration
+public class McpConfiguration {
+
+    @Bean
+    ToolCallbackResolver resolver() {
+        return new StaticToolCallbackResolver(List.of());
+    }
+
+}
+```
+
+**Programmatically configure MCP clients**
+
+You may also forego Spring AI's autoconfiguration altogether, and create the MCP clients programmatically.
+The easiest way is to draw some inspiration on the transport
+auto-configurations ([HttpClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-httpclient/src/main/java/org/springframework/ai/mcp/client/httpclient/autoconfigure/StreamableHttpHttpClientTransportAutoConfiguration.java), [WebClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-webflux/src/main/java/org/springframework/ai/mcp/client/webflux/autoconfigure/StreamableHttpWebFluxTransportAutoConfiguration.java))
+as well as
+the [client auto-configuration](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-common/src/main/java/org/springframework/ai/mcp/client/common/autoconfigure/McpClientAutoConfiguration.java).
+
+All in all, it could look like so:
+
+```java
+// For HttpClient-based clients
+@Bean
+McpSyncClient client(
+        ObjectMapper objectMapper,
+        McpSyncHttpClientRequestCustomizer requestCustomizer,
+        McpClientCommonProperties commonProps
+) {
+    var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+            .clientBuilder(HttpClient.newBuilder())
+            .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+            .httpRequestCustomizer(requestCustomizer)
+            .build();
+
+    var clientInfo = new McpSchema.Implementation("client-name", commonProps.getVersion());
+
+    return McpClient.sync(transport)
+            .clientInfo(clientInfo)
+            .requestTimeout(commonProps.getRequestTimeout())
+            .transportContextProvider(new AuthenticationMcpTransportContextProvider())
+            .build();
+}
+
+//
+// -------------------------
+//
+// For WebClient based clients
+@Bean
+McpSyncClient client(
+        WebClient.Builder mcpWebClientBuilder,
+        ObjectMapper objectMapper,
+        McpClientCommonProperties commonProperties
+) {
+    var builder = mcpWebClientBuilder.baseUrl(mcpServerUrl);
+    var transport = WebClientStreamableHttpTransport.builder(builder)
+            .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+            .build();
+
+    var clientInfo = new McpSchema.Implementation("clientName", commonProperties.getVersion());
+
+    return McpClient.sync(transport)
+            .clientInfo(clientInfo)
+            .requestTimeout(commonProperties.getRequestTimeout())
+            .transportContextProvider(new AuthenticationMcpTransportContextProvider())
+            .build();
+}
+```
+
+You can then add it to the tools available to a chat client:
+
+```java
+var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
+        .toolCallbacks(new SyncMcpToolCallbackProvider(mcpClient1, mcpClient2, mcpClient3))
+        .call()
+        .content();
 ```
 
 ### Known limitations
 
 - Spring WebFlux servers are not supported.
 - Spring AI autoconfiguration initializes the MCP client app start.
-  Most MCP servers want require calls to be authenticated with a token.
+  Most MCP servers want calls to be authenticated with a token, so you
+  need to work around the Spring AI auto-config ([see the workaround above](#work-around-spring-ai-autoconfiguration))
 
 Note:
 
@@ -407,6 +523,7 @@ It provides a simple configurer for an MCP server.
 *Maven*
 
 ```xml
+
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server</artifactId>
