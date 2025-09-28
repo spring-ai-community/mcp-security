@@ -413,7 +413,10 @@ This means that any MCP client that is configured through configuration properti
 as `spring.ai.mcp.client.streamable-http.connections.<SERVER-NAME>.url=...` will be initialized.
 In practice, there will be multiple calls issued to the MCP Server (`initialize` followed by `tools/list`).
 The server will require a token for these calls, and, without a user present, this is an issue in the general case.
-There are a few ways around this:
+
+To avoid this, you first need to ensure that the clients are not initialized on startup.
+You can do so by setting the property `spring.ai.mcp.client.initialized=false`.
+Then, you need to ensure tools are not listed. There are a few ways to avoid this:
 
 **Disable the @Tool auto-configuration**
 
