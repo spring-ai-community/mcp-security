@@ -41,11 +41,21 @@ This module is compatible with Spring WebMVC-based servers only.
 
 ```xml
 
-<dependency>
-    <groupId>org.springaicommunity</groupId>
-    <artifactId>mcp-server-security</artifactId>
-    <version>0.0.1</version>
-</dependency>
+<dependencies>
+
+    <dependency>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-server-security</artifactId>
+        <version>0.0.1</version>
+    </dependency>
+
+    <!-- Also ensure you import the appropriate OAuth2 resource server dependencies -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+</dependencies>
 ```
 
 *Gradle*
