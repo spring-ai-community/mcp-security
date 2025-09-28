@@ -3,9 +3,9 @@ package org.springaicommunity.mcp.security.tests.common.configuration;
 import java.util.List;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.junit.jupiter.api.Order;
-import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
-import org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer;
-import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
+import org.springaicommunity.mcp.security.server.config.McpResourceServerConfigurer;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;

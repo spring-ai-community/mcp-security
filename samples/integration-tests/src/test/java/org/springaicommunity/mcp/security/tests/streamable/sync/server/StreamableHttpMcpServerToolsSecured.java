@@ -14,7 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
-import static org.springaicommunity.mcp.security.resourceserver.config.McpResourceServerConfigurer.mcpServerAuthorization;
+import static org.springaicommunity.mcp.security.server.config.McpResourceServerConfigurer.mcpServerAuthorization;
 
 /**
  * An MCP server where only tool calling is secured with OAuth2, and not connecting or

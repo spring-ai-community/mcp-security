@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.mcp.security.resourceserver.authentication;
+package org.springaicommunity.mcp.security.server.oauth2.authentication;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.AuthenticationException;

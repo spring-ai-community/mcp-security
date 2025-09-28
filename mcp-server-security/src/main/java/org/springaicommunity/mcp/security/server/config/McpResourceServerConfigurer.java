@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.mcp.security.resourceserver.config;
+package org.springaicommunity.mcp.security.server.config;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import org.springaicommunity.mcp.security.resourceserver.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
-import org.springaicommunity.mcp.security.resourceserver.jwt.JwtResourceValidator;
-import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadata;
-import org.springaicommunity.mcp.security.resourceserver.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
-import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
+import org.springaicommunity.mcp.security.server.oauth2.jwt.JwtResourceValidator;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadata;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.resourceserver.jwt;
+package org.springaicommunity.mcp.security.server.oauth2.jwt;
 
 import java.util.Collection;
-import org.springaicommunity.mcp.security.resourceserver.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
