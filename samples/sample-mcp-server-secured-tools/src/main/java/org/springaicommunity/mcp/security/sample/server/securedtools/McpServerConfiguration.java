@@ -45,7 +45,6 @@ class McpServerConfiguration {
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-
 			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
 				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
 			})

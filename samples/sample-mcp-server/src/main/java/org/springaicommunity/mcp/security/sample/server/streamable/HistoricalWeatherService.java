@@ -56,35 +56,46 @@ public class HistoricalWeatherService {
 	@Tool(name = "temperature-history",
 			description = "Get 5-year historical temperature data (in Celsius), including daily min and daily max temperatures, for a specific location")
 	public ToolResponse getHistoricalWeatherData(@ToolParam(description = "The location latitude") double latitude,
-			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
+			@ToolParam(description = "The location longitude") double longitude) {
 
-		HistoricalWeatherApiResponse response = restClient.get()
+		var data = IntStream.range(0, 5)
+			.parallel()
+			.mapToObj(yearDelta -> getWeatherData(latitude, longitude, yearDelta))
+			.flatMap(List::stream)
+			.toList();
+
+		return new ToolResponse(data);
+	}
+
+	/**
+	 * Obtain weather data at the given location, N years ago, for +/- 2 days. For
+	 * example, if today is 2025-09-28, and N years = 2 years, will return weather data
+	 * for 2023-09-26 through 2023-09-30.
+	 */
+	private List<ToolResponse.DailyTemperatures> getWeatherData(double latitude, double longitude, int yearsAgo) {
+		var response = restClient.get()
 			.uri("https://archive-api.open-meteo.com/v1/archive?latitude={latitude}&longitude={longitude}&start_date={start}&end_date={end}&daily=temperature_2m_min,temperature_2m_max",
 			//@formatter:off
 				Map.of(
 						"latitude", latitude,
 						"longitude", longitude,
-						"start", LocalDate.now().minus(Period.ofYears(5)),
-						"end", LocalDate.now()
+						"start", LocalDate.now().minus(Period.ofYears(yearsAgo)).minus(Period.ofDays(2)),
+						"end", yearsAgo == 0 ? LocalDate.now() : LocalDate.now().minus(Period.ofYears(yearsAgo)).plus(Period.ofDays(2))
 				)
 			//@formatter:on
 			)
-
 			.retrieve()
 			.body(HistoricalWeatherApiResponse.class);
 		var entries = response.daily().time().length;
 		//@formatter:off
-		var mapped = IntStream.range(0, entries)
-				.mapToObj(i -> new ToolResponse.DailyTemperatures(
-						response.daily().time()[i].toString(),
-						response.daily().temperature_2m_min()[i],
-						response.daily().temperature_2m_max()[i]
-				))
-				.toList();
-		//@formatter:on
-
-		return new ToolResponse(mapped);
-
+        return IntStream.range(0, entries)
+                .mapToObj(i -> new ToolResponse.DailyTemperatures(
+                        response.daily().time()[i].toString(),
+                        response.daily().temperature_2m_min()[i],
+                        response.daily().temperature_2m_max()[i]
+                ))
+                .toList();
+        //@formatter:on
 	}
 
 }
