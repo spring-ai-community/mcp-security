@@ -47,6 +47,7 @@ class DemoController {
 			var chatResponse = chatClient.prompt("""
 					What is the weather in %s right now?
 					Compare to historical data over the past 5 years.
+					Tell me if it is within the usual range.
 					Format the output in plain HTML, no CSS.""".formatted(query))
 				.toolCallbacks(new SyncMcpToolCallbackProvider(mcpClientRepo.getClients()))
 				.call()
@@ -69,12 +70,17 @@ class DemoController {
 		return """
 				<h1>Demo controller</h1>
 				%s
+
+				<hr>
+
 				<h2>Ask for the weather</h2>
 				<p>In which city would you like to see the weather?</p>
 				<form action="" method="GET">
 				    <input type="text" name="query" value="" placeholder="Paris" />
 				    <button type="submit">Ask the LLM</button>
 				</form>
+
+				<hr>
 
 				<h2>Registered MCP servers:</h2>
 				<ul>
