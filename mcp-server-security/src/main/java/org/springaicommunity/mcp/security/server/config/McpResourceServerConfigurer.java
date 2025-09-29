@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.server.config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.jwt.JwtResourceValidator;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadata;
@@ -35,8 +36,6 @@ import org.springframework.security.web.authentication.preauth.AbstractPreAuthen
 import org.springframework.util.Assert;
 
 /**
- * TODO: dynamic resource id
- *
  * @author Daniel Garnier-Moiroux
  */
 public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResourceServerConfigurer, HttpSecurity> {

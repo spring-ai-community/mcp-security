@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.server.oauth2.jwt;
 
 import java.util.Collection;
+
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;

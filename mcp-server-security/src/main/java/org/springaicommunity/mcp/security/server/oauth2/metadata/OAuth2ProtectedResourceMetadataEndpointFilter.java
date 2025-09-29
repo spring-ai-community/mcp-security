@@ -15,12 +15,13 @@
  */
 package org.springaicommunity.mcp.security.server.oauth2.metadata;
 
+import java.io.IOException;
+import java.util.function.Consumer;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.function.Consumer;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
