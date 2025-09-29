@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>sample-mcp-server</artifactId>
-    <name>sample-mcp-server-streamable-http</name>
+    <name>sample-mcp-server</name>
     <description>Sample Streamable HTTP server</description>
 
     <dependencies>
