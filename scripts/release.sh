@@ -5,6 +5,11 @@ set -euo pipefail
 VERSION="$1"
 NEXT_VERSION="$2"
 
+if git tag | grep "${VERSION}"; then
+  echo "Tag v${VERSION} already exists, bailing out"
+  exit 1
+fi
+
 ./mvnw versions:set -DgenerateBackupPoms=false -DnewVersion="$VERSION"
 # macos sed
 sed -i '' -e "s/<version>.*<\\/version>/<version>${VERSION}<\\/version>/g" README.md
