@@ -14,7 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
-import static org.springaicommunity.mcp.security.server.config.McpResourceServerConfigurer.mcpServerAuthorization;
+import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 
 /**
  * An MCP server where only tool calling is secured with OAuth2, and not connecting or
@@ -59,7 +59,7 @@ public class StreamableHttpMcpServerToolsSecured {
 		return http.authorizeHttpRequests(auth -> {
 			auth.requestMatchers("/mcp").permitAll();
 			auth.anyRequest().denyAll();
-		}).with(mcpServerAuthorization(), (mcpAuthorization) -> {
+		}).with(mcpServerOAuth2(), (mcpAuthorization) -> {
 			mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
 		})
 			// MCP inspector

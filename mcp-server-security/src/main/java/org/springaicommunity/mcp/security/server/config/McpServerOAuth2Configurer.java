@@ -38,7 +38,7 @@ import org.springframework.util.Assert;
 /**
  * @author Daniel Garnier-Moiroux
  */
-public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResourceServerConfigurer, HttpSecurity> {
+public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerOAuth2Configurer, HttpSecurity> {
 
 	private String issuerUri = null;
 
@@ -54,38 +54,38 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 
 	private boolean validateAudienceClaim = false;
 
-	public McpResourceServerConfigurer authorizationServer(String issuerUri) {
+	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
 		return this;
 	}
 
-	public McpResourceServerConfigurer scope(String scope) {
+	public McpServerOAuth2Configurer scope(String scope) {
 		this.scopes.add(scope);
 		return this;
 	}
 
-	public McpResourceServerConfigurer bearerMethod(String bearerMethod) {
+	public McpServerOAuth2Configurer bearerMethod(String bearerMethod) {
 		this.bearerMethod = bearerMethod;
 		return this;
 	}
 
-	public McpResourceServerConfigurer resourceName(String resourceName) {
+	public McpServerOAuth2Configurer resourceName(String resourceName) {
 		this.resourceName = resourceName;
 		return this;
 	}
 
-	public McpResourceServerConfigurer resourcePath(String resourceIdentifier) {
+	public McpServerOAuth2Configurer resourcePath(String resourceIdentifier) {
 		this.resourceIdentifier = new ResourceIdentifier(resourceIdentifier);
 		return this;
 	}
 
-	public McpResourceServerConfigurer protectedResourceMetadataCustomizer(
+	public McpServerOAuth2Configurer protectedResourceMetadataCustomizer(
 			Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer) {
 		this.customizer = customizer;
 		return this;
 	}
 
-	public McpResourceServerConfigurer validateAudienceClaim(boolean validateAudienceClaim) {
+	public McpServerOAuth2Configurer validateAudienceClaim(boolean validateAudienceClaim) {
 		this.validateAudienceClaim = validateAudienceClaim;
 		return this;
 	}
@@ -133,8 +133,8 @@ public class McpResourceServerConfigurer extends AbstractHttpConfigurer<McpResou
 			.bearerMethod(this.bearerMethod);
 	}
 
-	public static McpResourceServerConfigurer mcpServerAuthorization() {
-		return new McpResourceServerConfigurer();
+	public static McpServerOAuth2Configurer mcpServerOAuth2() {
+		return new McpServerOAuth2Configurer();
 	}
 
 }

@@ -30,7 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import static org.springaicommunity.mcp.security.server.config.McpResourceServerConfigurer.mcpServerAuthorization;
+import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 
 @Configuration
 @EnableMethodSecurity
@@ -45,7 +45,7 @@ class McpServerConfiguration {
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-			.with(mcpServerAuthorization(), (mcpAuthorization) -> {
+			.with(mcpServerOAuth2(), (mcpAuthorization) -> {
 				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
 			})
 			// MCP inspector

@@ -4,7 +4,7 @@ import java.util.List;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.junit.jupiter.api.Order;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
-import org.springaicommunity.mcp.security.server.config.McpResourceServerConfigurer;
+import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
@@ -43,7 +43,7 @@ public class McpServerConfiguration {
 				.entries(springBootStarter("web"), springBootStarter("oauth2-resource-server"),
 						springAiStarter("mcp-server-webmvc"))
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
-				.classes(McpResourceServerConfigurer.class)
+				.classes(McpServerOAuth2Configurer.class)
 				.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 				.classes(AllowAllCorsConfigurationSource.class)
 				.scan(ResourceIdentifier.class));
