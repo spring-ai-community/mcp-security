@@ -50,11 +50,11 @@ public class WeatherService {
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude) {
 
-        return restClient.get()
-            .uri("https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m",
-                    latitude, longitude)
-            .retrieve()
-            .body(WeatherResponse.class);
+		return restClient.get()
+			.uri("https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m",
+					latitude, longitude)
+			.retrieve()
+			.body(WeatherResponse.class);
 
 	}
 
