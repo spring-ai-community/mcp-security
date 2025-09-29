@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>sample-mcp-server</artifactId>
+    <artifactId>sample-mcp-server-api-key</artifactId>
     <name>sample-mcp-server-api-key</name>
     <description>Sample Streamable HTTP server, with API Key</description>
 

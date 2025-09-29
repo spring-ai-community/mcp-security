@@ -20,6 +20,7 @@
         <module>samples/sample-authorization-server</module>
         <module>samples/sample-mcp-server</module>
         <module>samples/sample-mcp-server-secured-tools</module>
+        <module>samples/sample-mcp-server-api-key</module>
         <module>samples/sample-mcp-client</module>
         <module>samples/sample-mcp-client-webflux</module>
         <module>samples/integration-tests</module>
@@ -324,7 +325,7 @@
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <excludeArtifacts>
-                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webflux,sample-mcp-server-secured-tools,integration-tests
+                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webflux,sample-mcp-server-secured-tools,sample-mcp-server-api-key,integration-tests
                             </excludeArtifacts>
                              <autoPublish>true</autoPublish>
                         </configuration>
