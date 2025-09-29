@@ -33,6 +33,7 @@ The project enables developers to:
 
 Provides OAuth 2.0 resource server capabilities
 for [Spring AI's MCP servers](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html).
+It also provides basic support for API-key based servers.
 This module is compatible with Spring WebMVC-based servers only.
 
 ### Add to your project
@@ -48,8 +49,13 @@ This module is compatible with Spring WebMVC-based servers only.
         <artifactId>mcp-server-security</artifactId>
         <version>0.0.1</version>
     </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
 
-    <!-- Also ensure you import the appropriate OAuth2 resource server dependencies -->
+    <!-- OPTIONAL -->
+    <!-- If you would like to use OAuth2, ensure you import the Resource Server dependencies -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
@@ -62,9 +68,14 @@ This module is compatible with Spring WebMVC-based servers only.
 
 ```groovy
 implementation("org.springaicommunity:mcp-server-security:0.0.1")
+implementation("org.springframework.boot:spring-boot-starter-security")
+
+// OPTIONAL
+// If you would like to use OAuth2, ensure you import the Resource Server dependencies
+implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 ```
 
-### Usage
+### Usage: OAuth2
 
 Ensure that MCP server is enabled in your `application.properties`:
 
@@ -113,7 +124,7 @@ class McpServerConfiguration {
 }
 ```
 
-### Special case: only secure tool calls
+### Special case: only secure tool calls with OAuth2
 
 It is also possible to secure the tools only, and not the rest of the MCP Server. For example, both `initialize` and
 `tools/list` are made public, but `tools/call` is authenticated.
@@ -204,6 +215,84 @@ public String greet(
     };
 }
 ```
+
+### Usage: API keys
+
+Ensure that MCP server is enabled in your `application.properties`:
+
+```properties
+spring.ai.mcp.server.name=my-cool-mcp-server
+# Supported protocols: STREAMABLE, STATELESS
+spring.ai.mcp.server.protocol=STREAMABLE
+```
+
+For this, you'll need to provide your own implementation of `ApiKeyEntityRepository`, for storing `ApiKeyEntity`
+objects.
+These represent the "entities" which have API keys.
+Each entry has an ID, a secret for storing API keys in a secure way (e.g. bcrypt, argon2, ...), as well as a name used
+for display purposes.
+A sample implementation is available with an `InMemoryApiKeyEntityRepository` along with a default `ApiKeyEntityImpl`.
+You can bring your own entity implementation with the in-memory repository.
+
+> ⚠️ The `InMemoryApiKeyEntityRepository` uses on bcrypt for storing the API keys, and, as such, will be computationally
+> expensive. It is not suited for high-traffic production use. In that case, you must ship your own
+> `ApiKeyEntityRepository`  implementation.
+
+With that, you can configure the security for your project in the usual Spring-Security way:
+
+```java
+
+@Configuration
+@EnableWebSecurity
+class McpServerConfiguration {
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+                .with(
+                        mcpServerApiKey(),
+                        (apiKey) -> {
+                            // REQUIRED: the repo for API keys
+                            apiKey.apiKeyRepository(buildApiKeyRepository());
+
+                            // OPTIONAL: name of the header containing the API key.
+                            // Here for example, api keys will be sent with "CUSTOM-API-KEY: <value>"
+                            // Replaces .authenticationConverter(...) (see below)
+                            apiKey.headerName("CUSTOM-API-KEY");
+
+                            // OPTIONAL: custom converter for transforming an http request
+                            // into an authentication object. Useful when the header is
+                            // "Authorization: Bearer <value>".
+                            // Replaces .headerName(...) (see above)
+                            apiKey.authenticationConverter(request -> {
+                                var key = extractKey(request);
+                                return ApiKeyAuthenticationToken.unauthenticated(key);
+                            });
+                        }
+                )
+                .build();
+    }
+
+    /**
+     * Provide a repository of {@link ApiKeyEntity}.
+     */
+    private ApiKeyEntityRepository<ApiKeyEntityImpl> apiKeyRepository() {
+        //@formatter:off
+        var apiKey = ApiKeyEntityImpl.builder()
+                .name("test api key")
+                .id("api01")
+                // "mycustomapikey
+                .secret("mycustomapikey")
+                .build();
+        //@formatter:on
+
+        return new InMemoryApiKeyEntityRepository<>(List.of(apiKey));
+    }
+
+}
+```
+
+Then you should be able to call your MCP server with `X-API-key: api01.mycustomapikey`.
 
 ### Known limitations
 
