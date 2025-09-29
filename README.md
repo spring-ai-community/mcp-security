@@ -5,6 +5,8 @@
 
 Security and Authorization support for Model Context Protocol in Spring AI.
 
+> ⚠️ This project only works Spring AI's 1.1.x branch.
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -258,16 +260,18 @@ class McpServerConfiguration {
                             // OPTIONAL: name of the header containing the API key.
                             // Here for example, api keys will be sent with "CUSTOM-API-KEY: <value>"
                             // Replaces .authenticationConverter(...) (see below)
-                            apiKey.headerName("CUSTOM-API-KEY");
+                            //
+                            // apiKey.headerName("CUSTOM-API-KEY");
 
                             // OPTIONAL: custom converter for transforming an http request
                             // into an authentication object. Useful when the header is
                             // "Authorization: Bearer <value>".
                             // Replaces .headerName(...) (see above)
-                            apiKey.authenticationConverter(request -> {
-                                var key = extractKey(request);
-                                return ApiKeyAuthenticationToken.unauthenticated(key);
-                            });
+                            //
+                            // apiKey.authenticationConverter(request -> {
+                            //     var key = extractKey(request);
+                            //     return ApiKeyAuthenticationToken.unauthenticated(key);
+                            // });
                         }
                 )
                 .build();
@@ -292,7 +296,7 @@ class McpServerConfiguration {
 }
 ```
 
-Then you should be able to call your MCP server with `X-API-key: api01.mycustomapikey`.
+Then you should be able to call your MCP server with a header `X-API-key: api01.mycustomapikey`.
 
 ### Known limitations
 
