@@ -39,7 +39,7 @@ public class McpServerApiKeyConfiguration {
 	}
 
 	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-SNAPSHOT",
+		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-M2",
 				List.of(newCentralRepository(), newSpringMilestoneRepository(), newSpringSnapshotRepository()));
 	}
 
