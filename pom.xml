@@ -326,7 +326,7 @@
                             <excludeArtifacts>
                                 mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webflux,sample-mcp-server-secured-tools,integration-tests
                             </excludeArtifacts>
-                            <!-- <autoPublish>true</autoPublish> -->
+                             <autoPublish>true</autoPublish>
                         </configuration>
                     </plugin>
                     <plugin>
