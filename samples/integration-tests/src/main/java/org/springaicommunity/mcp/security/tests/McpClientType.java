@@ -16,6 +16,9 @@
 
 package org.springaicommunity.mcp.security.tests;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 enum McpClientType {
 
 	STREAMABLE_HTTP_CLIENT, STREAMABLE_WEBCLIENT,

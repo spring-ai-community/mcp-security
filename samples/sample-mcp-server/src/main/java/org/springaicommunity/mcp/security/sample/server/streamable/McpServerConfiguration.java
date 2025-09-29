@@ -31,6 +31,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 @Configuration
 class McpServerConfiguration {
 

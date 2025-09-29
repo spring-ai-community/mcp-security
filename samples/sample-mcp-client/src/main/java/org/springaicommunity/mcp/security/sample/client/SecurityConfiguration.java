@@ -24,6 +24,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 @Configuration
 @EnableWebSecurity
 class SecurityConfiguration {

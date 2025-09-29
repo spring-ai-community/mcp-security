@@ -29,6 +29,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
 import static org.springframework.security.config.Customizer.withDefaults;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 @Configuration
 @EnableWebSecurity
 class AuthorizationServerConfiguration {

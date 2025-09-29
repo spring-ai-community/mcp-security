@@ -33,6 +33,9 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.web.reactive.function.client.WebClient;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 @Configuration
 class McpConfiguration {
 

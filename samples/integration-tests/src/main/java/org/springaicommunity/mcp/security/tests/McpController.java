@@ -21,6 +21,9 @@ import io.modelcontextprotocol.spec.McpSchema;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 @RestController
 public class McpController {
 
