@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-class McpController {
+public class McpController {
 
 	private final InMemoryMcpClientRepository repository;
 
