@@ -109,7 +109,7 @@ class McpServerConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 // Configure OAuth2 on the MCP server
                 .with(
-                        McpResourceServerConfigurer.mcpServerOAuth2(),
+                        McpServerOAuth2Configurer.mcpServerOAuth2(),
                         (mcpAuthorization) -> {
                             // REQUIRED: the issuerURI
                             mcpAuthorization.authorizationServer(issuerUrl);
@@ -351,7 +351,7 @@ For our MCP clients, there are three flows available for obtaining tokens:
 🤔 Which flow should I use?
 
 - If there are user-level permission, AND you know every MCP request will be made within the context of a user request
-  (ensure there are not `tools/list` call no app startup), then use the `authorization_code` flow, with either
+  (ensure there are no `tools/list` calls on app startup), then use the `authorization_code` flow, with either
   `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` or `McpOAuth2AuthorizationCodeExchangeFilterFunction`.
 - If there are no user-level permissions, and you want to secure "client-to-server" communication with an access token,
   use the `client_credentials` flow, with either `OAuth2ClientCredentialsSyncHttpRequestCustomizer` or
@@ -363,7 +363,7 @@ For our MCP clients, there are three flows available for obtaining tokens:
 
 ### Setup for all use-cases
 
-In very case, you need to activate Spring Security's OAuth2 client support.
+In every case, you need to activate Spring Security's OAuth2 client support.
 Add the following properties to your `application.properties` file.
 Depending on the flow you chose (see above), you may need one or both client registrations:
 
