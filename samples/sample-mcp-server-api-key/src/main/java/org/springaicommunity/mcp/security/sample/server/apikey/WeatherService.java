@@ -18,7 +18,8 @@ package org.springaicommunity.mcp.security.sample.server.apikey;
 
 import java.time.LocalDateTime;
 
-import org.springframework.ai.tool.annotation.Tool;
+import org.springaicommunity.mcp.annotation.McpTool;
+
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,7 @@ public class WeatherService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@Tool(name = "current-temperature",
+	@McpTool(name = "current-temperature",
 			description = "Get the current temperature (in celsius) for a specific location")
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude) {

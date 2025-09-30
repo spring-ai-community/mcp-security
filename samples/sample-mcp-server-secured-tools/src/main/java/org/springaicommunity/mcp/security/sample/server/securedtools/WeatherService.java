@@ -18,8 +18,8 @@ package org.springaicommunity.mcp.security.sample.server.securedtools;
 
 import java.time.LocalDateTime;
 
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import org.springaicommunity.mcp.annotation.McpTool;
+
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -46,18 +46,15 @@ public class WeatherService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@Tool(name = "current-temperature",
+	@McpTool(name = "current-temperature",
 			description = "Get the current temperature (in celsius) for a specific location")
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,
-			@ToolParam(description = "The location longitude") double longitude, ToolContext toolContext) {
-
-		WeatherResponse weatherResponse = restClient.get()
+			@ToolParam(description = "The location longitude") double longitude) {
+		return restClient.get()
 			.uri("https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m",
 					latitude, longitude)
 			.retrieve()
 			.body(WeatherResponse.class);
-
-		return weatherResponse;
 
 	}
 

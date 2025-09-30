@@ -18,8 +18,6 @@ package org.springaicommunity.mcp.security.sample.server.securedtools;
 
 import java.util.List;
 
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,11 +36,6 @@ import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Co
 @Configuration
 @EnableMethodSecurity
 class McpServerConfiguration {
-
-	@Bean
-	ToolCallbackProvider toolCallbackProvider(WeatherService weatherService) {
-		return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
-	}
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,

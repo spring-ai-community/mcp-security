@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import org.springaicommunity.mcp.annotation.McpTool;
+
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -53,7 +53,7 @@ public class HistoricalWeatherService {
 		}
 	}
 
-	@Tool(name = "temperature-history",
+	@McpTool(name = "temperature-history",
 			description = "Get 5-year historical temperature data (in Celsius), including daily min and daily max temperatures, for a specific location")
 	public ToolResponse getHistoricalWeatherData(@ToolParam(description = "The location latitude") double latitude,
 			@ToolParam(description = "The location longitude") double longitude) {

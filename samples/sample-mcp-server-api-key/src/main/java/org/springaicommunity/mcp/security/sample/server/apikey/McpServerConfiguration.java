@@ -22,9 +22,8 @@ import org.jspecify.annotations.NonNull;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.memory.ApiKeyEntityImpl;
 import org.springaicommunity.mcp.security.server.apikey.memory.InMemoryApiKeyEntityRepository;
+import org.springaicommunity.mcp.security.server.config.McpApiKeyConfigurer;
 
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -33,7 +32,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import static org.springaicommunity.mcp.security.server.config.McpApiKeyConfigurer.mcpServerApiKey;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -43,14 +41,9 @@ import static org.springaicommunity.mcp.security.server.config.McpApiKeyConfigur
 class McpServerConfiguration {
 
 	@Bean
-	ToolCallbackProvider toolCallbackProvider(WeatherService weatherService) {
-		return MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
-	}
-
-	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
-			.with(mcpServerApiKey(), (apiKey) -> apiKey.apiKeyRepository(buildApiKeyRepository()))
+			.with(McpApiKeyConfigurer.mcpServerApiKey(), (apiKey) -> apiKey.apiKeyRepository(buildApiKeyRepository()))
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			.build();
 	}
