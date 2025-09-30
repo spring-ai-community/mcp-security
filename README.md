@@ -118,7 +118,7 @@ class McpServerConfiguration {
                             // so it may be absent. Defaults to `false`.
                             // See RFC 8707 Resource Indicators for OAuth 2.0
                             // https://www.rfc-editor.org/rfc/rfc8707.html
-                            mcpAuthorization.validateAUdienceClaim(true);
+                            mcpAuthorization.validateAudienceClaim(true);
                         }
                 )
                 .build();
@@ -255,7 +255,7 @@ class McpServerConfiguration {
                         mcpServerApiKey(),
                         (apiKey) -> {
                             // REQUIRED: the repo for API keys
-                            apiKey.apiKeyRepository(buildApiKeyRepository());
+                            apiKey.apiKeyRepository(apiKeyRepository());
 
                             // OPTIONAL: name of the header containing the API key.
                             // Here for example, api keys will be sent with "CUSTOM-API-KEY: <value>"
@@ -285,7 +285,6 @@ class McpServerConfiguration {
         var apiKey = ApiKeyEntityImpl.builder()
                 .name("test api key")
                 .id("api01")
-                // "mycustomapikey
                 .secret("mycustomapikey")
                 .build();
         //@formatter:on
@@ -708,7 +707,7 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
             // all requests must be authenticated
             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
             // enable authorization server customizations
-            .with(mcpAuthorizationServer(), withDefaults())
+            .with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), withDefaults())
             // enable form-based login, for user "user"/"password"
             .formLogin(withDefaults())
             .build();
