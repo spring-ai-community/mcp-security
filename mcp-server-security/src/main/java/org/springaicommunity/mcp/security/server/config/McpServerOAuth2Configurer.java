@@ -54,6 +54,8 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	private boolean validateAudienceClaim = false;
 
+	private Consumer<NimbusJwtDecoder.JwkSetUriJwtDecoderBuilder> jwtDecoderCustomizer = null;
+
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
 		return this;
@@ -90,6 +92,11 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return this;
 	}
 
+	public McpServerOAuth2Configurer jwtDecoderCustomizer(Consumer<NimbusJwtDecoder.JwkSetUriJwtDecoderBuilder> jwtDecoderCustomizer) {
+		this.jwtDecoderCustomizer = jwtDecoderCustomizer;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) throws Exception {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
@@ -113,7 +120,12 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	private JwtDecoder getJwtDecoder(HttpSecurity http) {
-		var decoder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
+		var builder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri);
+		if (this.jwtDecoderCustomizer != null) {
+			this.jwtDecoderCustomizer.accept(builder);
+		}
+
+		var decoder = builder.build();
 
 		if (this.validateAudienceClaim) {
 			OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
