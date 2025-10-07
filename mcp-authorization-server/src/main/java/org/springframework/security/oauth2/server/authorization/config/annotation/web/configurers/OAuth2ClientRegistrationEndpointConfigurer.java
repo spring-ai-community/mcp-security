@@ -82,8 +82,9 @@ public final class OAuth2ClientRegistrationEndpointConfigurer
 						clientRegistration.getClaims().get(RESOURCE_IDS_KEY));
 			}
 			return RegisteredClient.from(registeredClient)
-				// dgarnier
 				.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+				// claude code does client_secret_post + PKCE
+				.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
 				.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
 				.clientSettings(clientSettingsBuilder.build())
 				.build();
