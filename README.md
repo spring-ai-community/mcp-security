@@ -147,12 +147,12 @@ class McpServerConfiguration {
         return http
                 // ⬇️ Open every request on the server
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatcher("/mcp").permitAll();
+                    auth.requestMatchers("/mcp").permitAll();
                     auth.anyRequest().authenticated();
                 })
                 // Configure OAuth2 on the MCP server
                 .with(
-                        McpResourceServerConfigurer.mcpServerOAuth2(),
+                        McpServerOAuth2Configurer.mcpServerOAuth2(),
                         (mcpAuthorization) -> {
                             // REQUIRED: the issuerURI
                             mcpAuthorization.authorizationServer(issuerUrl);
