@@ -102,7 +102,7 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	 * Defaults to a no-op {@link Customizer#withDefaults()}.
 	 * @return The {@link McpServerOAuth2Configurer} for further configuration.
 	 */
-	private McpServerOAuth2Configurer oauth2ResourceServer(
+	public McpServerOAuth2Configurer oauth2ResourceServer(
 			Customizer<OAuth2ResourceServerConfigurer<HttpSecurity>> oauth2ResourceServerCustomizer) {
 		Assert.notNull(oauth2ResourceServerCustomizer, "oauth2ResourceServerCustomizer cannot be null");
 		this.oauth2ResourceServerCustomizer = oauth2ResourceServerCustomizer;
