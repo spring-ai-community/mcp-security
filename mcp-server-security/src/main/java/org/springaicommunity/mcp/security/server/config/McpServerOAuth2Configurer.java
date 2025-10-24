@@ -54,6 +54,8 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	private boolean validateAudienceClaim = false;
 
+	private NimbusJwtDecoder decoder = null;
+
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
 		return this;
@@ -90,6 +92,11 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return this;
 	}
 
+	public McpServerOAuth2Configurer jwtDecoder(NimbusJwtDecoder decoder) {
+		this.decoder = decoder;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) throws Exception {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
@@ -101,19 +108,22 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 			.setProtectedResourceMetadataCustomizer(getProtectedMetadataCustomizer());
 
 		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
+		var jwtDecoder = buildJwtDecoder();
 
 		//@formatter:off
 		http
 				.oauth2ResourceServer(resourceServer -> {
-					resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
+					resourceServer.jwt(jwt -> jwt.decoder(jwtDecoder));
 					resourceServer.authenticationEntryPoint(entryPoint);
 				})
 				.addFilterBefore(protectedResourceMetadataEndpointFilter, AbstractPreAuthenticatedProcessingFilter.class);
 		//@formatter:on
 	}
 
-	private JwtDecoder getJwtDecoder(HttpSecurity http) {
-		var decoder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
+	private JwtDecoder buildJwtDecoder() {
+		var decoder = this.decoder != null
+			? this.decoder
+			: NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
 
 		if (this.validateAudienceClaim) {
 			OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
