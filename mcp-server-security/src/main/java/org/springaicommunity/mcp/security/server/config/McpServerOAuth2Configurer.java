@@ -25,8 +25,10 @@ import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2Protected
 import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -53,6 +55,9 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	private ResourceIdentifier resourceIdentifier = new ResourceIdentifier("/mcp");
 
 	private boolean validateAudienceClaim = false;
+
+	private Customizer<OAuth2ResourceServerConfigurer<HttpSecurity>> oauth2ResourceServerCustomizer = Customizer
+		.withDefaults();
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
@@ -90,6 +95,20 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return this;
 	}
 
+	/**
+	 * Customize the underlying Spring Security OAuth2 Resource Server configuration,
+	 * through a {@link OAuth2ResourceServerConfigurer}.
+	 * @param oauth2ResourceServerCustomizer a customizer of OAuth2 Resource Server.
+	 * Defaults to a no-op {@link Customizer#withDefaults()}.
+	 * @return The {@link McpServerOAuth2Configurer} for further configuration.
+	 */
+	private McpServerOAuth2Configurer oauth2ResourceServer(
+			Customizer<OAuth2ResourceServerConfigurer<HttpSecurity>> oauth2ResourceServerCustomizer) {
+		Assert.notNull(oauth2ResourceServerCustomizer, "oauth2ResourceServerCustomizer cannot be null");
+		this.oauth2ResourceServerCustomizer = oauth2ResourceServerCustomizer;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) throws Exception {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
@@ -107,6 +126,7 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 				.oauth2ResourceServer(resourceServer -> {
 					resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
 					resourceServer.authenticationEntryPoint(entryPoint);
+					this.oauth2ResourceServerCustomizer.customize(resourceServer);
 				})
 				.addFilterBefore(protectedResourceMetadataEndpointFilter, AbstractPreAuthenticatedProcessingFilter.class);
 		//@formatter:on
