@@ -27,11 +27,13 @@ import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
+import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ClientRegistrationEndpointConfigurer;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContext;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
@@ -42,10 +44,10 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.oauth2.server.authorization.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 import static org.springframework.security.config.Customizer.withDefaults;
-import static org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer.authorizationServer;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -53,18 +55,36 @@ import static org.springframework.security.oauth2.server.authorization.config.an
 public class McpAuthorizationServerConfigurer
 		extends AbstractHttpConfigurer<McpAuthorizationServerConfigurer, HttpSecurity> {
 
+	private Customizer<OAuth2AuthorizationServerConfigurer> authServerCustomizer = Customizer.withDefaults();
+
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
 	}
 
+	/**
+	 * Customize the underlying Spring Security OAuth2 Authorization Server configuration,
+	 * through a {@link OAuth2AuthorizationServerConfigurer}.
+	 * @param oauth2AuthorizationServerConfigurerCustomizer a customizer of OAuth2
+	 * Authorization Server. Defaults to a no-op {@link Customizer#withDefaults()}.
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer authorizationServer(
+			Customizer<OAuth2AuthorizationServerConfigurer> oauth2AuthorizationServerConfigurerCustomizer) {
+		Assert.notNull(oauth2AuthorizationServerConfigurerCustomizer,
+				"oauth2AuthorizationServerConfigurerCustomizer cannot be null");
+		this.authServerCustomizer = oauth2AuthorizationServerConfigurerCustomizer;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) throws Exception {
-		http.with(authorizationServer(), authServer -> {
+		http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), authServer -> {
 			authServer.authorizationServerMetadataEndpoint(
 					authorizationServerMetadataEndpoint -> authorizationServerMetadataEndpoint
 						.authorizationServerMetadataCustomizer(authorizationServerMetadataCustomizer()));
 			OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
 			authServer.tokenGenerator(tokenGenerator);
+			this.authServerCustomizer.customize(authServer);
 		});
 		http.with(new OAuth2ClientRegistrationEndpointConfigurer(), withDefaults());
 		http.csrf(csrf -> csrf.ignoringRequestMatchers(
