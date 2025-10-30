@@ -37,6 +37,12 @@ public class ApiKeyAuthenticationConverter implements AuthenticationConverter {
 
 	private final String apiKeyHeaderName;
 
+	public static final String DEFAULT_API_KEY_HEADER = "X-API-Key";
+
+	public ApiKeyAuthenticationConverter() {
+		this.apiKeyHeaderName = DEFAULT_API_KEY_HEADER;
+	}
+
 	public ApiKeyAuthenticationConverter(String apiKeyHeaderName) {
 		Assert.hasText(apiKeyHeaderName, "apiKeyHeaderName cannot be blank");
 		this.apiKeyHeaderName = apiKeyHeaderName;

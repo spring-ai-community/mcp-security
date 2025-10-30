@@ -27,6 +27,21 @@ class ApiKeyAuthenticationConverterTests {
 	}
 
 	@Test
+	void convertDefaultHeaderExtractsApiKey() {
+		var request = new MockHttpServletRequest();
+		request.addHeader("x-api-key", "api01.my-secret");
+
+		var converter = new ApiKeyAuthenticationConverter();
+		var authentication = converter.convert(request);
+		assertThat(authentication).isInstanceOf(ApiKeyAuthenticationToken.class);
+		var apiKey = (ApiKeyAuthenticationToken) authentication;
+		assertThat(apiKey.isAuthenticated()).isFalse();
+		assertThat(apiKey.getPrincipal()).isNull();
+		assertThat(apiKey.getCredentials().getId()).isEqualTo("api01");
+		assertThat(apiKey.getCredentials().getSecret()).isEqualTo("my-secret");
+	}
+
+	@Test
 	void convertWhenNoHeaderReturnsNull() {
 		var request = new MockHttpServletRequest();
 
