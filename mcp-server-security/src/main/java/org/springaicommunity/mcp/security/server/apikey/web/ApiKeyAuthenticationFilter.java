@@ -43,16 +43,13 @@ public class ApiKeyAuthenticationFilter extends AuthenticationFilter {
 		this(authenticationManager, new ApiKeyAuthenticationConverter(DEFAULT_API_KEY_HEADER));
 	}
 
-	public ApiKeyAuthenticationFilter(AuthenticationManager authenticationManager, AuthenticationConverter authenticationConverter) {
+	public ApiKeyAuthenticationFilter(AuthenticationManager authenticationManager,
+			AuthenticationConverter authenticationConverter) {
 		super(authenticationManager, authenticationConverter);
 
 		setSuccessHandler(new PassthroughSuccessHandler());
 		setFailureHandler(
 				new AuthenticationEntryPointFailureHandler(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
-	}
-
-	public void setApiKeyHeader(String apiKeyHeader) {
-		setAuthenticationConverter(new ApiKeyAuthenticationConverter(apiKeyHeader));
 	}
 
 	private static class PassthroughSuccessHandler implements AuthenticationSuccessHandler {

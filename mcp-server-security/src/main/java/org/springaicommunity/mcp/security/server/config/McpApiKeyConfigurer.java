@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.server.config;
 
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationProvider;
+import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,6 +27,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -51,14 +53,21 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 
 		var authManager = http.getSharedObject(AuthenticationManager.class);
 
-		var filter = new ApiKeyAuthenticationFilter(authManager);
-		if (this.headerName != null) {
-			filter.setApiKeyHeader(this.headerName);
-		}
-		if (this.authenticationConverter != null) {
-			filter.setAuthenticationConverter(this.authenticationConverter);
-		}
+		var authenticationConverter = getAuthenticationConverter();
+		var filter = authenticationConverter != null
+				? new ApiKeyAuthenticationFilter(authManager, authenticationConverter)
+				: new ApiKeyAuthenticationFilter(authManager);
 		http.addFilterBefore(filter, BasicAuthenticationFilter.class);
+	}
+
+	private AuthenticationConverter getAuthenticationConverter() {
+		if (this.authenticationConverter != null) {
+			return this.authenticationConverter;
+		}
+		if (StringUtils.hasText(this.headerName)) {
+			return new ApiKeyAuthenticationConverter(this.headerName);
+		}
+		return null;
 	}
 
 	/**
