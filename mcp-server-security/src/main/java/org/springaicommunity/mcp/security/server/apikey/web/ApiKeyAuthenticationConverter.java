@@ -35,23 +35,23 @@ import org.springframework.util.StringUtils;
  */
 public class ApiKeyAuthenticationConverter implements AuthenticationConverter {
 
-	private final String apiKeyHeader;
+	private final String apiKeyHeaderName;
 
-	public ApiKeyAuthenticationConverter(String apiKeyHeader) {
-		Assert.notNull(apiKeyHeader, "apiKeyHeader cannot be null");
-		this.apiKeyHeader = apiKeyHeader;
+	public ApiKeyAuthenticationConverter(String apiKeyHeaderName) {
+		Assert.hasText(apiKeyHeaderName, "apiKeyHeaderName cannot be blank");
+		this.apiKeyHeaderName = apiKeyHeaderName;
 	}
 
 	@Override
 	@Nullable
 	public Authentication convert(HttpServletRequest request) {
-		var apiKeyValues = Collections.list(request.getHeaders(this.apiKeyHeader));
+		var apiKeyValues = Collections.list(request.getHeaders(this.apiKeyHeaderName));
 		if (apiKeyValues.isEmpty()) {
 			return null;
 		}
 		if (apiKeyValues.size() > 1) {
 			throw new BadCredentialsException(
-					"%s must have a single value, found %s".formatted(this.apiKeyHeader, apiKeyValues.size()));
+					"%s must have a single value, found %s".formatted(this.apiKeyHeaderName, apiKeyValues.size()));
 		}
 		String apiKey = apiKeyValues.get(0);
 

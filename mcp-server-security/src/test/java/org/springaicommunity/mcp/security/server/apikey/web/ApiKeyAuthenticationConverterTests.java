@@ -62,4 +62,10 @@ class ApiKeyAuthenticationConverterTests {
 			.hasMessage("x-custom-header must have a single value, found 2");
 	}
 
+	@Test
+	void constructorWhenHeaderBlankThenThrows() {
+		assertThatThrownBy(() -> new ApiKeyAuthenticationConverter("")).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("apiKeyHeaderName cannot be blank");
+	}
+
 }
