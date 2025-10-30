@@ -16,6 +16,7 @@
 
 package org.springaicommunity.mcp.security.server.config;
 
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationProvider;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
@@ -34,14 +35,15 @@ import org.springframework.util.StringUtils;
  */
 public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigurer, HttpSecurity> {
 
-	private ApiKeyEntityRepository<?> apiKeyEntityRepository;
+	private @Nullable ApiKeyEntityRepository<?> apiKeyEntityRepository;
 
-	private String headerName;
+	private @Nullable String headerName;
 
-	private AuthenticationConverter authenticationConverter;
+	private @Nullable AuthenticationConverter authenticationConverter;
 
 	@Override
 	public void init(HttpSecurity http) throws Exception {
+		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
 		http.authenticationProvider(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository))
 			// TODO: improve matcher to check for API key
 			.csrf(csrf -> csrf.ignoringRequestMatchers("/mcp"));
@@ -54,9 +56,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 		var authManager = http.getSharedObject(AuthenticationManager.class);
 
 		var authenticationConverter = getAuthenticationConverter();
-		var filter = authenticationConverter != null
-				? new ApiKeyAuthenticationFilter(authManager, authenticationConverter)
-				: new ApiKeyAuthenticationFilter(authManager);
+		var filter = new ApiKeyAuthenticationFilter(authManager, authenticationConverter);
 		http.addFilterBefore(filter, BasicAuthenticationFilter.class);
 	}
 
@@ -67,7 +67,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 		if (StringUtils.hasText(this.headerName)) {
 			return new ApiKeyAuthenticationConverter(this.headerName);
 		}
-		return null;
+		return new ApiKeyAuthenticationConverter();
 	}
 
 	/**
@@ -82,7 +82,8 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	 * The name of the header from which to extract the API key. Defaults to
 	 * {@link org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter#DEFAULT_API_KEY_HEADER}.
 	 * <p>
-	 * Overrides the value from {@link #authenticationConverter(AuthenticationConverter)}.
+	 * If {@link #authenticationConverter(AuthenticationConverter)} is set, then this is
+	 * ignored.
 	 */
 	public McpApiKeyConfigurer headerName(String headerName) {
 		this.headerName = headerName;
