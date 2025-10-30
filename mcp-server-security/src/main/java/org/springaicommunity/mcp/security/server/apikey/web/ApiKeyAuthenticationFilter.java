@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationFilter;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -39,7 +40,11 @@ public class ApiKeyAuthenticationFilter extends AuthenticationFilter {
 	public static final String DEFAULT_API_KEY_HEADER = "X-API-Key";
 
 	public ApiKeyAuthenticationFilter(AuthenticationManager authenticationManager) {
-		super(authenticationManager, new ApiKeyAuthenticationConverter(DEFAULT_API_KEY_HEADER));
+		this(authenticationManager, new ApiKeyAuthenticationConverter(DEFAULT_API_KEY_HEADER));
+	}
+
+	public ApiKeyAuthenticationFilter(AuthenticationManager authenticationManager, AuthenticationConverter authenticationConverter) {
+		super(authenticationManager, authenticationConverter);
 
 		setSuccessHandler(new PassthroughSuccessHandler());
 		setFailureHandler(
