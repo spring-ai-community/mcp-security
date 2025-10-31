@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,6 +34,7 @@ import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springaicommunity.mcp.security.server.config.McpApiKeyConfigurer.mcpServerApiKey;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 @ExtendWith(SpringExtension.class)
@@ -57,6 +59,18 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
+	void defaultSupportsCsrf() {
+		var resp = this.mvc.post().uri("/default").header("X-API-key", "api01.test-secret");
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
+	void defaultEnforcesCsrf() {
+		assertThat(this.mvc.post().uri("/default/public")).hasStatus(HttpStatus.FORBIDDEN);
+		assertThat(this.mvc.post().uri("/default/public").with(csrf())).hasStatus2xxSuccessful();
+	}
+
+	@Test
 	void noApiKeyForbidden() {
 		var resp = this.mvc.get().uri("/default");
 
@@ -77,6 +91,12 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
+	void customHeaderSupportsCsrf() {
+		var resp = this.mvc.post().uri("/header").header("X-custom-API-key", "api01.test-secret");
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
 	void customHeaderInvalidApiKey401() {
 		var resp = this.mvc.get().uri("/header").header("X-custom-API-key", "invalid.invalid");
 
@@ -85,6 +105,12 @@ class McpApiKeyConfigurerTest {
 
 	@Test
 	void customConverterValidApiKey() {
+		var resp = this.mvc.get().uri("/converter").queryParam("apiKey", "api01.test-secret");
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
+	void customConverterSupportsCsrf() {
 		var resp = this.mvc.get().uri("/converter").queryParam("apiKey", "api01.test-secret");
 		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
 	}
@@ -103,9 +129,12 @@ class McpApiKeyConfigurerTest {
 
 		@Bean
 		SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
-			return http.securityMatcher("/default/**")
-				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+			return http.securityMatcher("/default/**").authorizeHttpRequests(authz -> {
+				authz.requestMatchers("/default/public").permitAll();
+				authz.anyRequest().authenticated();
+			})
 				.with(mcpServerApiKey(), apiKey -> apiKey.apiKeyRepository(repo()))
+				.anonymous(Customizer.withDefaults())
 				.build();
 		}
 

@@ -25,6 +25,7 @@ import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthentication
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.util.Assert;
@@ -44,9 +45,8 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	@Override
 	public void init(HttpSecurity http) throws Exception {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
-		http.authenticationProvider(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository))
-			// TODO: improve matcher to check for API key
-			.csrf(csrf -> csrf.ignoringRequestMatchers("/mcp"));
+		http.authenticationProvider(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository));
+		registerCsrfOverride(http);
 	}
 
 	@Override
@@ -111,6 +111,14 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	public McpApiKeyConfigurer authenticationConverter(AuthenticationConverter authenticationConverter) {
 		this.authenticationConverter = authenticationConverter;
 		return this;
+	}
+
+	private void registerCsrfOverride(HttpSecurity http) {
+		var csrf = http.getConfigurer(CsrfConfigurer.class);
+		if (csrf != null) {
+			var authenticationConverter = this.getAuthenticationConverter();
+			csrf.ignoringRequestMatchers(req -> authenticationConverter.convert(req) != null);
+		}
 	}
 
 	public static McpApiKeyConfigurer mcpServerApiKey() {
