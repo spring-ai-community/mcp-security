@@ -41,7 +41,8 @@ public class InMemoryApiKeyEntityRepository<T extends ApiKeyEntity> implements A
 	@Nullable
 	@Override
 	public T findByKeyId(String keyId) {
-		return apiKeys.get(keyId).copy();
+		var key = apiKeys.get(keyId);
+		return key != null ? key.copy() : null;
 	}
 
 	public void addApiKey(T value) {
