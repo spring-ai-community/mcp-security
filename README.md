@@ -507,6 +507,118 @@ class McpConfiguration {
 }
 ```
 
+### Customize HTTP requests beyond MCP Security's OAuth2 support
+
+MCP Security's default client support integrates with Spring Security to add OAuth2 support. Essentially, it gets a
+token on behalf of the user, and modifies the HTTP request from the Client to the Server, adding that token in an
+Authorization header.
+
+If you'd like to modify HTTP requests beyond what MCP Security provide, you can create your own
+`McpSyncHttpClientRequestCustomizer` or `ExchangeFilterFunction`.
+
+For HTTP clients:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    McpSyncHttpClientRequestCustomizer requestCustomizer() {
+        return (builder, method, endpoint, body, context) ->
+                builder
+                        .header("x-custom-header", "custom-value")
+                        .header("x-life-the-universe-everything", "42");
+    }
+
+}
+```
+
+For web clients:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    WebClient.Builder mcpWebClientBuilder() {
+        return WebClient.builder().filter((request, next) -> {
+            var newRequest = ClientRequest.from(request)
+                    .header("x-custom-header", "custom-value")
+                    .header("x-life-the-universe-everything", "42")
+                    .build();
+            return next.exchange(newRequest);
+        });
+    }
+
+}
+```
+
+There is no way to guarantee on which thread these request customizers will run.
+As such, thread-locals are not available in these lambda functions.
+If you would like to use thread-locals in this context, use a `McpTransportContextProvider` bean.
+It can extract thread-locals and make them available in an `McpTransportContext` object.
+
+For HttpClient-based request customizers, the `McpTransportContext` will be available in the `customize` method. See, for example, with a Sync client (async works similarly):
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    McpSyncClientCustomizer syncClientCustomizer() {
+        return (name, syncSpec) -> syncSpec.transportContextProvider(() -> {
+            var myThing = MyThreadLocalThing.get();
+            return McpTransportContext.create(Map.of("custom-key", myThing));
+        });
+    }
+
+    @Bean
+    McpSyncHttpClientRequestCustomizer requestCustomizer() {
+        return (builder, method, endpoint, body, context) ->
+                builder.header("x-custom-header", context.get("custom-key"));
+    }
+
+}
+```
+
+For WebClient-based filter functions, the `McpTransportContext` will be available in the Reactor context, under
+`McpTransportContext.KEY`:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    McpSyncClientCustomizer syncClientCustomizer() {
+        return (name, syncSpec) -> syncSpec.transportContextProvider(() -> {
+            var myThing = MyThreadLocalThing.get();
+            return McpTransportContext.create(Map.of("custom-key", myThing));
+        });
+    }
+
+    @Bean
+    WebClient.Builder mcpWebClientBuilder() {
+        return WebClient.builder()
+                .filter((request, next) ->
+                        Mono.deferContextual(reactorCtx -> {
+                            var transportCtx = reactorCtx.get(McpTransportContext.class);
+                            String customThing = transportCtx.get("custom-key").toString();
+                            var newRequest = ClientRequest.from(request)
+                                    .header("x-custom-header", customThing)
+                                    .build();
+
+                            return next.exchange(newRequest);
+                        })
+                );
+    }
+
+}
+```
+
 ### Work around Spring AI autoconfiguration
 
 Spring AI integrates MCP tools as if they were regular "tools" (e.g. `@Tool` methods).
