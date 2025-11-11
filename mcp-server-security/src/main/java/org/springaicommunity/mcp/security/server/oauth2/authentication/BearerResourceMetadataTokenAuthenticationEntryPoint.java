@@ -63,7 +63,8 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 
 	private String buildResourceMetadataPath(HttpServletRequest request, ResourceIdentifier resourceIdentifier) {
 		return UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))
-			.replacePath("/.well-known/oauth-protected-resource" + resourceIdentifier.getPath())
+			.replacePath(
+					request.getContextPath() + "/.well-known/oauth-protected-resource" + resourceIdentifier.getPath())
 			.replaceQuery(null)
 			.fragment(null)
 			.toUriString();
