@@ -67,7 +67,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * reactor context:
  *
  * <pre>
- * chatClientSupplier.get()
+ * chatClient
  *     .prompt("your LLM prompt")
  *     .stream()
  *     .content()
