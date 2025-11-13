@@ -370,6 +370,8 @@ Depending on the flow you chose (see above), you may need one or both client reg
 ```properties
 # Ensure MCP clients are sync
 spring.ai.mcp.client.type=SYNC
+# Ensure that you do not initialize the clients on startup
+spring.ai.mcp.client.initialized=false
 #
 #
 # For obtaining tokens for calling the tool
@@ -619,41 +621,9 @@ class McpConfiguration {
 }
 ```
 
-### Work around Spring AI autoconfiguration
+### Programmatically configure MCP clients
 
-Spring AI integrates MCP tools as if they were regular "tools" (e.g. `@Tool` methods).
-As such, they are discovered when application starts up.
-This means that any MCP client that is configured through configuration properties, such
-as `spring.ai.mcp.client.streamable-http.connections.<SERVER-NAME>.url=...` will be initialized.
-In practice, there will be multiple calls issued to the MCP Server (`initialize` followed by `tools/list`).
-The server will require a token for these calls, and, without a user present, this is an issue in the general case.
-
-To avoid this, you first need to ensure that the clients are not initialized on startup.
-You can do so by setting the property `spring.ai.mcp.client.initialized=false`.
-Then, you need to ensure tools are not listed. There are a few ways to avoid this:
-
-**Disable the @Tool auto-configuration**
-
-You can turn off Spring AI's `@Tool` autoconfiguration altogether.
-This will disable all method and function-based tool calling, and only MCP tools will be available.
-The easiest way to do so is to publish an empty `ToolCallbackResolver` bean:
-
-```java
-
-@Configuration
-public class McpConfiguration {
-
-    @Bean
-    ToolCallbackResolver resolver() {
-        return new StaticToolCallbackResolver(List.of());
-    }
-
-}
-```
-
-**Programmatically configure MCP clients**
-
-You may also forego Spring AI's autoconfiguration altogether, and create the MCP clients programmatically.
+If you'd like to use Spring AI's autoconfiguration altogether, you can create the MCP clients programmatically.
 The easiest way is to draw some inspiration on the transport
 auto-configurations ([HttpClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-httpclient/src/main/java/org/springframework/ai/mcp/client/httpclient/autoconfigure/StreamableHttpHttpClientTransportAutoConfiguration.java), [WebClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-webflux/src/main/java/org/springframework/ai/mcp/client/webflux/autoconfigure/StreamableHttpWebFluxTransportAutoConfiguration.java))
 as well as
@@ -723,7 +693,7 @@ var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
 - Spring WebFlux servers are not supported.
 - Spring AI autoconfiguration initializes the MCP client app start.
   Most MCP servers want calls to be authenticated with a token, so you
-  need to work around the Spring AI auto-config ([see the workaround above](#work-around-spring-ai-autoconfiguration))
+  need to turn initialization off with `spring.ai.mcp.client.initialized=false`.
 
 Note:
 
