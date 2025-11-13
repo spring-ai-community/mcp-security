@@ -509,6 +509,27 @@ class McpConfiguration {
 }
 ```
 
+### Use with streaming chat client
+
+When using the `.stream()` method of the chat client, you will be using Reactor under the hood. Reactor does not
+guarantee on which thread the work is executed, and will lose thread locals. You need to manually extract the
+information and inject it in the Reactor context:
+
+```java
+class Example {
+
+    void doTheThing() {
+        chatClient
+            .prompt("<your prompt>")
+            .stream()
+            .content()
+            // ... any streaming operation ...
+            .contextWrite(AuthenticationMcpTransportContextProvider.writeToReactorContext());
+    }
+
+}
+```
+
 ### Customize HTTP requests beyond MCP Security's OAuth2 support
 
 MCP Security's default client support integrates with Spring Security to add OAuth2 support. Essentially, it gets a
@@ -562,7 +583,8 @@ As such, thread-locals are not available in these lambda functions.
 If you would like to use thread-locals in this context, use a `McpTransportContextProvider` bean.
 It can extract thread-locals and make them available in an `McpTransportContext` object.
 
-For HttpClient-based request customizers, the `McpTransportContext` will be available in the `customize` method. See, for example, with a Sync client (async works similarly):
+For HttpClient-based request customizers, the `McpTransportContext` will be available in the `customize` method. See,
+for example, with a Sync client (async works similarly):
 
 ```java
 
