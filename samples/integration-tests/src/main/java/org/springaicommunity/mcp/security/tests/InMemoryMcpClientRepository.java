@@ -16,10 +16,11 @@
 
 package org.springaicommunity.mcp.security.tests;
 
-import io.modelcontextprotocol.client.McpSyncClient;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import io.modelcontextprotocol.client.McpSyncClient;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 
@@ -30,15 +31,23 @@ public class InMemoryMcpClientRepository {
 
 	private final Map<String, McpSyncClient> clients = new HashMap<>();
 
-	public InMemoryMcpClientRepository(List<McpSyncClient> clients, McpClientCommonProperties commonProperties) {
+	private final String defaultPrefix;
+
+	public InMemoryMcpClientRepository(List<McpSyncClient> clients) {
+		this.defaultPrefix = new McpClientCommonProperties().getName();
+
 		for (var client : clients) {
 			var name = client.getClientInfo().name();
-			this.clients.putIfAbsent(name.replace(commonProperties.getName() + " - ", ""), client);
+			this.clients.putIfAbsent(name, client);
 		}
 	}
 
 	public McpSyncClient getClientByName(String name) {
-		return this.clients.get(name);
+		var client = this.clients.get(name);
+		if (client != null) {
+			return client;
+		}
+		return this.clients.get(defaultPrefix + " - " + name);
 	}
 
 	public void addClient(String name, McpSyncClient client) {
