@@ -6,7 +6,7 @@
 
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-security-parent</artifactId>
-    <version>0.0.4</version>
+    <version>0.0.5-SNAPSHOT</version>
 
     <packaging>pom</packaging>
     <url>https://github.com/spring-ai-community/mcp-security</url>
