@@ -2,15 +2,12 @@ package org.springaicommunity.mcp.security.server.oauth2.metadata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.BDDAssertions.catchThrowable;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 class ResourceIdentifierTest {
 
@@ -40,13 +37,12 @@ class ResourceIdentifierTest {
 	@Test
 	void getResource_ShouldBuildFullUrlBasedOnCurrentRequest() {
 		// given
-		HttpServletRequest request = mock(HttpServletRequest.class);
-		when(request.getScheme()).thenReturn("https");
-		when(request.getServerName()).thenReturn("my.host.com");
-		when(request.getServerPort()).thenReturn(8443);
-		when(request.getContextPath()).thenReturn("/foo");
-		when(request.getRequestURI()).thenReturn("/foo/other/path");
-		when(request.getQueryString()).thenReturn(null);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setScheme("https");
+		request.setServerName("my.host.com");
+		request.setServerPort(8443);
+		request.setContextPath("/foo");
+		request.setRequestURI("/foo/other/path");
 
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
