@@ -16,17 +16,11 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
-import java.util.List;
-
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
-import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
-import org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration;
-import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
-import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -38,26 +32,6 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
  */
 @Configuration
 class McpConfiguration {
-
-	/**
-	 * If the default {@link ToolCallbackResolver} from
-	 * {@link ToolCallingAutoConfiguration} is imported, then all MCP-based tools are
-	 * added to the resolver. In order to do so, the {@link ToolCallbackResolver} bean
-	 * lists all MCP tools, therefore initializing MCP clients and listing the tools.
-	 * <p>
-	 * This is an issue when the MCP server is secured with OAuth2, because to obtain a
-	 * token, a user must be involved in the flow, and there is no user present on app
-	 * startup.
-	 * <p>
-	 * To avoid this issue, we must exclude the default {@link ToolCallbackResolver}. We
-	 * can't easily disable the entire {@link ToolCallingAutoConfiguration} class, because
-	 * it is imported directly by the chat model configurations, such as
-	 * {@link AnthropicChatAutoConfiguration}. Instead, we provide a default, no-op bean.
-	 */
-	@Bean
-	ToolCallbackResolver resolver() {
-		return new StaticToolCallbackResolver(List.of());
-	}
 
 	@Bean
 	McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,

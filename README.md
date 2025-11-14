@@ -49,7 +49,7 @@ This module is compatible with Spring WebMVC-based servers only.
     <dependency>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-server-security</artifactId>
-        <version>0.0.3</version>
+        <version>0.0.4</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.boot</groupId>
@@ -69,7 +69,7 @@ This module is compatible with Spring WebMVC-based servers only.
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-server-security:0.0.3")
+implementation("org.springaicommunity:mcp-server-security:0.0.4")
 implementation("org.springframework.boot:spring-boot-starter-security")
 
 // OPTIONAL
@@ -323,14 +323,14 @@ This module supports `McpSyncClient`s only.
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-client-security</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-client-security:0.0.3")
+implementation("org.springaicommunity:mcp-client-security:0.0.4")
 ```
 
 ### Authorization flows
@@ -370,6 +370,8 @@ Depending on the flow you chose (see above), you may need one or both client reg
 ```properties
 # Ensure MCP clients are sync
 spring.ai.mcp.client.type=SYNC
+# Ensure that you do not initialize the clients on startup
+spring.ai.mcp.client.initialized=false
 #
 #
 # For obtaining tokens for calling the tool
@@ -507,6 +509,27 @@ class McpConfiguration {
 }
 ```
 
+### Use with streaming chat client
+
+When using the `.stream()` method of the chat client, you will be using Reactor under the hood. Reactor does not
+guarantee on which thread the work is executed, and will lose thread locals. You need to manually extract the
+information and inject it in the Reactor context:
+
+```java
+class Example {
+
+    void doTheThing() {
+        chatClient
+            .prompt("<your prompt>")
+            .stream()
+            .content()
+            // ... any streaming operation ...
+            .contextWrite(AuthenticationMcpTransportContextProvider.writeToReactorContext());
+    }
+
+}
+```
+
 ### Customize HTTP requests beyond MCP Security's OAuth2 support
 
 MCP Security's default client support integrates with Spring Security to add OAuth2 support. Essentially, it gets a
@@ -560,7 +583,8 @@ As such, thread-locals are not available in these lambda functions.
 If you would like to use thread-locals in this context, use a `McpTransportContextProvider` bean.
 It can extract thread-locals and make them available in an `McpTransportContext` object.
 
-For HttpClient-based request customizers, the `McpTransportContext` will be available in the `customize` method. See, for example, with a Sync client (async works similarly):
+For HttpClient-based request customizers, the `McpTransportContext` will be available in the `customize` method. See,
+for example, with a Sync client (async works similarly):
 
 ```java
 
@@ -619,41 +643,9 @@ class McpConfiguration {
 }
 ```
 
-### Work around Spring AI autoconfiguration
+### Programmatically configure MCP clients
 
-Spring AI integrates MCP tools as if they were regular "tools" (e.g. `@Tool` methods).
-As such, they are discovered when application starts up.
-This means that any MCP client that is configured through configuration properties, such
-as `spring.ai.mcp.client.streamable-http.connections.<SERVER-NAME>.url=...` will be initialized.
-In practice, there will be multiple calls issued to the MCP Server (`initialize` followed by `tools/list`).
-The server will require a token for these calls, and, without a user present, this is an issue in the general case.
-
-To avoid this, you first need to ensure that the clients are not initialized on startup.
-You can do so by setting the property `spring.ai.mcp.client.initialized=false`.
-Then, you need to ensure tools are not listed. There are a few ways to avoid this:
-
-**Disable the @Tool auto-configuration**
-
-You can turn off Spring AI's `@Tool` autoconfiguration altogether.
-This will disable all method and function-based tool calling, and only MCP tools will be available.
-The easiest way to do so is to publish an empty `ToolCallbackResolver` bean:
-
-```java
-
-@Configuration
-public class McpConfiguration {
-
-    @Bean
-    ToolCallbackResolver resolver() {
-        return new StaticToolCallbackResolver(List.of());
-    }
-
-}
-```
-
-**Programmatically configure MCP clients**
-
-You may also forego Spring AI's autoconfiguration altogether, and create the MCP clients programmatically.
+If you'd like to use Spring AI's autoconfiguration altogether, you can create the MCP clients programmatically.
 The easiest way is to draw some inspiration on the transport
 auto-configurations ([HttpClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-httpclient/src/main/java/org/springframework/ai/mcp/client/httpclient/autoconfigure/StreamableHttpHttpClientTransportAutoConfiguration.java), [WebClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-webflux/src/main/java/org/springframework/ai/mcp/client/webflux/autoconfigure/StreamableHttpWebFluxTransportAutoConfiguration.java))
 as well as
@@ -723,7 +715,7 @@ var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
 - Spring WebFlux servers are not supported.
 - Spring AI autoconfiguration initializes the MCP client app start.
   Most MCP servers want calls to be authenticated with a token, so you
-  need to work around the Spring AI auto-config ([see the workaround above](#work-around-spring-ai-autoconfiguration))
+  need to turn initialization off with `spring.ai.mcp.client.initialized=false`.
 
 Note:
 
@@ -747,14 +739,14 @@ It provides a simple configurer for an MCP server.
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-authorization-server:0.0.3")
+implementation("org.springaicommunity:mcp-authorization-server:0.0.4")
 ```
 
 ### Usage

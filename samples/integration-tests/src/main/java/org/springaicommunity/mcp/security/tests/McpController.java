@@ -16,8 +16,15 @@
 
 package org.springaicommunity.mcp.security.tests;
 
-import io.modelcontextprotocol.spec.McpSchema;
+import java.util.Optional;
 
+import io.modelcontextprotocol.spec.McpSchema;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.util.function.SingletonSupplier;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,8 +36,15 @@ public class McpController {
 
 	private final InMemoryMcpClientRepository repository;
 
-	McpController(InMemoryMcpClientRepository repository) {
+	// Not all tests have ChatClient support, so we wrap it in a supplier that will
+	// only be used in LLM-powered tests.
+	private final SingletonSupplier<ChatClient> chatClientSupplier;
+
+	McpController(InMemoryMcpClientRepository repository, ObjectProvider<ChatClient.Builder> chatClientBuilder,
+			Optional<SyncMcpToolCallbackProvider> mcpTools) {
 		this.repository = repository;
+		this.chatClientSupplier = SingletonSupplier
+			.of(() -> chatClientBuilder.getIfUnique().defaultToolCallbacks(mcpTools.get()).build());
 	}
 
 	@GetMapping("/tool/call")
@@ -40,6 +54,26 @@ public class McpController {
 			.content()
 			.get(0)).text();
 		return "Called [client: %s, tool: %s], got response [%s]".formatted(clientName, toolName, toolResponse);
+	}
+
+	@GetMapping("/chat")
+	public String chat(String question) {
+		return chatClientSupplier.get().prompt(question).call().content();
+	}
+
+	@GetMapping("/stream")
+	public String stream(String question) {
+		return chatClientSupplier.get()
+			.prompt(question)
+			.stream()
+			.content()
+			.contextWrite(AuthenticationMcpTransportContextProvider.writeToReactorContext())
+			.blockLast();
+	}
+
+	@GetMapping("/stream-no-context")
+	public String streamNoContext(String question) {
+		return chatClientSupplier.get().prompt(question).stream().content().blockLast();
 	}
 
 }
