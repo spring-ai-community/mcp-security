@@ -43,7 +43,7 @@ public final class ResourceIdentifier {
 		var request = requestAttributes.getRequest();
 
 		return UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))
-			.replacePath(this.getPath())
+			.replacePath(request.getContextPath() + this.getPath())
 			.replaceQuery(null)
 			.fragment(null)
 			.toUriString();
