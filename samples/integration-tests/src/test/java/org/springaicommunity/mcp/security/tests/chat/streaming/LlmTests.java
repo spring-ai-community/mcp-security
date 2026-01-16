@@ -3,6 +3,7 @@ package org.springaicommunity.mcp.security.tests.chat.streaming;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -72,16 +73,16 @@ class LlmTests {
 	// Ask to call the "greeter" tool
 	private final AnthropicApi.ChatCompletionResponse firstResponse = new AnthropicApi.ChatCompletionResponse(
 			"msg_1234", "message", AnthropicApi.Role.ASSISTANT,
-			List.of(new AnthropicApi.ContentBlock(AnthropicApi.ContentBlock.Type.TOOL_USE, null, null, null,
-					"toolu_1234", "greeter", null, null, null, null, null, null, null, null, null, null)),
-			"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "tool_use", null, null);
+			List.of(new AnthropicApi.ContentBlock(AnthropicApi.ContentBlock.Type.TOOL_USE, "toolu_1234", "greeter",
+					Map.of())),
+			"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "tool_use", null, null, null);
 
 	private final Function<String, AnthropicApi.ChatCompletionResponse> makeFinalResponse = (
 			String message) -> new AnthropicApi.ChatCompletionResponse("msg_1234", "message",
 					AnthropicApi.Role.ASSISTANT,
-					List.of(new AnthropicApi.ContentBlock(AnthropicApi.ContentBlock.Type.TEXT, null, message, null,
-							null, null, null, null, null, null, null, null, null, null, null, null)), // contents
-					"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "end_turn", null, null);
+					List.of(new AnthropicApi.ContentBlock(message,
+							(AnthropicApi.ChatCompletionRequest.CacheControl) null)), // contents
+					"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "end_turn", null, null, null);
 
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
@@ -204,7 +205,7 @@ class LlmTests {
 			.map(c -> c.get(0))
 			.filter(m -> m.type().equals(AnthropicApi.ContentBlock.Type.TOOL_RESULT))
 			.map(AnthropicApi.ContentBlock::content)
-			.map(this::deserializeToolResult)
+			.map(content -> deserializeToolResult(content.toString()))
 			.findFirst()
 			.get();
 	}
