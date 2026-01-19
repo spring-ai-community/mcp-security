@@ -24,16 +24,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import static org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer.authorizationServer;
 
 @Configuration
 @EnableWebSecurity
 public class AuthorizationServer {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(authorizationServer(), authServer -> {
+			.oauth2AuthorizationServer(authServer -> {
 				authServer.oidc(Customizer.withDefaults());
 			})
 			.formLogin(Customizer.withDefaults())

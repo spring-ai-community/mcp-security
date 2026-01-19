@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,8 +49,7 @@ public final class OAuth2ClientRegistrationEndpointConfigurer
 
 	@Override
 	public void configure(HttpSecurity http) {
-		RegisteredClientRepository registeredClientRepository = OAuth2ConfigurerUtils
-			.getRegisteredClientRepository(http);
+		RegisteredClientRepository registeredClientRepository = getRegisteredClientRepository(http);
 		OAuth2ClientRegistrationAuthenticationProvider clientRegistrationAuthenticationProvider = new OAuth2ClientRegistrationAuthenticationProvider(
 				registeredClientRepository);
 		clientRegistrationAuthenticationProvider.setRegisteredClientConverter(new CustomRegisteredClientConverter());
@@ -61,6 +61,20 @@ public final class OAuth2ClientRegistrationEndpointConfigurer
 		OAuth2ClientRegistrationEndpointFilter clientRegistrationEndpointFilter = new OAuth2ClientRegistrationEndpointFilter(
 				authenticationManager, OAUTH2_CLIENT_REGISTRATION_ENDPOINT_URI);
 		http.addFilterBefore(clientRegistrationEndpointFilter, AbstractPreAuthenticatedProcessingFilter.class);
+	}
+
+	static RegisteredClientRepository getRegisteredClientRepository(HttpSecurity httpSecurity) {
+		RegisteredClientRepository registeredClientRepository = httpSecurity
+			.getSharedObject(RegisteredClientRepository.class);
+		if (registeredClientRepository == null) {
+			registeredClientRepository = getBean(httpSecurity, RegisteredClientRepository.class);
+			httpSecurity.setSharedObject(RegisteredClientRepository.class, registeredClientRepository);
+		}
+		return registeredClientRepository;
+	}
+
+	static <T> T getBean(HttpSecurity httpSecurity, Class<T> type) {
+		return httpSecurity.getSharedObject(ApplicationContext.class).getBean(type);
 	}
 
 	static List<String> getResourceIds(ClientSettings clientSettings) {

@@ -110,7 +110,7 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	@Override
-	public void init(HttpSecurity http) throws Exception {
+	public void init(HttpSecurity http) {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
 		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
 

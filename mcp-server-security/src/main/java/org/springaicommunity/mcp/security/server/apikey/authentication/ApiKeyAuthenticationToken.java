@@ -25,6 +25,7 @@ import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntity;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.Transient;
+import org.springframework.security.core.authority.AuthorityUtils;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -39,7 +40,7 @@ public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 	private final ApiKey credentials;
 
 	private ApiKeyAuthenticationToken(ApiKey apiKey) {
-		super(null);
+		super(AuthorityUtils.NO_AUTHORITIES);
 		this.principal = null;
 		this.credentials = apiKey;
 		setAuthenticated(false);

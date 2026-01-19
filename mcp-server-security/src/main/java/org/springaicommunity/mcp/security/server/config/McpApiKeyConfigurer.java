@@ -43,14 +43,14 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	private @Nullable AuthenticationConverter authenticationConverter;
 
 	@Override
-	public void init(HttpSecurity http) throws Exception {
+	public void init(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
 		http.authenticationProvider(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository));
 		registerCsrfOverride(http);
 	}
 
 	@Override
-	public void configure(HttpSecurity http) throws Exception {
+	public void configure(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository must not be null");
 
 		var authManager = http.getSharedObject(AuthenticationManager.class);
