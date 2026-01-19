@@ -20,9 +20,10 @@ import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
-import org.testcontainers.shaded.com.fasterxml.jackson.core.type.TypeReference;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 import reactor.core.publisher.Flux;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
@@ -212,11 +213,11 @@ class LlmTests {
 
 	private String deserializeToolResult(String content) {
 		try {
-			List<ToolResult> results = new ObjectMapper().readValue(content, new TypeReference<List<ToolResult>>() {
+			List<ToolResult> results = new ObjectMapper().readValue(content, new TypeReference<>() {
 			});
 			return results.get(0).text();
 		}
-		catch (IOException e) {
+		catch (JacksonException e) {
 			return content;
 		}
 	}

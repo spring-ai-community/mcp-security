@@ -16,6 +16,7 @@
 package org.springaicommunity.mcp.security.server.oauth2.authentication;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,10 +54,14 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 		if ("bearer".equalsIgnoreCase(wwwAuthenticateHeader)) {
 			wwwAuthenticateHeader += " ";
 		}
-		else {
-			wwwAuthenticateHeader += ", ";
+		else if (Pattern.compile("resource_metadata=\".+\"").matcher(wwwAuthenticateHeader).find()) {
+			// Hotfix until Spring Security 7 has context paths
+			wwwAuthenticateHeader = wwwAuthenticateHeader.replaceAll("resource_metadata=\".+\"",
+					"resource_metadata=" + buildResourceMetadataPath(request, this.resourceIdentifier));
 		}
-		wwwAuthenticateHeader += "resource_metadata=" + buildResourceMetadataPath(request, this.resourceIdentifier);
+		else {
+			wwwAuthenticateHeader += ", " + buildResourceMetadataPath(request, this.resourceIdentifier);
+		}
 
 		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticateHeader);
 	}

@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import io.modelcontextprotocol.spec.McpSchema;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import reactor.core.publisher.Mono;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;

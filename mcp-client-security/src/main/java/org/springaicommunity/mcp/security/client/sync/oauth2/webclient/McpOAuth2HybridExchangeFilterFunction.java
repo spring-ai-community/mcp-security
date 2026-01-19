@@ -25,8 +25,10 @@ import reactor.core.publisher.Mono;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction;
+import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -62,13 +64,12 @@ public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunc
 	@Override
 	public Mono<ClientResponse> filter(ClientRequest request, ExchangeFunction next) {
 		return updateRequestWithMcpTransportContext(request).flatMap(req -> this.delegate.filter(req, next))
-			.switchIfEmpty(Mono.defer(() -> {
-				var accessToken = getClientCredentialsAccessToken();
-				var requestWithToken = ClientRequest.from(request)
-					.headers(headers -> headers.setBearerAuth(accessToken))
-					.build();
-				return next.exchange(requestWithToken);
-			}));
+			.switchIfEmpty(Mono.defer(
+					() -> getClientCredentialsAccessToken()
+						.map(accessToken -> ClientRequest.from(request)
+							.headers(headers -> headers.setBearerAuth(accessToken))
+							.build())
+						.flatMap(next::exchange)));
 	}
 
 	public Mono<ClientRequest> updateRequestWithMcpTransportContext(ClientRequest request) {
@@ -92,12 +93,18 @@ public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunc
 		});
 	}
 
-	private String getClientCredentialsAccessToken() {
+	private Mono<String> getClientCredentialsAccessToken() {
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.clientCredentialsClientRegistrationId)
 			.principal("mcp-client-service")
 			.build();
-		return serviceAuthorizedClientManager.authorize(authorizeRequest).getAccessToken().getTokenValue();
+		// NOTE: 'serviceAuthorizedClientManager.authorize()' needs to be executed on a
+		// dedicated
+		// thread via subscribeOn(Schedulers.boundedElastic()) since it performs a
+		// blocking I/O operation using RestClient internally
+		return Mono.fromSupplier(() -> serviceAuthorizedClientManager.authorize(authorizeRequest))
+			.map(OAuth2AuthorizedClient::getAccessToken)
+			.map(AbstractOAuth2Token::getTokenValue);
 	}
 
 }

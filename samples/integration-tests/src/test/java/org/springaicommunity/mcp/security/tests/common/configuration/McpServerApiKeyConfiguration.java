@@ -14,6 +14,7 @@ import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFac
 import org.springframework.experimental.boot.server.exec.MavenClasspathEntry;
 import org.springframework.experimental.boot.server.exec.ResourceClasspathEntry;
 import org.springframework.experimental.boot.test.context.DynamicPortUrl;
+import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootDependency;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
 
 @Configuration
@@ -31,7 +32,8 @@ public class McpServerApiKeyConfiguration {
 			.setAdditionalBeanClassNames(mcpServerClass)
 			.systemProperties(props -> props.putIfAbsent("spring.ai.mcp.server.protocol", mcpServerProtocol))
 			.classpath((classpath) -> classpath
-				.entries(springBootStarter("web"), springBootStarter("security"), springAiStarter("mcp-server-webmvc"))
+				.entries(springBootStarter("webmvc"), springBootDependency("spring-boot-jackson2"),
+						springBootStarter("security"), springAiStarter("mcp-server-webmvc"))
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
 				.classes(AllowAllCorsConfigurationSource.class)
 				.classes(McpApiKeyConfigurer.class)
@@ -39,7 +41,7 @@ public class McpServerApiKeyConfiguration {
 	}
 
 	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":1.1.0-M2",
+		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":2.0.0-M1",
 				List.of(newCentralRepository(), newSpringMilestoneRepository(), newSpringSnapshotRepository()));
 	}
 

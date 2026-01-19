@@ -17,13 +17,16 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.webclient;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.client.ClientCredentialsOAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.OAuth2AuthorizationContext;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
@@ -52,21 +55,28 @@ public class McpOAuth2ClientCredentialsExchangeFilterFunction implements Exchang
 	@Override
 	public Mono<ClientResponse> filter(ClientRequest request, ExchangeFunction next) {
 		// TODO: use AuthorizedClientServiceOAuth2AuthorizedClientManager instead
-		var accessToken = getClientCredentialsAccessToken();
-		var requestWithToken = ClientRequest.from(request)
-			.headers(headers -> headers.setBearerAuth(accessToken))
-			.build();
-		return next.exchange(requestWithToken);
+		return getClientCredentialsAccessToken()
+			.map(accessToken -> ClientRequest.from(request)
+				.headers(headers -> headers.setBearerAuth(accessToken))
+				.build())
+			.flatMap(next::exchange);
 	}
 
-	private String getClientCredentialsAccessToken() {
+	private Mono<String> getClientCredentialsAccessToken() {
 		var clientRegistration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);
 
 		var authRequest = OAuth2AuthorizationContext.withClientRegistration(clientRegistration)
 			.principal(new AnonymousAuthenticationToken("client-credentials-client", "client-credentials-client",
 					AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")))
 			.build();
-		return this.clientCredentialTokenProvider.authorize(authRequest).getAccessToken().getTokenValue();
+		// NOTE: 'clientCredentialTokenProvider.authorize()' needs to be executed on a
+		// dedicated
+		// thread via subscribeOn(Schedulers.boundedElastic()) since it performs a
+		// blocking I/O operation using RestClient internally
+		return Mono.fromSupplier(() -> this.clientCredentialTokenProvider.authorize(authRequest))
+			.map(OAuth2AuthorizedClient::getAccessToken)
+			.map(AbstractOAuth2Token::getTokenValue)
+			.subscribeOn(Schedulers.boundedElastic());
 	}
 
 }
