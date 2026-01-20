@@ -76,4 +76,23 @@ class BearerResourceMetadataTokenAuthenticationEntryPointTest {
 			.contains("Bearer resource_metadata=https://example.com/.well-known/oauth-protected-resource/mcp");
 	}
 
+	@Test
+	void commenceWithBearerHeaderExistingThenWwwAuthenticateHeader() throws Exception {
+		request.setContextPath("");
+		request.setScheme("https");
+		request.setServerName("example.com");
+		request.setServerPort(443);
+		request.setRequestURI("/some/endpoint");
+		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+
+		AuthenticationException authException = mock(AuthenticationException.class);
+
+		entryPoint.commence(request, response, authException);
+
+		String headerValue = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
+
+		assertThat(headerValue)
+			.contains("Bearer resource_metadata=https://example.com/.well-known/oauth-protected-resource/mcp");
+	}
+
 }

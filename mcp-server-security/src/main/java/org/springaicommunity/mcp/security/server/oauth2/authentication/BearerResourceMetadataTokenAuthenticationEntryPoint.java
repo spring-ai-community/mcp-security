@@ -52,7 +52,8 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 
 		String wwwAuthenticateHeader = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
 		if ("bearer".equalsIgnoreCase(wwwAuthenticateHeader)) {
-			wwwAuthenticateHeader += " ";
+			wwwAuthenticateHeader += " resource_metadata="
+					+ buildResourceMetadataPath(request, this.resourceIdentifier);
 		}
 		else if (Pattern.compile("resource_metadata=\".+\"").matcher(wwwAuthenticateHeader).find()) {
 			// Hotfix until Spring Security 7 has context paths
