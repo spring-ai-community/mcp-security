@@ -5,7 +5,7 @@
 
 Security and Authorization support for Model Context Protocol in Spring AI.
 
-> ⚠️ Versions 0.1.x of `mcp-security` only work Spring AI's 2.0.x branch. For Spring AI 1.1.x, use `mcp-security:0.0.5`.
+> ⚠️ Versions 0.1.x of `mcp-security` only work Spring AI's 2.0.x branch. For Spring AI 1.1.x, use version `0.0.6`.
 
 ## Table of Contents
 
