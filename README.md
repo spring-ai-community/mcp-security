@@ -5,7 +5,7 @@
 
 Security and Authorization support for Model Context Protocol in Spring AI.
 
-> ⚠️ This project only works Spring AI's 1.1.x branch.
+> ⚠️ Versions 0.1.x of `mcp-security` only work Spring AI's 2.0.x branch. For Spring AI 1.1.x, use `mcp-security:0.0.5`.
 
 ## Table of Contents
 
@@ -103,7 +103,7 @@ class McpServerConfiguration {
     private String issuerUrl;
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http
                 // Enforce authentication with token on EVERY request
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
@@ -143,7 +143,7 @@ class McpServerConfiguration {
     private String issuerUrl;
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http
                 // ⬇️ Open every request on the server
                 .authorizeHttpRequests(auth -> {
@@ -179,7 +179,7 @@ public class MyToolsService {
     @PreAuthorize("isAuthenticated()")
     @McpTool(name = "greeter", description = "A tool that greets you, in the selected language")
     public String greet(
-            @ToolParam(description = "The language for the greeting (example: english, french, ...)") String language
+            @McpToolParam(description = "The language for the greeting (example: english, french, ...)") String language
     ) {
         if (!StringUtils.hasText(language)) {
             language = "";
@@ -202,7 +202,7 @@ Note that you can also access the current authentication directly from the tool 
 @McpTool(name = "greeter", description = "A tool that greets the user by name, in the selected language")
 @PreAuthorize("isAuthenticated()")
 public String greet(
-        @ToolParam(description = "The language for the greeting (example: english, french, ...)") String language
+        @McpToolParam(description = "The language for the greeting (example: english, french, ...)") String language
 ) {
     if (!StringUtils.hasText(language)) {
         language = "";
@@ -249,7 +249,7 @@ With that, you can configure the security for your project in the usual Spring-S
 class McpServerConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
                 .with(
                         mcpServerApiKey(),
@@ -402,7 +402,7 @@ Then, create a configuration class, activating the OAuth2 client capabilities wi
 class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http
                 // in this example, the client app has no security on its endpoints
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
@@ -520,11 +520,11 @@ class Example {
 
     void doTheThing() {
         chatClient
-            .prompt("<your prompt>")
-            .stream()
-            .content()
-            // ... any streaming operation ...
-            .contextWrite(AuthenticationMcpTransportContextProvider.writeToReactorContext());
+                .prompt("<your prompt>")
+                .stream()
+                .content()
+                // ... any streaming operation ...
+                .contextWrite(AuthenticationMcpTransportContextProvider.writeToReactorContext());
     }
 
 }
@@ -806,7 +806,7 @@ the security filter chain:
 ```java
 
 @Bean
-SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+SecurityFilterChain securityFilterChain(HttpSecurity http) {
     return http
             // all requests must be authenticated
             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
