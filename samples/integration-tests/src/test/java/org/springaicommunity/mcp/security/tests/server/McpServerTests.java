@@ -16,17 +16,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.client.assertj.RestTestClientResponse;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = """
 		spring.ai.mcp.server.protocol=STATELESS
 		spring.ai.mcp.client.type=SYNC
-		server.servlet.context-path=/foo
+		server.servlet.context-path=/ctx
 		""")
 @AutoConfigureRestTestClient
 class McpServerTests {
@@ -45,13 +43,30 @@ class McpServerTests {
 		assertThat(response).hasStatus(HttpStatus.UNAUTHORIZED);
 		assertThat(response).headers()
 			.hasSingleValue("WWW-Authenticate",
-					"Bearer resource_metadata=http://localhost:%s/foo/.well-known/oauth-protected-resource/mcp"
+					"Bearer resource_metadata=http://localhost:%s/ctx/.well-known/oauth-protected-resource/mcp"
 						.formatted(serverPort));
 	}
 
+	@Test
+	void metadataEndpoint() {
+		var clientResponse = client.get().uri("/.well-known/oauth-protected-resource/mcp").exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus2xxSuccessful();
+		assertThat(response).bodyJson().isLenientlyEqualTo("""
+				{
+				  "authorization_servers": [
+				    "https://accounts.google.com"
+				  ],
+				  "resource_name": "Spring MCP Resource Server",
+				  "bearer_methods_supported": [
+				    "header"
+				  ]
+				}
+				""").extractingPath("$.resource").isEqualTo("http://localhost:%s/ctx/mcp".formatted(serverPort));
+	}
+
 	@Configuration
-	@EnableWebMvc
-	@EnableWebSecurity
 	@EnableAutoConfiguration(
 			exclude = { SseHttpClientTransportAutoConfiguration.class, SseWebFluxTransportAutoConfiguration.class,
 					StreamableHttpWebFluxTransportAutoConfiguration.class, AnthropicChatAutoConfiguration.class })

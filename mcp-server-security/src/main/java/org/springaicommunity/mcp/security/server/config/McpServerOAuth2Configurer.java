@@ -21,8 +21,6 @@ import java.util.function.Consumer;
 
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.jwt.JwtResourceValidator;
-import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadata;
-import org.springaicommunity.mcp.security.server.oauth2.metadata.OAuth2ProtectedResourceMetadataEndpointFilter;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.security.config.Customizer;
@@ -34,7 +32,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
 import org.springframework.util.Assert;
 
 /**
@@ -114,21 +112,19 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
 		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
 
-		var protectedResourceMetadataEndpointFilter = new OAuth2ProtectedResourceMetadataEndpointFilter(
-				this.resourceIdentifier);
-		protectedResourceMetadataEndpointFilter
-			.setProtectedResourceMetadataCustomizer(getProtectedMetadataCustomizer());
-
 		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
 
 		//@formatter:off
 		http
-				.oauth2ResourceServer(resourceServer -> {
-					resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
-					resourceServer.authenticationEntryPoint(entryPoint);
-					this.oauth2ResourceServerCustomizer.customize(resourceServer);
-				})
-				.addFilterBefore(protectedResourceMetadataEndpointFilter, AbstractPreAuthenticatedProcessingFilter.class);
+			.oauth2ResourceServer(resourceServer -> {
+				resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
+				resourceServer.authenticationEntryPoint(entryPoint);
+				resourceServer.protectedResourceMetadata(
+						protectedResource ->
+								protectedResource.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer())
+				);
+				this.oauth2ResourceServerCustomizer.customize(resourceServer);
+			});
 		//@formatter:on
 	}
 
@@ -149,8 +145,7 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 			return this.customizer;
 		}
 		return (protectedMetadata) -> protectedMetadata.authorizationServer(this.issuerUri)
-			.resourceName(this.resourceName)
-			.bearerMethod(this.bearerMethod);
+			.resourceName(this.resourceName);
 	}
 
 	public static McpServerOAuth2Configurer mcpServerOAuth2() {
