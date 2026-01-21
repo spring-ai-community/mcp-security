@@ -17,7 +17,6 @@
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
 import java.util.Map;
-import java.util.function.Consumer;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -33,21 +32,15 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ClientRegistrationEndpointConfigurer;
-import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContext;
-import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
+import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2RefreshTokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
-import org.springframework.security.oauth2.server.authorization.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-import org.springframework.web.util.UriComponentsBuilder;
-import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -78,17 +71,15 @@ public class McpAuthorizationServerConfigurer
 
 	@Override
 	public void init(HttpSecurity http) {
-		http.oauth2AuthorizationServer(authServer -> {
-			authServer.authorizationServerMetadataEndpoint(
-					authorizationServerMetadataEndpoint -> authorizationServerMetadataEndpoint
-						.authorizationServerMetadataCustomizer(authorizationServerMetadataCustomizer()));
-			OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
-			authServer.tokenGenerator(tokenGenerator);
-			this.authServerCustomizer.customize(authServer);
-		});
-		http.with(new OAuth2ClientRegistrationEndpointConfigurer(), withDefaults());
-		http.csrf(csrf -> csrf.ignoringRequestMatchers(
-				OAuth2ClientRegistrationEndpointConfigurer.OAUTH2_CLIENT_REGISTRATION_ENDPOINT_URI));
+		http.authorizeHttpRequests(
+				authz -> authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor()))
+			.oauth2AuthorizationServer(authServer -> {
+				authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
+				OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
+				authServer.tokenGenerator(tokenGenerator);
+				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
+				this.authServerCustomizer.customize(authServer);
+			});
 
 		// This makes Spring servers happy by ensuring that
 		// NimbusJwtDecoder.withIssuerLocation(...) does not blow up on an HTTP redirect
@@ -96,20 +87,6 @@ public class McpAuthorizationServerConfigurer
 		http.exceptionHandling(
 				exc -> exc.defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.NOT_FOUND),
 						PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
-	}
-
-	private static Consumer<OAuth2AuthorizationServerMetadata.Builder> authorizationServerMetadataCustomizer() {
-		return (builder) -> {
-			AuthorizationServerContext authorizationServerContext = AuthorizationServerContextHolder.getContext();
-			String issuer = authorizationServerContext.getIssuer();
-
-			String clientRegistrationEndpoint = UriComponentsBuilder.fromUriString(issuer)
-				.path(OAuth2ClientRegistrationEndpointConfigurer.OAUTH2_CLIENT_REGISTRATION_ENDPOINT_URI)
-				.build()
-				.toUriString();
-
-			builder.clientRegistrationEndpoint(clientRegistrationEndpoint);
-		};
 	}
 
 	private OAuth2TokenGenerator<?> getTokenGenerator(HttpSecurity http) {

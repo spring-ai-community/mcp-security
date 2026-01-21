@@ -2,6 +2,12 @@ package org.springaicommunity.mcp.security.tests.server;
 
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
+import tools.jackson.core.json.JsonReadFeature;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.PropertyNamingStrategy;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
@@ -14,7 +20,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,6 +48,9 @@ class McpAuthorizationServerTests {
 		var response = RestTestClientResponse.from(clientResponse);
 		assertThat(response).hasStatusOk();
 		assertThat(response).bodyJson().extractingPath("$.issuer").isEqualTo("http://localhost:" + serverPort);
+		assertThat(response).bodyJson()
+			.extractingPath("$.registration_endpoint")
+			.isEqualTo("http://localhost:" + serverPort + "/oauth2/register");
 	}
 
 	@Test
@@ -52,7 +63,77 @@ class McpAuthorizationServerTests {
 			.exchange();
 
 		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatusOk();
 		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
+	}
+
+	@Test
+	void dynamicClientRegistration() {
+		var clientResponse = client.post().uri("/oauth2/register").contentType(MediaType.APPLICATION_JSON).body("""
+				{
+					"redirect_uris": [
+						"https://example.com"
+					],
+					"grant_types": [
+						"client_credentials",
+						"authorization_code"
+					],
+					"client_name": "Dynamically Registered Client",
+					"token_endpoint_auth_method": "client_secret_basic",
+					"scope": "test.read,test.write",
+					"resource": "http://localhost:8080/"
+				}
+				""").exchange();
+		var response = RestTestClientResponse.from(clientResponse);
+
+		assertThat(response).hasStatus(HttpStatus.CREATED);
+		assertThat(response).bodyJson().extractingPath("client_id").isNotNull();
+	}
+
+	@Test
+	void useDynamicallyRegisteredClient() {
+		var registrationResponse = client.post()
+			.uri("/oauth2/register")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+						"redirect_uris": [
+							"https://example.com"
+						],
+						"grant_types": [
+							"client_credentials"
+						],
+						"client_name": "Client Credentials-based dynamic client",
+						"token_endpoint_auth_method": "client_secret_basic",
+						"scope": "test.read test.write",
+						"resource": "http://localhost:8080/"
+					}
+					""")
+			.exchange();
+		var registration = RestTestClientResponse.from(registrationResponse);
+
+		assertThat(registration).hasStatus(HttpStatus.CREATED);
+		var mapper = JsonMapper.builder()
+			.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
+			.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+			.build();
+		var registredClient = mapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
+				ClientCreationResponse.class);
+
+		var clientResponse = client.post()
+			.uri("/oauth2/token")
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.body("grant_type=client_credentials&resource=http://localhost:8080/&scope=test.write")
+			.headers(h -> h.setBasicAuth(registredClient.clientId(), registredClient.clientSecret()))
+			.exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatusOk();
+		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
+	}
+
+	record ClientCreationResponse(String clientId, String clientSecret) {
+
 	}
 
 	@Configuration
@@ -63,9 +144,8 @@ class McpAuthorizationServerTests {
 
 		@Bean
 		SecurityFilterChain securityFilterChain(HttpSecurity http) {
-			return http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
-				.with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), (cfg) -> {
-				})
+			return http.with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), Customizer.withDefaults())
+				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
 				.build();
 		}
 
