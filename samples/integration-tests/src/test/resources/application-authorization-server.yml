@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: test-authorization-server
+  security:
+    oauth2:
+      authorizationserver:
+        client:
+          default-client:
+            token:
+              access-token-time-to-live: 1h
+            registration:
+              client-id: "default-client"
+              client-secret: "{noop}default-secret"
+              client-authentication-methods:
+                - "client_secret_basic"
+              authorization-grant-types:
+                - "client_credentials"
+    user:
+      name: user
+      password: password
+logging:
+  level:
+    org.springframework.security: TRACE
