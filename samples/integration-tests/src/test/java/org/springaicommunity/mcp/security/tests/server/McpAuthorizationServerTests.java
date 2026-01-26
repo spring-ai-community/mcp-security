@@ -2,11 +2,8 @@ package org.springaicommunity.mcp.security.tests.server;
 
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
-import tools.jackson.core.json.JsonReadFeature;
 import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.PropertyNamingStrategy;
 import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
@@ -18,6 +15,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -26,13 +24,16 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.client.assertj.RestTestClientResponse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("authorization-server")
 @AutoConfigureRestTestClient
+@AutoConfigureMockMvc
 class McpAuthorizationServerTests {
 
 	@LocalServerPort
@@ -40,6 +41,9 @@ class McpAuthorizationServerTests {
 
 	@Autowired
 	RestTestClient client;
+
+	@Autowired
+	private MockMvcTester mockMvc;
 
 	@Test
 	void oauthServerMetadata() {
@@ -65,6 +69,24 @@ class McpAuthorizationServerTests {
 		var response = RestTestClientResponse.from(clientResponse);
 		assertThat(response).hasStatusOk();
 		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
+	}
+
+	@Test
+	void ignoreConsentWhenNoScopes() {
+		var response = mockMvc.get()
+			.uri("/oauth2/authorize")
+			.queryParam("client_id", "default-client")
+			.queryParam("redirect_url", "https://example.com")
+			.queryParam("response_type", "code")
+			.queryParam("code_challenge", "xxxx")
+			.queryParam("code_challenge_method", "S256")
+			.with(user("test-user"))
+			.exchange();
+
+		assertThat(response).hasStatus(HttpStatus.FOUND)
+			.redirectedUrl()
+			.startsWith("https://example.com")
+			.contains("code=");
 	}
 
 	@Test

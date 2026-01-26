@@ -27,11 +27,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
@@ -74,6 +77,7 @@ public class McpAuthorizationServerConfigurer
 		http.authorizeHttpRequests(
 				authz -> authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor()))
 			.oauth2AuthorizationServer(authServer -> {
+				authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
 				authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
 				OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
 				authServer.tokenGenerator(tokenGenerator);

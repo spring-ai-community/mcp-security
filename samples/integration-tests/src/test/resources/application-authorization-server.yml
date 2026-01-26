@@ -15,6 +15,10 @@ spring:
                 - "client_secret_basic"
               authorization-grant-types:
                 - "client_credentials"
+                - "authorization_code"
+              redirect-uris:
+                - "https://example.com"
+            require-authorization-consent: true
     user:
       name: user
       password: password
