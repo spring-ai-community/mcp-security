@@ -10,7 +10,9 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 /**
  * Customizer for {@link OAuth2AuthorizationCodeRequestAuthenticationProvider}, that
  * removes the need for consent when a client was registered with 0 scopes. Otherwise, the
- * user cannot get past the consent screen with no scopes present.
+ * user cannot get past the consent screen with no scopes present. It is lifted from
+ * {@link OAuth2AuthorizationCodeRequestAuthenticationProvider}'s
+ * {@code isAuthorizationConsentRequired}, with a special case for "no scopes registered".
  *
  * @see <a href=
  * "https://github.com/spring-projects/spring-security/issues/18565">spring-security/issues/18565</a>
