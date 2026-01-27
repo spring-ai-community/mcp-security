@@ -47,11 +47,10 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 
 			OAuth2AuthorizationRequest authorizationRequest = context.getAuthorization()
 				.getAttribute(OAuth2AuthorizationRequest.class.getName());
-			String authorizationRequestResource = (String) authorizationRequest.getAdditionalParameters()
-				.get(RESOURCE_PARAM_NAME);
+			String resource = (String) authorizationRequest.getAdditionalParameters().get(RESOURCE_PARAM_NAME);
 
-			if (authorizationRequestResource != null) {
-				context.getClaims().claim(JwtClaimNames.AUD, authorizationRequestResource);
+			if (resource != null) {
+				context.getClaims().claim(JwtClaimNames.AUD, resource);
 			}
 		}
 		else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())
@@ -61,8 +60,9 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 				.getAuthorizationGrant();
 			String resource = (String) clientCredentialsAuthentication.getAdditionalParameters()
 				.get(RESOURCE_PARAM_NAME);
-
-			context.getClaims().claim(JwtClaimNames.AUD, resource);
+			if (resource != null) {
+				context.getClaims().claim(JwtClaimNames.AUD, resource);
+			}
 		}
 
 	}

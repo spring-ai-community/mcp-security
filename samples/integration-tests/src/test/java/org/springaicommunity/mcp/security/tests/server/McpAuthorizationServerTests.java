@@ -1,5 +1,8 @@
 package org.springaicommunity.mcp.security.tests.server;
 
+import java.util.Base64;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
 import tools.jackson.databind.DeserializationFeature;
@@ -45,6 +48,8 @@ class McpAuthorizationServerTests {
 	@Autowired
 	private MockMvcTester mockMvc;
 
+	private final JsonMapper mapper = JsonMapper.builder().build();
+
 	@Test
 	void oauthServerMetadata() {
 		var clientResponse = client.get().uri("/.well-known/oauth-authorization-server").exchange();
@@ -69,6 +74,25 @@ class McpAuthorizationServerTests {
 		var response = RestTestClientResponse.from(clientResponse);
 		assertThat(response).hasStatusOk();
 		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
+
+		var payload = extractAccessTokenClaims(response);
+		assertThat(payload).containsEntry("aud", "https://example.com");
+	}
+
+	@Test
+	void clientCredentialsTokenNoResource() {
+		var clientResponse = client.post()
+			.uri("/oauth2/token")
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.body("grant_type=client_credentials")
+			.headers(h -> h.setBasicAuth("default-client", "default-secret"))
+			.exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatusOk();
+		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
+		var payload = extractAccessTokenClaims(response);
+		assertThat(payload).containsEntry("aud", "default-client");
 	}
 
 	@Test
@@ -156,6 +180,15 @@ class McpAuthorizationServerTests {
 
 	record ClientCreationResponse(String clientId, String clientSecret) {
 
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> extractAccessTokenClaims(RestTestClientResponse response) {
+		var tokenResponse = mapper.readValue(response.getExchangeResult().getResponseBodyContent(), Map.class);
+		var accessToken = tokenResponse.get("access_token").toString();
+		var jwtPayload = accessToken.split("\\.")[1];
+		var decodedPayload = Base64.getUrlDecoder().decode(jwtPayload);
+		return mapper.readValue(decodedPayload, Map.class);
 	}
 
 	@Configuration
