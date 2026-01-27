@@ -33,11 +33,9 @@ import org.springframework.security.core.authority.AuthorityUtils;
 @Transient
 public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 
-	@Nullable
-	private final ApiKeyEntity principal;
+	@Nullable private final ApiKeyEntity principal;
 
-	@Nullable
-	private final ApiKey credentials;
+	@Nullable private final ApiKey credentials;
 
 	private ApiKeyAuthenticationToken(ApiKey apiKey) {
 		super(AuthorityUtils.NO_AUTHORITIES);
@@ -63,14 +61,12 @@ public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 	}
 
 	@Override
-	@Nullable
-	public ApiKey getCredentials() {
+	@Nullable public ApiKey getCredentials() {
 		return this.credentials;
 	}
 
 	@Override
-	@Nullable
-	public ApiKeyEntity getPrincipal() {
+	@Nullable public ApiKeyEntity getPrincipal() {
 		return this.principal;
 	}
 

@@ -49,8 +49,7 @@ public class ApiKeyAuthenticationConverter implements AuthenticationConverter {
 	}
 
 	@Override
-	@Nullable
-	public Authentication convert(HttpServletRequest request) {
+	@Nullable public Authentication convert(HttpServletRequest request) {
 		var apiKeyValues = Collections.list(request.getHeaders(this.apiKeyHeaderName));
 		if (apiKeyValues.isEmpty()) {
 			return null;

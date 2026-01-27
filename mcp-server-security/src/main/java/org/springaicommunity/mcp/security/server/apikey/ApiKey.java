@@ -25,7 +25,6 @@ public interface ApiKey {
 
 	String getId();
 
-	@Nullable
-	String getSecret();
+	@Nullable String getSecret();
 
 }

@@ -23,7 +23,6 @@ import org.jspecify.annotations.Nullable;
  */
 public interface ApiKeyEntityRepository<T extends ApiKeyEntity> {
 
-	@Nullable
-	T findByKeyId(String keyId);
+	@Nullable T findByKeyId(String keyId);
 
 }
