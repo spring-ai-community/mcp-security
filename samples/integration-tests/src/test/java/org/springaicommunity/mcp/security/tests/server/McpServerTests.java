@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 
@@ -18,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -104,6 +106,27 @@ class McpServerTests {
 
 		var response = RestTestClientResponse.from(clientResponse);
 		assertThat(response).hasStatus(HttpStatus.NOT_FOUND);
+	}
+
+	@Test
+	@Disabled("Not implemented. See https://github.com/spring-ai-community/mcp-security/issues/18")
+	void requestWithTokenMissingScope() {
+		var jwt = jwt("test.read");
+
+		var clientResponse = client.get()
+			.uri("/with-write-scope")
+			.headers(h -> h.setBearerAuth(jwt.getTokenValue()))
+			.exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus(HttpStatus.FORBIDDEN)
+			.headers()
+			.hasHeaderSatisfying(HttpHeaders.WWW_AUTHENTICATE,
+					values -> assertThat(values).hasSize(1)
+						.first()
+						.asString()
+						.contains("error=\"insufficient_scope\"")
+						.contains("scope=\"test.write\""));
 	}
 
 	private Jwt jwt(String... scopes) {
