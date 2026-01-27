@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2025 the original author or authors.
+ * Copyright 2025-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springaicommunity.mcp.security.server.config;
 
 import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
-import org.springaicommunity.mcp.security.server.oauth2.jwt.JwtResourceValidator;
+import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJwtDecoder;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
 import org.springframework.util.Assert;
@@ -53,6 +51,9 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	private Customizer<OAuth2ResourceServerConfigurer<HttpSecurity>> oauth2ResourceServerCustomizer = Customizer
 		.withDefaults();
+
+	@Nullable
+	private JwtDecoder jwtDecoder;
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
@@ -78,6 +79,11 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	public McpServerOAuth2Configurer validateAudienceClaim(boolean validateAudienceClaim) {
 		this.validateAudienceClaim = validateAudienceClaim;
+		return this;
+	}
+
+	public McpServerOAuth2Configurer jwtDecoder(JwtDecoder jwtDecoder) {
+		this.jwtDecoder = jwtDecoder;
 		return this;
 	}
 
@@ -112,15 +118,14 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	private JwtDecoder getJwtDecoder(String issuerUri) {
-		var decoder = NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+		var rawDecoder = this.jwtDecoder != null ? this.jwtDecoder
+				: NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
 
 		if (this.validateAudienceClaim) {
-			OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
-				.createDefaultWithValidators(new JwtResourceValidator(this.resourceIdentifier));
-			decoder.setJwtValidator(jwtValidator);
+			return new AudienceValidationJwtDecoder(rawDecoder, this.resourceIdentifier);
 		}
 
-		return decoder;
+		return rawDecoder;
 	}
 
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(String issuerUri) {
