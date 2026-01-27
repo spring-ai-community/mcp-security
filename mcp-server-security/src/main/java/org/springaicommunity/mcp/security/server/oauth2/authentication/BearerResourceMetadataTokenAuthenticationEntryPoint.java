@@ -32,7 +32,14 @@ import org.springframework.util.Assert;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
+ * Entrypoint wrapping a {@link BearerTokenAuthenticationEntryPoint} and ensuring the
+ * {@code resource_metadata} contains the path of the request. Should be removed after PR
+ * #18542 is released.
+ *
+ * @see <a href=
+ * "https://github.com/spring-projects/spring-security/pull/18542">spring-security/pull/18542</a>
  * @author Joe Grandja
+ * @author Daniel Garnier-Moiroux
  */
 public final class BearerResourceMetadataTokenAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

@@ -15,10 +15,9 @@
  */
 package org.springaicommunity.mcp.security.server.config;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.jwt.JwtResourceValidator;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
@@ -40,14 +39,12 @@ import org.springframework.util.Assert;
  */
 public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerOAuth2Configurer, HttpSecurity> {
 
+	@Nullable
 	private String issuerUri = null;
-
-	private final List<String> scopes = new ArrayList<>();
-
-	private String bearerMethod = "header";
 
 	private String resourceName = "Spring MCP Resource Server";
 
+	@Nullable
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer = null;
 
 	private ResourceIdentifier resourceIdentifier = new ResourceIdentifier("/mcp");
@@ -59,16 +56,6 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
-		return this;
-	}
-
-	public McpServerOAuth2Configurer scope(String scope) {
-		this.scopes.add(scope);
-		return this;
-	}
-
-	public McpServerOAuth2Configurer bearerMethod(String bearerMethod) {
-		this.bearerMethod = bearerMethod;
 		return this;
 	}
 
@@ -84,6 +71,7 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	public McpServerOAuth2Configurer protectedResourceMetadataCustomizer(
 			Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer) {
+		Assert.notNull(customizer, "customizer cannot be null");
 		this.customizer = customizer;
 		return this;
 	}
@@ -114,22 +102,17 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
 
-		//@formatter:off
-		http
-			.oauth2ResourceServer(resourceServer -> {
-				resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(http)));
-				resourceServer.authenticationEntryPoint(entryPoint);
-				resourceServer.protectedResourceMetadata(
-						protectedResource ->
-								protectedResource.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer())
-				);
-				this.oauth2ResourceServerCustomizer.customize(resourceServer);
-			});
-		//@formatter:on
+		http.oauth2ResourceServer(resourceServer -> {
+			resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(this.issuerUri)));
+			resourceServer.authenticationEntryPoint(entryPoint);
+			resourceServer.protectedResourceMetadata(protectedResource -> protectedResource
+				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(this.issuerUri)));
+			this.oauth2ResourceServerCustomizer.customize(resourceServer);
+		});
 	}
 
-	private JwtDecoder getJwtDecoder(HttpSecurity http) {
-		var decoder = NimbusJwtDecoder.withIssuerLocation(this.issuerUri).build();
+	private JwtDecoder getJwtDecoder(String issuerUri) {
+		var decoder = NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
 
 		if (this.validateAudienceClaim) {
 			OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators
@@ -140,12 +123,11 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return decoder;
 	}
 
-	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer() {
+	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(String issuerUri) {
 		if (this.customizer != null) {
 			return this.customizer;
 		}
-		return (protectedMetadata) -> protectedMetadata.authorizationServer(this.issuerUri)
-			.resourceName(this.resourceName);
+		return (protectedMetadata) -> protectedMetadata.authorizationServer(issuerUri).resourceName(this.resourceName);
 	}
 
 	public static McpServerOAuth2Configurer mcpServerOAuth2() {
