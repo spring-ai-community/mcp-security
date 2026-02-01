@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationToken;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
@@ -60,6 +61,15 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 				.getAuthorizationGrant();
 			String resource = (String) clientCredentialsAuthentication.getAdditionalParameters()
 				.get(RESOURCE_PARAM_NAME);
+			if (resource != null) {
+				context.getClaims().claim(JwtClaimNames.AUD, resource);
+			}
+		}
+		// needed for adding resource identifier as audience(aud) claim to access token issued by refresh token grant
+		else if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType())) {
+			OAuth2RefreshTokenAuthenticationToken refreshTokenAuthentication = context.getAuthorizationGrant();
+			String resource = (String) refreshTokenAuthentication.getAdditionalParameters()
+					.get(RESOURCE_PARAM_NAME);
 			if (resource != null) {
 				context.getClaims().claim(JwtClaimNames.AUD, resource);
 			}
