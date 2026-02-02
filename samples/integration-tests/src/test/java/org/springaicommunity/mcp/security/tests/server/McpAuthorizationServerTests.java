@@ -187,8 +187,6 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void refreshTokenNoResource() throws NoSuchAlgorithmException {
-		var registeredClient = registerDynamicClient();
-
 		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken("default-client", "default-secret");
 
 		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
