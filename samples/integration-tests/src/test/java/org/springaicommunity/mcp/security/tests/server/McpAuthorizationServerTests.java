@@ -185,6 +185,107 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void useDynamicallyRegisteredClientWithRefreshToken() throws NoSuchAlgorithmException {
+		var registrationResponse = client.post()
+				.uri("/oauth2/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.body("""
+					{
+						"redirect_uris": [
+							"https://example.com"
+						],
+						"grant_types": [
+							"client_credentials",
+							"authorization_code",
+							"refresh_token"
+						],
+						"client_name": "auth-code-test-client",
+						"token_endpoint_auth_method": "client_secret_post",
+						"scope": "test.read test.write",
+						"resource": "http://localhost:8080/"
+					}
+					""")
+				.exchange();
+		var registration = RestTestClientResponse.from(registrationResponse);
+
+		assertThat(registration).hasStatus(HttpStatus.CREATED);
+		var mapper = JsonMapper.builder()
+				.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
+				.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+				.build();
+		var registeredClient = mapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
+				ClientCreationResponse.class);
+
+		// prepare the oauth2 authorize call
+		var code_verifier = "spring-ai-community";
+		var code_challenge = generateCodeChallenge(code_verifier);
+		var response = mockMvc.get()
+				.uri("/oauth2/authorize")
+				.queryParam("client_id", registeredClient.clientId())
+				.queryParam("redirect_url", "https://example.com")
+				.queryParam("response_type", "code")
+				.queryParam("code_challenge", code_challenge)
+				.queryParam("code_challenge_method", "S256")
+				.with(user("test-user"))
+				.exchange();
+
+		// validate the presence of the authorization code
+		assertThat(response).hasStatus(HttpStatus.FOUND)
+				.redirectedUrl()
+				.startsWith("https://example.com")
+				.contains("code=");
+
+		// extract authorization code
+		String code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
+				.build()
+				.getQueryParams()
+				.getFirst("code");
+
+		assertThat(code).isNotNull();
+
+		// the Oauth2 Token endpoint call based on the authorization_code grant type
+		var clientResponse = client.post()
+				.uri("/oauth2/token")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.body("client_id=" + registeredClient.clientId() +
+						"&client_secret=" + registeredClient.clientSecret() +
+						"&grant_type=authorization_code" +
+						"&scope=test.write" +
+						"&code_verifier=" +code_verifier +
+						"&code=" + code)
+				.exchange();
+
+		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
+
+		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
+		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
+		// refresh_token must be present
+		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
+
+		var tokenResponse = mapper.readValue(tokenEndpointRestTestClientResponse.getExchangeResult().getResponseBodyContent(), Map.class);;
+		var refreshToken = tokenResponse.get("refresh_token").toString();
+
+		var accessTokenClaimsMap = extractAccessTokenClaims(tokenEndpointRestTestClientResponse);
+		assertThat(accessTokenClaimsMap).containsEntry("aud", registeredClient.clientId());
+
+		// the Token endpoint call based on the refresh_token grant type
+		var refreshTokenResponse = client.post()
+				.uri("/oauth2/token")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.body("client_id="+registeredClient.clientId()+"&client_secret="+registeredClient.clientSecret()+"&grant_type=refresh_token&refresh_token="+refreshToken)
+				.exchange();
+
+		var refreshTokenRestTestClientResponse = RestTestClientResponse.from(refreshTokenResponse);
+		assertThat(refreshTokenRestTestClientResponse).hasStatusOk();
+		// Voilà access_token refreshed
+		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
+		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
+
+		var refreshedAccessTokenClaimsMap = extractAccessTokenClaims(refreshTokenRestTestClientResponse);
+		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", registeredClient.clientId());
+	}
+
+	@Test
+	void useDefaultClientWithRefreshToken() throws NoSuchAlgorithmException {
 		// prepare the oauth2 authorize call
 		var code_verifier = "spring-ai-community";
 		var code_challenge = generateCodeChallenge(code_verifier);
