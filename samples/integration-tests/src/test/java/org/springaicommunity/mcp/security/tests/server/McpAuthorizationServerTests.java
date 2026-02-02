@@ -173,8 +173,6 @@ class McpAuthorizationServerTests {
 		var registeredClient = snakeCaseMapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
 				ClientCreationResponse.class);
 
-		System.out.println(registeredClient.clientId());
-
 		var clientResponse = client.post()
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -189,71 +187,10 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void refreshTokenNoResource() throws NoSuchAlgorithmException {
-		var registrationResponse = client.post()
-			.uri("/oauth2/register")
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-						"redirect_uris": [
-							"https://example.com"
-						],
-						"grant_types": [
-							"client_credentials",
-							"authorization_code",
-							"refresh_token"
-						],
-						"client_name": "auth-code-test-client",
-						"token_endpoint_auth_method": "client_secret_basic",
-						"scope": "test.read test.write",
-						"resource": "http://localhost:8080/"
-					}
-					""")
-			.exchange();
-		var registration = RestTestClientResponse.from(registrationResponse);
+		var registeredClient = registerDynamicClient();
 
-		assertThat(registration).hasStatus(HttpStatus.CREATED);
-
-		var registeredClient = snakeCaseMapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
-				ClientCreationResponse.class);
-
-		System.out.println(registeredClient.clientId());
-
-		// prepare the oauth2 authorize call
-		var codeVerifier = "spring-ai-community";
-		var codeChallenge = generateCodeChallenge(codeVerifier);
-		var response = mockMvc.get()
-			.uri("/oauth2/authorize")
-			.queryParam("client_id", registeredClient.clientId())
-			.queryParam("redirect_url", "https://example.com")
-			.queryParam("response_type", "code")
-			.queryParam("code_challenge", codeChallenge)
-			.queryParam("code_challenge_method", "S256")
-			.with(user("test-user"))
-			.exchange();
-
-		// validate the presence of the authorization code
-		assertThat(response).hasStatus(HttpStatus.FOUND)
-			.redirectedUrl()
-			.startsWith("https://example.com")
-			.contains("code=");
-
-		// extract authorization code
-		var code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
-			.build()
-			.getQueryParams()
-			.getFirst("code");
-
-		assertThat(code).isNotNull();
-
-		// the Oauth2 Token endpoint call based on the authorization_code grant type
-		var clientResponse = client.post()
-			.uri("/oauth2/token")
-			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=authorization_code&scope=test.write&code_verifier=" + codeVerifier + "&code=" + code)
-			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
-			.exchange();
-
-		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
+		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken(registeredClient.clientId(),
+				registeredClient.clientSecret());
 
 		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
 		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
@@ -262,7 +199,7 @@ class McpAuthorizationServerTests {
 
 		var tokenResponse = mapper
 			.readValue(tokenEndpointRestTestClientResponse.getExchangeResult().getResponseBodyContent(), Map.class);
-		;
+
 		var refreshToken = tokenResponse.get("refresh_token").toString();
 
 		// the Token endpoint call based on the refresh_token grant type
@@ -285,44 +222,7 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void refreshToken() throws NoSuchAlgorithmException {
-		// prepare the oauth2 authorize call
-		var code_verifier = "spring-ai-community";
-		var code_challenge = generateCodeChallenge(code_verifier);
-		var response = mockMvc.get()
-			.uri("/oauth2/authorize")
-			.queryParam("client_id", "default-client")
-			.queryParam("redirect_url", "https://example.com")
-			.queryParam("response_type", "code")
-			.queryParam("code_challenge", code_challenge)
-			.queryParam("code_challenge_method", "S256")
-			.queryParam("resource", "https://example.com")
-			.with(user("test-user"))
-			.exchange();
-
-		// validate the presence of the authorization code
-		assertThat(response).hasStatus(HttpStatus.FOUND)
-			.redirectedUrl()
-			.startsWith("https://example.com")
-			.contains("code=");
-
-		// extract authorization code
-		var code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
-			.build()
-			.getQueryParams()
-			.getFirst("code");
-
-		assertThat(code).isNotNull();
-
-		// the Oauth2 Token endpoint call based on the authorization_code grant type
-		var clientResponse = client.post()
-			.uri("/oauth2/token")
-			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=authorization_code" + "&scope=test.write" + "&resource=https://example.com"
-					+ "&code_verifier=" + code_verifier + "&code=" + code)
-			.headers(h -> h.setBasicAuth("default-client", "default-secret"))
-			.exchange();
-
-		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
+		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken("default-client", "default-secret");
 
 		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
 		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
@@ -331,7 +231,7 @@ class McpAuthorizationServerTests {
 
 		var tokenResponse = mapper
 			.readValue(tokenEndpointRestTestClientResponse.getExchangeResult().getResponseBodyContent(), Map.class);
-		;
+
 		var refreshToken = tokenResponse.get("refresh_token").toString();
 
 		// the Token endpoint call based on the refresh_token grant type
@@ -352,6 +252,38 @@ class McpAuthorizationServerTests {
 		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", "https://example.com");
 	}
 
+	@Test
+	public void authorizationCodeToken() throws NoSuchAlgorithmException {
+		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken("default-client", "default-secret");
+		var accessTokenClaimsMap = extractAccessTokenClaims(tokenEndpointRestTestClientResponse);
+		assertThat(accessTokenClaimsMap).containsEntry("aud", "https://example.com");
+	}
+
+	@Test
+	public void authorizationCodeGrantTokenNoResource() throws NoSuchAlgorithmException {
+		var registeredClient = registerDynamicClient();
+		var codeVerifier = "spring-ai-community";
+
+		// get authorization code
+		var code = resolveAuthorizationCode(registeredClient.clientId(), codeVerifier, true);
+
+		// the Oauth2 Token endpoint call based on the authorization_code grant type
+		var clientResponse = client.post()
+			.uri("/oauth2/token")
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.body("grant_type=authorization_code" + "&scope=test.write" + "&code_verifier=" + codeVerifier + "&code="
+					+ code)
+			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
+			.exchange();
+
+		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
+		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
+		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
+
+		var accessTokenClaimsMap = extractAccessTokenClaims(tokenEndpointRestTestClientResponse);
+		assertThat(accessTokenClaimsMap).containsEntry("aud", registeredClient.clientId());
+	}
+
 	record ClientCreationResponse(String clientId, String clientSecret) {
 
 	}
@@ -363,6 +295,78 @@ class McpAuthorizationServerTests {
 		var jwtPayload = accessToken.split("\\.")[1];
 		var decodedPayload = Base64.getUrlDecoder().decode(jwtPayload);
 		return mapper.readValue(decodedPayload, Map.class);
+	}
+
+	private String resolveAuthorizationCode(String clientId, String codeVerifier, boolean addResource)
+			throws NoSuchAlgorithmException {
+		// prepare the oauth2 authorize call
+		var code_challenge = generateCodeChallenge(codeVerifier);
+		var mockMvcRequestBuilder = mockMvc.get()
+			.uri("/oauth2/authorize")
+			.queryParam("client_id", clientId)
+			.queryParam("redirect_url", "https://example.com")
+			.queryParam("response_type", "code")
+			.queryParam("code_challenge", code_challenge)
+			.queryParam("code_challenge_method", "S256")
+			.queryParam("resource", "https://example.com")
+			.with(user("test-user"));
+
+		if (addResource) {
+			mockMvcRequestBuilder.queryParam("resource", "https://example.com");
+		}
+
+		var response = mockMvcRequestBuilder.exchange();
+
+		// extract authorization code
+		return UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
+			.build()
+			.getQueryParams()
+			.getFirst("code");
+	}
+
+	// authorize_code grant call with call to /authorize and then /token
+	private RestTestClientResponse getAuthorizationCodeGrantToken(String clientId, String clientSecret)
+			throws NoSuchAlgorithmException {
+		var codeVerifier = "spring-ai-community";
+
+		// get authorization code
+		var code = resolveAuthorizationCode(clientId, codeVerifier, true);
+
+		// the Oauth2 Token endpoint call based on the authorization_code grant type
+		var clientResponse = client.post()
+			.uri("/oauth2/token")
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.body("grant_type=authorization_code" + "&scope=test.write" + "&resource=https://example.com"
+					+ "&code_verifier=" + codeVerifier + "&code=" + code)
+			.headers(h -> h.setBasicAuth(clientId, clientSecret))
+			.exchange();
+
+		return RestTestClientResponse.from(clientResponse);
+	}
+
+	private ClientCreationResponse registerDynamicClient() {
+		var registrationResponse = client.post()
+			.uri("/oauth2/register")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+						"redirect_uris": [
+							"https://example.com"
+						],
+						"grant_types": [
+							"client_credentials",
+							"authorization_code",
+							"refresh_token"
+						],
+						"client_name": "auth-code-test-client",
+						"token_endpoint_auth_method": "client_secret_basic",
+						"scope": "test.read test.write",
+						"resource": "http://localhost:8080/"
+					}
+					""")
+			.exchange();
+		return snakeCaseMapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
+				ClientCreationResponse.class);
 	}
 
 	private static String generateCodeChallenge(String codeVerifier) throws NoSuchAlgorithmException {
