@@ -265,14 +265,13 @@ class McpAuthorizationServerTests {
 		var codeVerifier = "spring-ai-community";
 
 		// get authorization code
-		var code = resolveAuthorizationCode(registeredClient.clientId(), codeVerifier, true);
+		var code = resolveAuthorizationCode(registeredClient.clientId(), codeVerifier, false);
 
 		// the Oauth2 Token endpoint call based on the authorization_code grant type
 		var clientResponse = client.post()
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=authorization_code" + "&scope=test.write" + "&code_verifier=" + codeVerifier + "&code="
-					+ code)
+			.body("grant_type=authorization_code&scope=test.write&code_verifier=" + codeVerifier + "&code=" + code)
 			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
 			.exchange();
 
