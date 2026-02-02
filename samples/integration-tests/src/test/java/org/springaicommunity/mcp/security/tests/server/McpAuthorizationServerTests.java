@@ -235,7 +235,7 @@ class McpAuthorizationServerTests {
 				.contains("code=");
 
 		// extract authorization code
-		String code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
+		var code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
 				.build()
 				.getQueryParams()
 				.getFirst("code");
@@ -308,7 +308,7 @@ class McpAuthorizationServerTests {
 				.contains("code=");
 
 		// extract authorization code
-		String code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
+		var code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
 				.build()
 				.getQueryParams()
 				.getFirst("code");
@@ -373,8 +373,8 @@ class McpAuthorizationServerTests {
 
 	private String generateCodeChallenge(String codeVerifier)
 			throws NoSuchAlgorithmException {
-		MessageDigest digest = MessageDigest.getInstance("SHA-256");
-		byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
+		var digest = MessageDigest.getInstance("SHA-256");
+		var hash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
 	}
 
