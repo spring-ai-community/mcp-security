@@ -16,6 +16,7 @@ spring:
               authorization-grant-types:
                 - "client_credentials"
                 - "authorization_code"
+                - "refresh_token"
               redirect-uris:
                 - "https://example.com"
             require-authorization-consent: true

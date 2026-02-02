@@ -185,47 +185,19 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void useDynamicallyRegisteredClientWithRefreshToken() throws NoSuchAlgorithmException {
-		var registrationResponse = client.post()
-				.uri("/oauth2/register")
-				.contentType(MediaType.APPLICATION_JSON)
-				.body("""
-					{
-						"redirect_uris": [
-							"https://example.com"
-						],
-						"grant_types": [
-							"client_credentials",
-							"authorization_code",
-							"refresh_token"
-						],
-						"client_name": "auth-code-test-client",
-						"token_endpoint_auth_method": "client_secret_post",
-						"scope": "test.read test.write",
-						"resource": "http://localhost:8080/"
-					}
-					""")
-				.exchange();
-		var registration = RestTestClientResponse.from(registrationResponse);
-
-		assertThat(registration).hasStatus(HttpStatus.CREATED);
-		var mapper = JsonMapper.builder()
-				.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
-				.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
-				.build();
-		var registeredClient = mapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
-				ClientCreationResponse.class);
-
 		// prepare the oauth2 authorize call
 		var code_verifier = "spring-ai-community";
 		var code_challenge = generateCodeChallenge(code_verifier);
 		var response = mockMvc.get()
 				.uri("/oauth2/authorize")
-				.queryParam("client_id", registeredClient.clientId())
+				.queryParam("client_id", "default-client")
 				.queryParam("redirect_url", "https://example.com")
 				.queryParam("response_type", "code")
 				.queryParam("code_challenge", code_challenge)
 				.queryParam("code_challenge_method", "S256")
+				.queryParam("resource", "https://example.com")
 				.with(user("test-user"))
+				.headers(h -> h.setBasicAuth("default-client", "default-secret"))
 				.exchange();
 
 		// validate the presence of the authorization code
@@ -246,12 +218,12 @@ class McpAuthorizationServerTests {
 		var clientResponse = client.post()
 				.uri("/oauth2/token")
 				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-				.body("client_id=" + registeredClient.clientId() +
-						"&client_secret=" + registeredClient.clientSecret() +
-						"&grant_type=authorization_code" +
+				.body("grant_type=authorization_code" +
 						"&scope=test.write" +
+						"&resource=https://example.com" +
 						"&code_verifier=" +code_verifier +
 						"&code=" + code)
+				.headers(h -> h.setBasicAuth("default-client", "default-secret"))
 				.exchange();
 
 		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
@@ -264,11 +236,15 @@ class McpAuthorizationServerTests {
 		var tokenResponse = mapper.readValue(tokenEndpointRestTestClientResponse.getExchangeResult().getResponseBodyContent(), Map.class);;
 		var refreshToken = tokenResponse.get("refresh_token").toString();
 
+		var accessTokenClaimsMap = extractAccessTokenClaims(tokenEndpointRestTestClientResponse);
+		assertThat(accessTokenClaimsMap).containsEntry("aud", "https://example.com");
+
 		// the Token endpoint call based on the refresh_token grant type
 		var refreshTokenResponse = client.post()
 				.uri("/oauth2/token")
 				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-				.body("client_id="+registeredClient.clientId()+"&client_secret="+registeredClient.clientSecret()+"&grant_type=refresh_token&refresh_token="+refreshToken)
+				.body("&grant_type=refresh_token&resource=https://example.com&refresh_token="+refreshToken)
+				.headers(h -> h.setBasicAuth("default-client", "default-secret"))
 				.exchange();
 
 		var refreshTokenRestTestClientResponse = RestTestClientResponse.from(refreshTokenResponse);
@@ -276,6 +252,9 @@ class McpAuthorizationServerTests {
 		// Voilà access_token refreshed
 		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
 		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
+
+		var refreshedAccessTokenClaimsMap = extractAccessTokenClaims(refreshTokenRestTestClientResponse);
+		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", "https://example.com");
 	}
 
 	record ClientCreationResponse(String clientId, String clientSecret) {
