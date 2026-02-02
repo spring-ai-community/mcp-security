@@ -1,14 +1,7 @@
 package org.springaicommunity.mcp.security.tests.server;
 
-import java.util.Base64;
-import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.json.JsonMapper;
-
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
@@ -30,6 +23,18 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.client.assertj.RestTestClientResponse;
+import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Objects;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
@@ -178,6 +183,101 @@ class McpAuthorizationServerTests {
 		assertThat(response).bodyJson().extractingPath("access_token").isNotNull();
 	}
 
+	@Test
+	void useDynamicallyRegisteredClientWithRefreshToken() throws NoSuchAlgorithmException {
+		var registrationResponse = client.post()
+				.uri("/oauth2/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.body("""
+					{
+						"redirect_uris": [
+							"https://example.com"
+						],
+						"grant_types": [
+							"client_credentials",
+							"authorization_code",
+							"refresh_token"
+						],
+						"client_name": "auth-code-test-client",
+						"token_endpoint_auth_method": "client_secret_post",
+						"scope": "test.read test.write",
+						"resource": "http://localhost:8080/"
+					}
+					""")
+				.exchange();
+		var registration = RestTestClientResponse.from(registrationResponse);
+
+		assertThat(registration).hasStatus(HttpStatus.CREATED);
+		var mapper = JsonMapper.builder()
+				.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
+				.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+				.build();
+		var registeredClient = mapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
+				ClientCreationResponse.class);
+
+		// prepare the oauth2 authorize call
+		var code_verifier = "spring-ai-community";
+		var code_challenge = generateCodeChallenge(code_verifier);
+		var response = mockMvc.get()
+				.uri("/oauth2/authorize")
+				.queryParam("client_id", registeredClient.clientId())
+				.queryParam("redirect_url", "https://example.com")
+				.queryParam("response_type", "code")
+				.queryParam("code_challenge", code_challenge)
+				.queryParam("code_challenge_method", "S256")
+				.with(user("test-user"))
+				.exchange();
+
+		// validate the presence of the authorization code
+		assertThat(response).hasStatus(HttpStatus.FOUND)
+				.redirectedUrl()
+				.startsWith("https://example.com")
+				.contains("code=");
+
+		// extract authorization code
+		String code = UriComponentsBuilder.fromUriString(Objects.requireNonNull(response.getResponse().getRedirectedUrl()))
+				.build()
+				.getQueryParams()
+				.getFirst("code");
+
+		assertThat(code).isNotNull();
+
+		// the Oauth2 Token endpoint call based on the authorization_code grant type
+		var clientResponse = client.post()
+				.uri("/oauth2/token")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.body("client_id=" + registeredClient.clientId() +
+						"&client_secret=" + registeredClient.clientSecret() +
+						"&grant_type=authorization_code" +
+						"&scope=test.write" +
+						"&code_verifier=" +code_verifier +
+						"&code=" + code)
+				.exchange();
+
+		var tokenEndpointRestTestClientResponse = RestTestClientResponse.from(clientResponse);
+
+		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
+		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
+		// refresh_token must be present
+		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
+
+		var tokenResponse = mapper.readValue(tokenEndpointRestTestClientResponse.getExchangeResult().getResponseBodyContent(), Map.class);;
+		var refreshToken = tokenResponse.get("refresh_token").toString();
+
+		// the Token endpoint call based on the refresh_token grant type
+		var refreshTokenResponse = client.post()
+				.uri("/oauth2/token")
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.body("client_id="+registeredClient.clientId()+"&client_secret="+registeredClient.clientSecret()+"&grant_type=refresh_token&refresh_token="+refreshToken)
+				.exchange();
+
+		var refreshTokenRestTestClientResponse = RestTestClientResponse.from(refreshTokenResponse);
+		assertThat(refreshTokenRestTestClientResponse).hasStatusOk();
+		// Voilà access_token refreshed
+		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
+		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
+	}
+
 	record ClientCreationResponse(String clientId, String clientSecret) {
 
 	}
@@ -189,6 +289,13 @@ class McpAuthorizationServerTests {
 		var jwtPayload = accessToken.split("\\.")[1];
 		var decodedPayload = Base64.getUrlDecoder().decode(jwtPayload);
 		return mapper.readValue(decodedPayload, Map.class);
+	}
+
+	private String generateCodeChallenge(String codeVerifier)
+			throws NoSuchAlgorithmException {
+		MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.UTF_8));
+		return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
 	}
 
 	@Configuration
