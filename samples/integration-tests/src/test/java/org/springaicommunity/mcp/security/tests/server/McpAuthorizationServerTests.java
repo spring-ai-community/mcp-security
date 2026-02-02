@@ -189,8 +189,7 @@ class McpAuthorizationServerTests {
 	void refreshTokenNoResource() throws NoSuchAlgorithmException {
 		var registeredClient = registerDynamicClient();
 
-		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken(registeredClient.clientId(),
-				registeredClient.clientSecret());
+		var tokenEndpointRestTestClientResponse = getAuthorizationCodeGrantToken("default-client", "default-secret");
 
 		assertThat(tokenEndpointRestTestClientResponse).hasStatusOk();
 		assertThat(tokenEndpointRestTestClientResponse).bodyJson().extractingPath("access_token").isNotNull();
@@ -207,7 +206,7 @@ class McpAuthorizationServerTests {
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
 			.body("grant_type=refresh_token&refresh_token=" + refreshToken)
-			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
+			.headers(h -> h.setBasicAuth("default-client", "default-secret"))
 			.exchange();
 
 		var refreshTokenRestTestClientResponse = RestTestClientResponse.from(refreshTokenResponse);
@@ -217,7 +216,7 @@ class McpAuthorizationServerTests {
 		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
 
 		var refreshedAccessTokenClaimsMap = extractAccessTokenClaims(refreshTokenRestTestClientResponse);
-		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", registeredClient.clientId());
+		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", "default-client");
 	}
 
 	@Test
