@@ -16,12 +16,10 @@
 
 package org.springframework.security.oauth2.server.authorization.mcp.token;
 
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationToken;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationGrantAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
@@ -42,24 +40,8 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 			return;
 		}
 
-		if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
-				&& context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)) {
-
-			OAuth2AuthorizationRequest authorizationRequest = context.getAuthorization()
-				.getAttribute(OAuth2AuthorizationRequest.class.getName());
-			String resource = (String) authorizationRequest.getAdditionalParameters().get(RESOURCE_PARAM_NAME);
-
-			if (resource != null) {
-				context.getClaims().claim(JwtClaimNames.AUD, resource);
-			}
-		}
-		else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())
-				&& context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)) {
-
-			OAuth2ClientCredentialsAuthenticationToken clientCredentialsAuthentication = context
-				.getAuthorizationGrant();
-			String resource = (String) clientCredentialsAuthentication.getAdditionalParameters()
-				.get(RESOURCE_PARAM_NAME);
+		if (context.getAuthorizationGrant() instanceof OAuth2AuthorizationGrantAuthenticationToken token) {
+			String resource = (String) token.getAdditionalParameters().get(RESOURCE_PARAM_NAME);
 			if (resource != null) {
 				context.getClaims().claim(JwtClaimNames.AUD, resource);
 			}
