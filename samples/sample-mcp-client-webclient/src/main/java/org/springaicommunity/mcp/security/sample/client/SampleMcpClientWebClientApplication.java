@@ -24,10 +24,10 @@ import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoCon
  * @author Daniel Garnier-Moiroux
  */
 @SpringBootApplication(exclude = { UserDetailsServiceAutoConfiguration.class })
-public class SampleMcpClientWebfluxApplication {
+public class SampleMcpClientWebClientApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(SampleMcpClientWebfluxApplication.class, args);
+		SpringApplication.run(SampleMcpClientWebClientApplication.class, args);
 	}
 
 }
