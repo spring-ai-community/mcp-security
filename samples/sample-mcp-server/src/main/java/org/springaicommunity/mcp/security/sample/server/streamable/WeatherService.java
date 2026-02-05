@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import org.springaicommunity.mcp.annotation.McpTool;
 
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -55,6 +55,11 @@ public class WeatherService {
 			.retrieve()
 			.body(WeatherResponse.class);
 
+	}
+
+	@McpTool(name = "greet", description = "Greet the current user, by name, based on their authentication")
+	public String greet() {
+		return "Hello, %s!".formatted(SecurityContextHolder.getContext().getAuthentication().getName());
 	}
 
 }
