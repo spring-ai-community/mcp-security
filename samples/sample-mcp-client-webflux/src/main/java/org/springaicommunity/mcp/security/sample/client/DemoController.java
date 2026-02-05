@@ -51,9 +51,7 @@ class DemoController {
 		var currentWeatherBlock = "";
 		if (StringUtils.hasText(query)) {
 			var chatResponse = chatClient.prompt("""
-					What is the weather in %s right now?
-					Compare to historical data over the past 5 years.
-					Concisely tell me if it is within the usual range.
+					What is the current weather in %s?
 					Format the output in plain HTML, no CSS.""".formatted(query))
 				.toolCallbacks(mcpToolCallbacks)
 				.call()
