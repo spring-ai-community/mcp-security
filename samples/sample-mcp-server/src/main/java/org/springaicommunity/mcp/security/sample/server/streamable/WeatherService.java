@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.sample.server.securedtools;
+package org.springaicommunity.mcp.security.sample.server.streamable;
 
 import java.time.LocalDateTime;
 
@@ -45,7 +45,6 @@ public class WeatherService {
 		}
 	}
 
-	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "current-temperature",
 			description = "Get the current temperature (in celsius) for a specific location")
 	public WeatherResponse getTemperature(@ToolParam(description = "The location latitude") double latitude,

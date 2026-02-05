@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.sample.server.streamable;
+package org.springaicommunity.mcp.security.sample.server.securedtools;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -25,6 +25,7 @@ import java.util.stream.IntStream;
 import org.springaicommunity.mcp.annotation.McpTool;
 
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -53,6 +54,7 @@ public class HistoricalWeatherService {
 		}
 	}
 
+	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "temperature-history",
 			description = "Get 5-year historical temperature data (in Celsius), including daily min and daily max temperatures, for a specific location")
 	public ToolResponse getHistoricalWeatherData(@ToolParam(description = "The location latitude") double latitude,
