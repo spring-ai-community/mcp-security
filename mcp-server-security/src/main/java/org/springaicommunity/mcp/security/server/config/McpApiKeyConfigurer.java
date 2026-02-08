@@ -102,7 +102,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	 *      }
 	 *      var tokenValue = headerValue.replace("Bearer ", "");
 	 *      var apiKey = ApiKeyImpl.from(tokenValue);
-	 *      return ApiKeyAuthenticationToken.unauthenicated(apiKey);
+	 *      return ApiKeyAuthenticationToken.unauthenticated(apiKey);
 	 *  };
 	 * </pre>
 	 * <p>
