@@ -157,7 +157,22 @@
                     <release>${java.version}</release>
                     <compilerArgs>
                         <compilerArg>-parameters</compilerArg>
+                        <compilerArg>-XDcompilePolicy=simple</compilerArg>
+                        <compilerArg>-Xplugin:ErrorProne -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.springaicommunity.mcp.security -XepOpt:NullAway:CustomContractAnnotations=org.springframework.lang.Contract  -XepOpt:NullAway:OnlyNullMarked=true</compilerArg>
+                        <compilerArg>-XDaddTypeAnnotationsToSymbol=true</compilerArg>
                     </compilerArgs>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>2.23.0</version>
+                        </path>
+                        <path>
+                            <groupId>com.uber.nullaway</groupId>
+                            <artifactId>nullaway</artifactId>
+                            <version>0.10.15</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
                 <executions>
                     <!-- Replacing default-compile as it is treated specially by Maven -->

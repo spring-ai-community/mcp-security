@@ -113,7 +113,18 @@
                     <argLine>-Dspring.test.context.cache.maxSize=1</argLine>
                 </configuration>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <compilerArgs>
+                        <compilerArg>-parameters</compilerArg>
+                    </compilerArgs>
+                    <annotationProcessorPaths/>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

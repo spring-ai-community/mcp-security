@@ -26,6 +26,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.Transient;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.util.Assert;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -72,7 +73,11 @@ public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 
 	@Override
 	public String getName() {
-		return this.credentials != null ? this.credentials.getId() : this.principal.getId();
+		if (this.credentials != null) {
+			return this.credentials.getId();
+		}
+		Assert.notNull(this.principal, "both principal and credentials cannot be null");
+		return this.principal.getId();
 	}
 
 }

@@ -102,14 +102,15 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
 		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
+		var issuerUri = this.issuerUri;
 
 		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
 
 		http.oauth2ResourceServer(resourceServer -> {
-			resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(this.issuerUri)));
+			resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(issuerUri)));
 			resourceServer.authenticationEntryPoint(entryPoint);
 			resourceServer.protectedResourceMetadata(protectedResource -> protectedResource
-				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(this.issuerUri)));
+				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(issuerUri)));
 			this.oauth2ResourceServerCustomizer.customize(resourceServer);
 		});
 	}

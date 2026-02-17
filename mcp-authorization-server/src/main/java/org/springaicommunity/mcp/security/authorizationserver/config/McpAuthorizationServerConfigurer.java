@@ -20,6 +20,7 @@ import java.util.Map;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
@@ -111,7 +112,7 @@ public class McpAuthorizationServerConfigurer
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	static JWKSource<SecurityContext> getJwkSource(HttpSecurity http) {
+	@Nullable static JWKSource<SecurityContext> getJwkSource(HttpSecurity http) {
 		JWKSource<SecurityContext> jwkSource = http.getSharedObject(JWKSource.class);
 		if (jwkSource == null) {
 			ResolvableType type = ResolvableType.forClassWithGenerics(JWKSource.class, SecurityContext.class);
@@ -127,7 +128,7 @@ public class McpAuthorizationServerConfigurer
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
+	@Nullable static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
 		Map<String, T> beansMap = BeanFactoryUtils
 			.beansOfTypeIncludingAncestors(http.getSharedObject(ApplicationContext.class), type);
 		if (beansMap.size() > 1) {
@@ -142,7 +143,7 @@ public class McpAuthorizationServerConfigurer
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	static <T> T getOptionalBean(HttpSecurity http, ResolvableType type) {
+	@Nullable static <T> T getOptionalBean(HttpSecurity http, ResolvableType type) {
 		ApplicationContext context = http.getSharedObject(ApplicationContext.class);
 		String[] names = context.getBeanNamesForType(type);
 		if (names.length > 1) {

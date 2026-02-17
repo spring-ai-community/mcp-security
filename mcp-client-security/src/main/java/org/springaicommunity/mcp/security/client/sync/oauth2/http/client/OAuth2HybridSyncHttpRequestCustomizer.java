@@ -23,6 +23,7 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
@@ -77,7 +78,12 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 				.principal("mcp-client-service")
 				.build();
 			log.debug("No authentication or request context found: requesting client_credentials token");
-			return serviceAuthorizedClientManager.authorize(authorizeRequest).getAccessToken();
+			var authorizedClient = serviceAuthorizedClientManager.authorize(authorizeRequest);
+			if (authorizedClient == null) {
+				throw new IllegalArgumentException(
+						"Authorization not supported for " + this.clientCredentialsClientRegistrationId);
+			}
+			return authorizedClient.getAccessToken();
 		}
 
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
@@ -87,8 +93,12 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 			.attribute(HttpServletResponse.class.getName(), attrs.getResponse())
 			.build();
 		log.debug("Requesting access token");
-		return this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
-
+		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
+		if (authorizedClient == null) {
+			throw new IllegalArgumentException(
+					"Authorization not supported for " + this.authorizationCodeClientRegistrationId);
+		}
+		return authorizedClient.getAccessToken();
 	}
 
 }

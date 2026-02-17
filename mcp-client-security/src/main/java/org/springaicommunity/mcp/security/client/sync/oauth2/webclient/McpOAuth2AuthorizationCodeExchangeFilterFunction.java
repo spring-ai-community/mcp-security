@@ -27,6 +27,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction;
+import org.springframework.util.Assert;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -63,6 +64,7 @@ public class McpOAuth2AuthorizationCodeExchangeFilterFunction implements Exchang
 	public Mono<ClientRequest> updateRequestWithMcpTransportContext(ClientRequest request) {
 		return Mono.deferContextual(ctx -> {
 			var transportContext = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
+			Assert.notNull(transportContext, "transportContext cannot be null");
 			var requestAttributes = transportContext
 				.get(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY);
 			var authentication = transportContext.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY);

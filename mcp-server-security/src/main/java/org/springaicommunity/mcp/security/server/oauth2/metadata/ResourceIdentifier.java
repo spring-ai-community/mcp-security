@@ -40,6 +40,7 @@ public final class ResourceIdentifier {
 	public String getResource() {
 		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
 			.getRequestAttributes();
+		Assert.notNull(requestAttributes, "cannot call getResource in a non-servlet environment");
 		var request = requestAttributes.getRequest();
 
 		return UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))

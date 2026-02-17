@@ -35,6 +35,7 @@ import reactor.util.context.ContextView;
 import org.springframework.ai.model.tool.internal.ToolCallReactiveContextHolder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.Assert;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
@@ -137,7 +138,7 @@ public class AuthenticationMcpTransportContextProvider implements Supplier<McpTr
 		var data = new HashMap<String, Object>();
 
 		var securityContext = SecurityContextHolder.getContext();
-		if (securityContext != null && securityContext.getAuthentication() != null) {
+		if (securityContext.getAuthentication() != null) {
 			data.put(AUTHENTICATION_KEY, securityContext.getAuthentication());
 		}
 
@@ -162,7 +163,9 @@ public class AuthenticationMcpTransportContextProvider implements Supplier<McpTr
 			return McpTransportContext.EMPTY;
 		}
 		log.debug("Creating McpTransportContext from ToolCallReactiveContextHolder");
-		return reactorContext.getOrDefault(REACTOR_CONTEXT_KEY, McpTransportContext.EMPTY);
+		var transportContext = reactorContext.getOrDefault(REACTOR_CONTEXT_KEY, McpTransportContext.EMPTY);
+		Assert.notNull(transportContext, "transportContext cannot be null");
+		return transportContext;
 	}
 
 }

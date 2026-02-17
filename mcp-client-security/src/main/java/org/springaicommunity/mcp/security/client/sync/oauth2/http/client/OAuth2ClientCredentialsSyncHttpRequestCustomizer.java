@@ -54,7 +54,11 @@ public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSync
 			.principal("mcp-client-service")
 			.build();
 		log.debug("Requesting access token");
-		OAuth2AccessToken accessToken = this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
+		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
+		if (authorizedClient == null) {
+			throw new IllegalArgumentException("Authorization not supported for " + this.clientRegistrationId);
+		}
+		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 		log.debug("Obtained access token");
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
