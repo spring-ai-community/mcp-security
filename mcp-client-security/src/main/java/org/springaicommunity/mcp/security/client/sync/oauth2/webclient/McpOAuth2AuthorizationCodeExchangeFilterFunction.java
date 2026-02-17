@@ -19,6 +19,8 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.webclient;
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import reactor.core.publisher.Mono;
 
@@ -35,6 +37,8 @@ import org.springframework.web.reactive.function.client.ExchangeFunction;
  * @author Daniel Garnier-Moiroux
  */
 public class McpOAuth2AuthorizationCodeExchangeFilterFunction implements ExchangeFilterFunction {
+
+	private static final Logger log = LoggerFactory.getLogger(McpOAuth2AuthorizationCodeExchangeFilterFunction.class);
 
 	private final ServletOAuth2AuthorizedClientExchangeFilterFunction delegate;
 
@@ -64,6 +68,7 @@ public class McpOAuth2AuthorizationCodeExchangeFilterFunction implements Exchang
 			var authentication = transportContext.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY);
 
 			if (!(requestAttributes instanceof ServletRequestAttributes ra) || authentication == null) {
+				log.debug("No authentication or request context found: not requesting token");
 				return Mono.empty();
 			}
 

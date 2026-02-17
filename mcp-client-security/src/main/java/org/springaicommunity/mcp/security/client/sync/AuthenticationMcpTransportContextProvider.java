@@ -23,6 +23,8 @@ import java.util.function.Supplier;
 import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HybridSyncHttpRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
@@ -89,6 +91,8 @@ public class AuthenticationMcpTransportContextProvider implements Supplier<McpTr
 
 	public static final String REACTOR_CONTEXT_KEY = "org.springaicommunity.mcp.security.client.sync.REACTOR_CONTEXT";
 
+	private static final Logger log = LoggerFactory.getLogger(AuthenticationMcpTransportContextProvider.class);
+
 	private final boolean reactiveContextHolderAvailable;
 
 	public AuthenticationMcpTransportContextProvider() {
@@ -143,17 +147,21 @@ public class AuthenticationMcpTransportContextProvider implements Supplier<McpTr
 		}
 
 		if (data.isEmpty()) {
+			log.debug("No thread locals available, creating empty McpTransportContext");
 			return McpTransportContext.EMPTY;
 		}
 
+		log.debug("Creating McpTransportContext from thread locals");
 		return McpTransportContext.create(data);
 	}
 
 	private static McpTransportContext fromToolCallReactiveContextHolder() {
 		var reactorContext = ToolCallReactiveContextHolder.getContext();
 		if (reactorContext == Context.empty()) {
+			log.debug("No context in ToolCallReactiveContextHolder, creating empty McpTransportContext");
 			return McpTransportContext.EMPTY;
 		}
+		log.debug("Creating McpTransportContext from ToolCallReactiveContextHolder");
 		return reactorContext.getOrDefault(REACTOR_CONTEXT_KEY, McpTransportContext.EMPTY);
 	}
 

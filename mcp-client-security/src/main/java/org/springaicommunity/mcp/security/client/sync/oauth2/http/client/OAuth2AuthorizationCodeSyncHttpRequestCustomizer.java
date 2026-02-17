@@ -23,6 +23,8 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
@@ -36,6 +38,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * @author Daniel Garnier-Moiroux
  */
 public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
+
+	private static final Logger log = LoggerFactory.getLogger(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class);
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -54,6 +58,7 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 			.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY) instanceof Authentication authentication)
 				|| !(context.get(
 						AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY) instanceof ServletRequestAttributes requestAttributes)) {
+			log.debug("No authentication or request context found: not requesting token");
 			return;
 		}
 
@@ -63,7 +68,9 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest())
 			.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse())
 			.build();
+		log.debug("Requesting access token");
 		OAuth2AccessToken accessToken = this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
+		log.debug("Obtained access token");
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 

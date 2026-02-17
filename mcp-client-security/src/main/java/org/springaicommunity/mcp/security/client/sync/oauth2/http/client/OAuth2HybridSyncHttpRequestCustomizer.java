@@ -16,12 +16,15 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
+import java.net.URI;
+import java.net.http.HttpRequest;
+
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.net.URI;
-import java.net.http.HttpRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
@@ -36,6 +39,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * @author Daniel Garnier-Moiroux
  */
 public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
+
+	private static final Logger log = LoggerFactory.getLogger(OAuth2HybridSyncHttpRequestCustomizer.class);
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -57,7 +62,9 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 	@Override
 	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
 			McpTransportContext context) {
-		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken(context).getTokenValue());
+		var accessToken = getAccessToken(context);
+		log.debug("Obtained access token");
+		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 
 	public OAuth2AccessToken getAccessToken(McpTransportContext context) {
@@ -69,6 +76,7 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 				.withClientRegistrationId(this.clientCredentialsClientRegistrationId)
 				.principal("mcp-client-service")
 				.build();
+			log.debug("No authentication or request context found: requesting client_credentials token");
 			return serviceAuthorizedClientManager.authorize(authorizeRequest).getAccessToken();
 		}
 
@@ -78,7 +86,7 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 			.attribute(HttpServletRequest.class.getName(), attrs.getRequest())
 			.attribute(HttpServletResponse.class.getName(), attrs.getResponse())
 			.build();
-
+		log.debug("Requesting access token");
 		return this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
 
 	}

@@ -16,10 +16,13 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
-import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.common.McpTransportContext;
 import java.net.URI;
 import java.net.http.HttpRequest;
+
+import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.common.McpTransportContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
@@ -30,6 +33,8 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
  * @author Daniel Garnier-Moiroux
  */
 public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
+
+	private static final Logger log = LoggerFactory.getLogger(OAuth2ClientCredentialsSyncHttpRequestCustomizer.class);
 
 	private final AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -48,7 +53,9 @@ public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSync
 			.withClientRegistrationId(this.clientRegistrationId)
 			.principal("mcp-client-service")
 			.build();
+		log.debug("Requesting access token");
 		OAuth2AccessToken accessToken = this.authorizedClientManager.authorize(authorizeRequest).getAccessToken();
+		log.debug("Obtained access token");
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 
