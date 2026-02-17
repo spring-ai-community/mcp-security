@@ -158,7 +158,7 @@
                     <compilerArgs>
                         <compilerArg>-parameters</compilerArg>
                         <compilerArg>-XDcompilePolicy=simple</compilerArg>
-                        <compilerArg>-Xplugin:ErrorProne -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.springaicommunity.mcp.security -XepOpt:NullAway:CustomContractAnnotations=org.springframework.lang.Contract  -XepOpt:NullAway:OnlyNullMarked=true</compilerArg>
+                        <compilerArg>-Xplugin:ErrorProne -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=org.springaicommunity.mcp.security -XepOpt:NullAway:CustomContractAnnotations=org.springframework.lang.Contract  -XepOpt:NullAway:OnlyNullMarked=true -XepOpt:NullAway:HandleTestAssertionLibraries=true</compilerArg>
                         <compilerArg>-XDaddTypeAnnotationsToSymbol=true</compilerArg>
                     </compilerArgs>
                     <annotationProcessorPaths>

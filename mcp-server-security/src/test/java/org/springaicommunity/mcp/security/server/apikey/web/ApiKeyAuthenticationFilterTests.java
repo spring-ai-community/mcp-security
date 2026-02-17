@@ -28,6 +28,7 @@ import org.springaicommunity.mcp.security.server.apikey.memory.ApiKeyEntityImpl;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,7 +54,7 @@ class ApiKeyAuthenticationFilterTests {
 		.build();
 
 	private final ApiKeyAuthenticationToken authenticated = ApiKeyAuthenticationToken.authenticated(this.apiKeyEntity,
-			null);
+			AuthorityUtils.NO_AUTHORITIES);
 
 	@BeforeEach
 	void setUp() {

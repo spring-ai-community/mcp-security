@@ -169,7 +169,7 @@ class McpApiKeyConfigurerTest {
 		RouterFunction<?> routerFunction() {
 			return RouterFunctions.route((req) -> true, req -> {
 				var authentication = SecurityContextHolder.getContext().getAuthentication();
-				var name = authentication.getName();
+				var name = authentication != null ? authentication.getName() : "";
 				return ServerResponse.ok().body("Hello " + name);
 			});
 		}

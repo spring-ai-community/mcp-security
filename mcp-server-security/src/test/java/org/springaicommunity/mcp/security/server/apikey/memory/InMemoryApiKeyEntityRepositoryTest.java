@@ -22,6 +22,7 @@ class InMemoryApiKeyEntityRepositoryTest {
 	void loadsKey() {
 		var key = this.repository.findByKeyId("api01");
 
+		assertThat(key).isNotNull();
 		assertThat(key).isNotSameAs(this.apiKeyEntity);
 		assertThat(key.getId()).isEqualTo(this.apiKeyEntity.getId());
 		assertThat(key.getSecret()).isEqualTo(this.apiKeyEntity.getSecret());
@@ -49,6 +50,7 @@ class InMemoryApiKeyEntityRepositoryTest {
 		this.repository.addApiKey(addedKey);
 		var key = this.repository.findByKeyId("api02");
 
+		assertThat(key).isNotNull();
 		assertThat(key).isNotSameAs(addedKey);
 		assertThat(key.getId()).isEqualTo(addedKey.getId());
 		assertThat(key.getSecret()).isEqualTo(addedKey.getSecret());
@@ -65,6 +67,7 @@ class InMemoryApiKeyEntityRepositoryTest {
 		this.repository.addApiKey(addedKeyOverride);
 		var key = this.repository.findByKeyId("api02");
 
+		assertThat(key).isNotNull();
 		assertThat(key).isNotSameAs(addedKeyOverride);
 		assertThat(key.getId()).isEqualTo(addedKeyOverride.getId());
 		assertThat(key.getSecret()).isEqualTo(addedKeyOverride.getSecret());

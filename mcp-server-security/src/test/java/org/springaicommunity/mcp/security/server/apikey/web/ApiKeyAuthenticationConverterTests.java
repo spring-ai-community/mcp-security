@@ -20,8 +20,10 @@ class ApiKeyAuthenticationConverterTests {
 		var authentication = converter.convert(request);
 		assertThat(authentication).isInstanceOf(ApiKeyAuthenticationToken.class);
 		var apiKey = (ApiKeyAuthenticationToken) authentication;
+		assertThat(apiKey).isNotNull();
 		assertThat(apiKey.isAuthenticated()).isFalse();
 		assertThat(apiKey.getPrincipal()).isNull();
+		assertThat(apiKey.getCredentials()).isNotNull();
 		assertThat(apiKey.getCredentials().getId()).isEqualTo("api01");
 		assertThat(apiKey.getCredentials().getSecret()).isEqualTo("my-secret");
 	}
@@ -35,8 +37,10 @@ class ApiKeyAuthenticationConverterTests {
 		var authentication = converter.convert(request);
 		assertThat(authentication).isInstanceOf(ApiKeyAuthenticationToken.class);
 		var apiKey = (ApiKeyAuthenticationToken) authentication;
+		assertThat(apiKey).isNotNull();
 		assertThat(apiKey.isAuthenticated()).isFalse();
 		assertThat(apiKey.getPrincipal()).isNull();
+		assertThat(apiKey.getCredentials()).isNotNull();
 		assertThat(apiKey.getCredentials().getId()).isEqualTo("api01");
 		assertThat(apiKey.getCredentials().getSecret()).isEqualTo("my-secret");
 	}
