@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>sample-mcp-client-webclient</artifactId>
-    <name>sample-mcp-client-webflux</name>
+    <name>sample-mcp-client-webclient</name>
     <description>Sample MCP client with Webflux, showcasing security</description>
 
     <dependencies>
