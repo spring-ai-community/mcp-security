@@ -49,7 +49,7 @@ This module is compatible with Spring WebMVC-based servers only.
     <dependency>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-server-security</artifactId>
-        <version>0.1.1</version>
+        <version>0.1.2</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.boot</groupId>
@@ -69,7 +69,7 @@ This module is compatible with Spring WebMVC-based servers only.
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-server-security:0.1.1")
+implementation("org.springaicommunity:mcp-server-security:0.1.2")
 implementation("org.springframework.boot:spring-boot-starter-security")
 
 // OPTIONAL
@@ -323,14 +323,14 @@ This module supports `McpSyncClient`s only.
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-client-security</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-client-security:0.1.1")
+implementation("org.springaicommunity:mcp-client-security:0.1.2")
 ```
 
 ### Authorization flows
@@ -739,14 +739,14 @@ It provides a simple configurer for an MCP server.
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-authorization-server:0.1.1")
+implementation("org.springaicommunity:mcp-authorization-server:0.1.2")
 ```
 
 ### Usage
