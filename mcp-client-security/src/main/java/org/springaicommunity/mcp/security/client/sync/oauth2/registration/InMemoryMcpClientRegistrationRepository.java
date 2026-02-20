@@ -138,7 +138,8 @@ public class InMemoryMcpClientRegistrationRepository implements McpClientRegistr
 					new ClientAuthenticationMethod(registrationResponse.tokenEndpointAuthMethod()));
 		}
 		else if (registrationRequest.getTokenEndpointAuthMethod() != null) {
-			registrationBuilder.clientAuthenticationMethod(registrationRequest.getTokenEndpointAuthMethod());
+			registrationBuilder.clientAuthenticationMethod(
+					new ClientAuthenticationMethod(registrationRequest.getTokenEndpointAuthMethod()));
 		}
 
 		if (registrationResponse.grantTypes() != null && !registrationResponse.grantTypes().isEmpty()) {
@@ -146,7 +147,8 @@ public class InMemoryMcpClientRegistrationRepository implements McpClientRegistr
 				.authorizationGrantType(new AuthorizationGrantType(registrationResponse.grantTypes().get(0)));
 		}
 		else if (!registrationRequest.getGrantTypes().isEmpty()) {
-			registrationBuilder.authorizationGrantType(registrationRequest.getGrantTypes().get(0));
+			registrationBuilder
+				.authorizationGrantType(new AuthorizationGrantType(registrationRequest.getGrantTypes().get(0)));
 		}
 		else {
 			registrationBuilder.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS);

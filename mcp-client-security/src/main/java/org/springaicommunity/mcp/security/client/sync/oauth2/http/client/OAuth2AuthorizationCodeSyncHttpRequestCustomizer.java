@@ -71,7 +71,8 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		log.debug("Requesting access token");
 		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
 		if (authorizedClient == null) {
-			throw new IllegalArgumentException("Authorization not supported for " + this.clientRegistrationId);
+			throw new IllegalArgumentException(
+					"Authorization not supported for client [" + this.clientRegistrationId + "]");
 		}
 		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 		log.debug("Obtained access token");

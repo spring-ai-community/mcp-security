@@ -27,7 +27,8 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResp
 import org.springframework.util.Assert;
 
 /**
- * Represents a base request for OAuth2 Dynamic Client registration.
+ * Represents a base request for OAuth2 Dynamic Client registration. Serializes to a JSON
+ * payload.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc7591#section-3.1">RFC7591 - 3.1
@@ -35,13 +36,13 @@ import org.springframework.util.Assert;
  */
 public class DynamicClientRegistrationRequest {
 
-	private final List<AuthorizationGrantType> grantTypes;
+	private final List<String> grantTypes;
 
 	@Nullable private final List<String> redirectUris;
 
-	@Nullable private final ClientAuthenticationMethod tokenEndpointAuthMethod;
+	@Nullable private final String tokenEndpointAuthMethod;
 
-	@Nullable private final List<OAuth2AuthorizationResponseType> responseTypes;
+	@Nullable private final List<String> responseTypes;
 
 	@Nullable private final String clientName;
 
@@ -53,16 +54,17 @@ public class DynamicClientRegistrationRequest {
 			@Nullable List<String> redirectUris, @Nullable ClientAuthenticationMethod tokenEndpointAuthMethod,
 			@Nullable List<OAuth2AuthorizationResponseType> responseTypes, @Nullable String clientName,
 			@Nullable String clientUri, @Nullable String scope) {
-		this.grantTypes = Collections.unmodifiableList(grantTypes);
+		this.grantTypes = grantTypes.stream().map(AuthorizationGrantType::getValue).toList();
 		this.redirectUris = redirectUris != null ? Collections.unmodifiableList(redirectUris) : null;
-		this.responseTypes = responseTypes != null ? Collections.unmodifiableList(responseTypes) : null;
-		this.tokenEndpointAuthMethod = tokenEndpointAuthMethod;
+		this.responseTypes = responseTypes != null
+				? responseTypes.stream().map(OAuth2AuthorizationResponseType::getValue).toList() : null;
+		this.tokenEndpointAuthMethod = tokenEndpointAuthMethod != null ? tokenEndpointAuthMethod.getValue() : null;
 		this.clientName = clientName;
 		this.clientUri = clientUri;
 		this.scope = scope;
 	}
 
-	public List<AuthorizationGrantType> getGrantTypes() {
+	public List<String> getGrantTypes() {
 		return this.grantTypes;
 	}
 
@@ -70,11 +72,11 @@ public class DynamicClientRegistrationRequest {
 		return this.redirectUris;
 	}
 
-	@Nullable public ClientAuthenticationMethod getTokenEndpointAuthMethod() {
+	@Nullable public String getTokenEndpointAuthMethod() {
 		return this.tokenEndpointAuthMethod;
 	}
 
-	@Nullable public List<OAuth2AuthorizationResponseType> getResponseTypes() {
+	@Nullable public List<String> getResponseTypes() {
 		return this.responseTypes;
 	}
 
@@ -97,10 +99,12 @@ public class DynamicClientRegistrationRequest {
 	public static Builder from(DynamicClientRegistrationRequest other) {
 		Assert.notNull(other, "source request must not be null");
 		Builder builder = new Builder();
-		builder.grantTypes = other.grantTypes;
+		builder.grantTypes = other.grantTypes.stream().map(AuthorizationGrantType::new).toList();
 		builder.redirectUris = other.redirectUris;
-		builder.tokenEndpointAuthMethod = other.tokenEndpointAuthMethod;
-		builder.responseTypes = other.responseTypes;
+		builder.tokenEndpointAuthMethod = (other.tokenEndpointAuthMethod != null)
+				? ClientAuthenticationMethod.valueOf(other.tokenEndpointAuthMethod) : null;
+		builder.responseTypes = (other.responseTypes != null)
+				? other.responseTypes.stream().map(OAuth2AuthorizationResponseType::new).toList() : null;
 		builder.clientName = other.clientName;
 		builder.clientUri = other.clientUri;
 		builder.scope = other.scope;
