@@ -24,6 +24,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
 
 @Configuration
 @EnableWebSecurity
@@ -32,9 +33,7 @@ public class AuthorizationServer {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.oauth2AuthorizationServer(authServer -> {
-				authServer.oidc(Customizer.withDefaults());
-			})
+			.with(mcpAuthorizationServer(), Customizer.withDefaults())
 			.formLogin(Customizer.withDefaults())
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))

@@ -1,10 +1,11 @@
 package org.springaicommunity.mcp.security.tests.common.configuration;
 
 import java.util.List;
+
 import org.eclipse.aether.repository.RemoteRepository;
 import org.junit.jupiter.api.Order;
-import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
+import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
@@ -29,7 +30,8 @@ public class McpServerConfiguration {
 	@DynamicPortUrl(name = "mcp.server.url")
 	public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri,
 			@Value("${mcp.server.protocol}") String mcpServerProtocol,
-			@Value("${mcp.server.class}") String mcpServerClass) {
+			@Value("${mcp.server.class}") String mcpServerClass,
+			@Value("${mcp.server.validate-audience-claim:'false'}") String validateAudienceClaim) {
 		// The properties file is inferred from the bean name, here it's in
 		// resources/testjars/mcpServer
 		String mcpServerResourceName = mcpServerClass.replace('.', '/') + ".class";
@@ -39,6 +41,7 @@ public class McpServerConfiguration {
 			.systemProperties(props -> {
 				props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
 				props.putIfAbsent("spring.ai.mcp.server.protocol", mcpServerProtocol);
+				props.putIfAbsent("mcp.server-validate-audience-claim", validateAudienceClaim);
 			})
 			.classpath((classpath) -> classpath
 				.entries(springBootStarter("webmvc"), springBootStarter("oauth2-resource-server"),

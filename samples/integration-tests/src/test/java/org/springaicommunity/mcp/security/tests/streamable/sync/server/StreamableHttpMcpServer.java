@@ -1,9 +1,10 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.server;
 
+import java.util.List;
+
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
-import java.util.List;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -62,11 +63,13 @@ public class StreamableHttpMcpServer {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
-			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
+			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl,
+			@Value("${mcp.server.validate-audience-claim:false}") boolean validateAudienceClaim) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpServerOAuth2(), (mcpAuthorization) -> {
-				mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp");
-			})
+			.with(mcpServerOAuth2(),
+					(mcpAuthorization) -> mcpAuthorization.authorizationServer(issuerUrl)
+						.validateAudienceClaim(validateAudienceClaim)
+						.resourcePath("/mcp"))
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))
 			.csrf(CsrfConfigurer::disable)
