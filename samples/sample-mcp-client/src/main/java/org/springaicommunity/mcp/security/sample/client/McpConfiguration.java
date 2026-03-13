@@ -16,11 +16,24 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
-import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
+import java.time.Duration;
+
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.spec.McpSchema;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2SyncAuthorizationErrorHandler;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
-import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -33,16 +46,43 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 @Configuration
 class McpConfiguration {
 
+	private static final String REGISTRATION_ID = "authserver";
+
 	@Bean
-	McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
-			ClientRegistrationRepository clientRegistrationRepository) {
-		var registrationId = findUniqueClientRegistration(clientRegistrationRepository);
-		return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager, registrationId);
+	McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
+		return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
 	}
 
 	@Bean
-	McpSyncClientCustomizer syncClientCustomizer() {
-		return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+	McpClientRegistrationRepository mcpClientRegistrationRepository() {
+		return new InMemoryMcpClientRegistrationRepository();
+	}
+
+	@Bean
+	McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
+				new DynamicClientRegistrationService(), new McpMetadataDiscoveryService());
+	}
+
+	@Bean
+	McpSyncClient client(OAuth2AuthorizedClientManager manager, McpClientRegistrationRepository repository,
+			McpOAuth2ClientManager mcpOAuth2ClientManager) {
+		var mcpServerUrl = "http://localhost:8090";
+
+		var customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(manager, repository, REGISTRATION_ID);
+		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, REGISTRATION_ID,
+				mcpServerUrl + "/mcp");
+
+		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.httpRequestCustomizer(customizer)
+			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
+			.build();
+
+		return McpClient.sync(transport)
+			.clientInfo(new McpSchema.Implementation("historical-weather", "1.0.0"))
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.requestTimeout(Duration.ofSeconds(30))
+			.build();
 	}
 
 	/**

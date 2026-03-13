@@ -16,41 +16,65 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import java.util.function.Consumer;
+
 import org.jspecify.annotations.Nullable;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 /**
- * A {@link ClientRegistrationRepository} tailored for MCP use-cases.
+ * A {@link ClientRegistrationRepository} tailored for MCP use-cases, providing storage
+ * for {@link ClientRegistration}s and their associated resource identifiers.
+ * <p>
+ * In this model, clients are considered to be mutable. The most common use-case is the
+ * "scope step up" flow, where the server requests minimal scopes for each request,
+ * leading to having to update the registration's scopes depending on server responses.
  *
  * @author Daniel Garnier-Moiroux
+ * @see <a
+ * href="https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization#scope-selection-strategy>Scope
+ * Selection Strategy</a>
  */
 public interface McpClientRegistrationRepository extends ClientRegistrationRepository {
 
 	/**
-	 * Register a client with the given MCP server. This discovers the MCP configuration,
-	 * including resource identifier, supported scopes and associated authorization
-	 * server.
-	 * @param registrationId the Client's internal registration ID
-	 * @param mcpServerUrl the URL of the server holding the metadata
-	 * @param registrationRequest the base registration request to be used to specify
-	 * parameters in the registration request
-	 */
-	void registerMcpClient(String registrationId, String mcpServerUrl,
-			DynamicClientRegistrationRequest registrationRequest);
-
-	/**
-	 * Add an existing, pre-registered client to the repository.
+	 * Add a client registration to the repository, along with the associated Resource ID
+	 * from the upstream MCP server.
+	 * <p>
+	 * This is a workaround until the information can be stored in the
+	 * {@link ClientRegistration.ClientSettings} object.
+	 *
+	 * @see <a href=
+	 * "https://github.com/spring-projects/spring-security/issues/18863">Store arbitrary
+	 * information in ClientRegistration.ClientSettings (#18863)</a>
 	 * @param clientRegistration the client
 	 * @param resourceId the MCP server's associated resource ID
 	 */
-	void addPreRegisteredClient(ClientRegistration clientRegistration, String resourceId);
+	void addClientRegistration(ClientRegistration clientRegistration, @Nullable String resourceId);
+
+	/**
+	 * Update an existing {@link ClientRegistration} if it exists. Otherwise, this method
+	 * is a no-op.
+	 * @param registrationId The ID of the registration to update.
+	 * @param clientRegistrationConsumer A consumer of {@link ClientRegistration.Builder}
+	 * to update the client registration.
+	 */
+	void updateClientRegistration(String registrationId,
+			Consumer<ClientRegistration.Builder> clientRegistrationConsumer);
 
 	/**
 	 * Find the associated resource identifier for the given registration.
-	 * @param registrationId the registration ID
-	 * @return the resource identifier
+	 * <p>
+	 * This is a workaround until the information can be stored in the
+	 * {@link ClientRegistration.ClientSettings} object.
+	 *
+	 * @see <a href=
+	 * "https://github.com/spring-projects/spring-security/issues/18863">Store arbitrary
+	 * information in ClientRegistration.ClientSettings (#18863)</a>
+	 * @param registrationId the registration ID for a given client
+	 * @return the resource identifier linked to that particular client, null if there is
+	 * no client, and null if a client exists but does not have an associated resource ID.
 	 */
 	@Nullable String findResourceIdByRegistrationId(String registrationId);
 

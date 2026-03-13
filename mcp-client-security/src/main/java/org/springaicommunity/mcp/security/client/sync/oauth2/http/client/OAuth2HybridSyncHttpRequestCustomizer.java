@@ -23,7 +23,6 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
@@ -37,8 +36,20 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
+ * Adds an OAuth2 access token to outgoing MCP client requests. Uses either the
+ * {@code authorization_code} or {@code client_credentials} flow to obtain an access
+ * token, depending on the context.
+ * <p>
+ * This is an historical workaround to Spring AI 1.x limitations around initializing
+ * clients eagerly. Not relevant in most recent use-cases. Now clients must decide which
+ * grant type to use.
+ *
  * @author Daniel Garnier-Moiroux
+ * @see OAuth2AuthorizationCodeSyncHttpRequestCustomizer
+ * @see OAuth2ClientCredentialsSyncHttpRequestCustomizer
+ * @deprecated Use {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer}
  */
+@Deprecated
 public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
 	private static final Logger log = LoggerFactory.getLogger(OAuth2HybridSyncHttpRequestCustomizer.class);

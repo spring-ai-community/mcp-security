@@ -1,11 +1,13 @@
 package org.springaicommunity.mcp.security.tests.common.tests;
 
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.McpHttpClientTransportAuthorizationException;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.htmlunit.WebClient;
@@ -17,7 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -77,7 +79,7 @@ public abstract class StreamableHttpAbstractTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private McpClientRegistrationRepository mcpClientRegistrationRepository;
+	private McpOAuth2ClientManager mcpClientManager;
 
 	protected AuthorizedClientServiceOAuth2AuthorizedClientManager clientCredentialsClientManager;
 
@@ -129,7 +131,7 @@ public abstract class StreamableHttpAbstractTests {
 				.isInstanceOf(RuntimeException.class)
 				.satisfiesAnyOf(e -> {
 					// message with http client
-					assertThat(e).hasMessageStartingWith("Failed to send message: DummyEvent");
+					assertThat(e).hasMessageStartingWith("Authorization error when sending message");
 				}, e -> {
 					// message with webclient
 					assertThat(e).hasMessageStartingWith("401 Unauthorized from POST");
@@ -159,7 +161,11 @@ public abstract class StreamableHttpAbstractTests {
 				.isInstanceOf(RuntimeException.class)
 				.satisfiesAnyOf(e -> {
 					// message with http client
-					assertThat(e).hasMessageStartingWith("Failed to send message: DummyEvent");
+					assertThat(e).isInstanceOf(McpHttpClientTransportAuthorizationException.class)
+						.hasMessage("Authorization error when sending message")
+						.extracting("responseInfo", type(HttpResponse.ResponseInfo.class))
+						.extracting(HttpResponse.ResponseInfo::statusCode)
+						.isEqualTo(401);
 				}, e -> {
 					// message with webclient
 					assertThat(e).hasMessageStartingWith("401 Unauthorized from POST");
@@ -253,12 +259,12 @@ public abstract class StreamableHttpAbstractTests {
 	@EnabledIf(value = "#{'${mcp.server.protocol}'.equals('STREAMABLE')}", loadContext = true)
 	void sessionBinding() {
 		var firstRegistrationId = "first";
-		mcpClientRegistrationRepository.registerMcpClient(firstRegistrationId, mcpServerUrl + "/mcp",
+		mcpClientManager.registerMcpClient(firstRegistrationId, mcpServerUrl + "/mcp",
 				DynamicClientRegistrationRequest.builder()
 					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
 					.build());
 		var secondRegistrationId = "second";
-		mcpClientRegistrationRepository.registerMcpClient(secondRegistrationId, mcpServerUrl + "/mcp",
+		mcpClientManager.registerMcpClient(secondRegistrationId, mcpServerUrl + "/mcp",
 				DynamicClientRegistrationRequest.builder()
 					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
 					.build());
@@ -288,7 +294,16 @@ public abstract class StreamableHttpAbstractTests {
 
 		currentToken.set(secondToken);
 		assertThatThrownBy(() -> client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build()))
-			.hasMessageContaining("403");
+			.satisfiesAnyOf(e -> {
+				// HttpClient
+				assertThat(e).isInstanceOf(McpHttpClientTransportAuthorizationException.class)
+					.extracting("responseInfo", type(HttpResponse.ResponseInfo.class))
+					.extracting(HttpResponse.ResponseInfo::statusCode)
+					.isEqualTo(403);
+			}, e -> {
+				// WebClient
+				assertThat(e).rootCause().hasMessageContaining("403 Forbidden from POST");
+			});
 	}
 
 	private void ensureAuthServerLogin() throws IOException {

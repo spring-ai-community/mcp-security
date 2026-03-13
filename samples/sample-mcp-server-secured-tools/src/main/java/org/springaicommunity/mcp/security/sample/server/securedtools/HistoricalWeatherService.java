@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import org.springaicommunity.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpTool;
 
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;

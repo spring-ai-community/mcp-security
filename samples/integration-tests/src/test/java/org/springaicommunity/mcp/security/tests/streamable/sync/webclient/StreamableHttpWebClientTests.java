@@ -2,10 +2,8 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import org.junit.jupiter.api.Nested;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -16,10 +14,12 @@ import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.tests.StreamableHttpAbstractTests;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
+import org.springframework.ai.mcp.client.webflux.transport.WebClientStreamableHttpTransport;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -53,7 +53,7 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 	@Autowired
 	org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
 
-	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new JsonMapper());
 
 	@Override
 	public McpClientTransport buildNoSecurityTransport() {

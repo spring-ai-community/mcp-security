@@ -30,6 +30,20 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
 /**
+ * Adds an OAuth2 access token to outgoing MCP client HTTP requests using the
+ * {@code client_credentials} grant type.
+ * <p>
+ * This customizer is intended for machine-to-machine (M2M) scenarios where the MCP client
+ * acts on its own behalf, without a user context. It uses an
+ * {@link AuthorizedClientServiceOAuth2AuthorizedClientManager} to obtain and cache access
+ * tokens independently of any incoming HTTP request or user authentication.
+ * <p>
+ * Scope step-up is not supported in this flow: since there is no user interaction, the
+ * MCP client must request all necessary scopes upfront when obtaining the token.
+ * <p>
+ * The resolved access token is added as a {@code Bearer} token in the
+ * {@code Authorization} header of each outgoing MCP request.
+ *
  * @author Daniel Garnier-Moiroux
  */
 public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {

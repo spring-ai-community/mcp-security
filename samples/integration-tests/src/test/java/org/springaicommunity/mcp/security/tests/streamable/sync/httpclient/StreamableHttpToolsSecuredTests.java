@@ -3,12 +3,11 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.httpclient;
 import java.io.IOException;
 import java.net.http.HttpClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -23,11 +22,13 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2A
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,7 +78,7 @@ class StreamableHttpToolsSecuredTests {
 	void setUp() {
 		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
 			.clientBuilder(HttpClient.newBuilder())
 			.build();
 		this.mcpClient = McpClient.sync(transport)
@@ -148,8 +150,16 @@ class StreamableHttpToolsSecuredTests {
 	static class StreamableHttpToolsSecuredConfig {
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
+					"authserver");
+		}
+
+		@Bean
+		McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
+				McpSyncHttpClientRequestCustomizer requestCustomizer) {
+			return (name, builder) -> builder.httpRequestCustomizer(requestCustomizer);
 		}
 
 	}

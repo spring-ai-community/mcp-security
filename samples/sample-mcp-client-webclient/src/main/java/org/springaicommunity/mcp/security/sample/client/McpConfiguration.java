@@ -16,10 +16,11 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
+import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2AuthorizationCodeExchangeFilterFunction;
 
-import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -34,7 +35,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 class McpConfiguration {
 
 	@Bean
-	McpSyncClientCustomizer syncClientCustomizer() {
+	McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
 		return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
 	}
 

@@ -3,10 +3,9 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.httpclient;
 import java.net.http.HttpClient;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import org.junit.jupiter.api.Nested;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -16,6 +15,7 @@ import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.tests.StreamableHttpAbstractTests;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 /**
@@ -45,7 +46,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 		""")
 class StreamableHttpTests extends StreamableHttpAbstractTests {
 
-	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new ObjectMapper());
+	private final JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(new JsonMapper());
 
 	@Configuration
 	@EnableWebMvc
@@ -58,8 +59,10 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 	static class StreamableHttpConfig {
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
+					"authserver");
 		}
 
 	}
@@ -74,7 +77,8 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 
 	@Override
 	public HttpClientStreamableHttpTransport buildAuthorizationCodeTransport() {
-		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager, "authserver");
+		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager,
+				this.clientRegistrationRepository, "authserver");
 
 		return HttpClientStreamableHttpTransport.builder(this.mcpServerUrl)
 			.clientBuilder(HttpClient.newBuilder())

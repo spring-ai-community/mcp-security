@@ -50,9 +50,11 @@ class DemoController {
 	String index(String query) {
 		var currentWeatherBlock = "";
 		if (StringUtils.hasText(query)) {
-			var chatResponse = chatClient.prompt("""
-					What is the current weather in %s?
-					Format the output in plain HTML, no CSS.""".formatted(query))
+			var chatResponse = chatClient
+				.prompt("""
+						What is the current weather in %s?
+						Format the output in plain HTML, no CSS (it will be embedded, unescaped, in an HTML template)."""
+					.formatted(query))
 				.toolCallbacks(mcpToolCallbacks)
 				.call()
 				.content();

@@ -1,12 +1,46 @@
 package org.springaicommunity.mcp.security.tests.chat.streaming;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.client.AnthropicClientAsync;
+import com.anthropic.core.JsonNull;
+import com.anthropic.core.JsonString;
+import com.anthropic.core.http.AsyncStreamResponse;
+import com.anthropic.models.messages.Container;
+import com.anthropic.models.messages.ContentBlock;
+import com.anthropic.models.messages.ContentBlockParam;
+import com.anthropic.models.messages.DirectCaller;
+import com.anthropic.models.messages.InputJsonDelta;
+import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.MessageDeltaUsage;
+import com.anthropic.models.messages.MessageParam;
+import com.anthropic.models.messages.Model;
+import com.anthropic.models.messages.RawContentBlockDelta;
+import com.anthropic.models.messages.RawContentBlockDeltaEvent;
+import com.anthropic.models.messages.RawContentBlockStartEvent;
+import com.anthropic.models.messages.RawContentBlockStopEvent;
+import com.anthropic.models.messages.RawMessageDeltaEvent;
+import com.anthropic.models.messages.RawMessageStartEvent;
+import com.anthropic.models.messages.RawMessageStreamEvent;
+import com.anthropic.models.messages.StopReason;
+import com.anthropic.models.messages.TextBlock;
+import com.anthropic.models.messages.TextDelta;
+import com.anthropic.models.messages.ToolResultBlockParam;
+import com.anthropic.models.messages.ToolUseBlock;
+import com.anthropic.models.messages.Usage;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -20,16 +54,20 @@ import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
-import reactor.core.publisher.Flux;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import org.springframework.ai.anthropic.api.AnthropicApi;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
-import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
+import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatProperties;
+import org.springframework.ai.model.tool.DefaultToolExecutionEligibilityPredicate;
+import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerAutoConfiguration;
@@ -39,18 +77,18 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +99,9 @@ import static org.mockito.Mockito.when;
  * <p>
  * This is useful for {@code chatClient.prompt("...").stream()} interactions, which
  * require writing to the chat client's reactor context.
+ * <p>
+ * It relies on horrible {@link AnthropicClient} mocks, and even horribler
+ * {@link AnthropicClientAsync} mocks.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = """
 		spring.ai.mcp.client.streamable-http.connections.greeter.url=${mcp.server.url}
@@ -71,19 +112,36 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("sync")
 class LlmTests {
 
-	// Ask to call the "greeter" tool
-	private final AnthropicApi.ChatCompletionResponse firstResponse = new AnthropicApi.ChatCompletionResponse(
-			"msg_1234", "message", AnthropicApi.Role.ASSISTANT,
-			List.of(new AnthropicApi.ContentBlock(AnthropicApi.ContentBlock.Type.TOOL_USE, "toolu_1234", "greeter",
-					Map.of())),
-			"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "tool_use", null, null, null);
+	// LLM mock: base request that we don't care much about
+	private final Message baseMessage = Message.builder()
+		.content(Collections.emptyList())
+		.id("m1234")
+		.model(Model.CLAUDE_HAIKU_4_5)
+		.stopReason(StopReason.TOOL_USE)
+		.stopSequence("")
+		.usage(mock(Usage.class))
+		.build();
 
-	private final Function<String, AnthropicApi.ChatCompletionResponse> makeFinalResponse = (
-			String message) -> new AnthropicApi.ChatCompletionResponse("msg_1234", "message",
-					AnthropicApi.Role.ASSISTANT,
-					List.of(new AnthropicApi.ContentBlock(message,
-							(AnthropicApi.ChatCompletionRequest.CacheControl) null)), // contents
-					"AnthropicApi.ChatModel.CLAUDE_3_7_SONNET", "end_turn", null, null, null);
+	// LLM mock: First response, ask to call the "greeter" tool
+	private final Message firstResponse = baseMessage.toBuilder()
+		.content(List.of(ContentBlock.ofToolUse(ToolUseBlock.builder()
+			.name("greeter")
+			.id("toolu_1234")
+			.id("b1234")
+			.type(JsonString.of("tool_use"))
+			.caller(ToolUseBlock.Caller.ofDirect(DirectCaller.builder().build()))
+			.input(JsonNull.of())
+			.build())))
+		.build();
+
+	// LLM mock: greeter tool has been called, the LLM now responds with
+	// "Got tool response [...]", wrapping the greeter tool response.
+	private final Function<String, Message> makeFinalResponse = (String toolResponse) -> baseMessage.toBuilder()
+		.content(List.of(ContentBlock.ofText(TextBlock.builder()
+			.text("Got tool response [%s]".formatted(toolResponse))
+			.citations(Optional.empty())
+			.build())))
+		.build();
 
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
@@ -93,36 +151,36 @@ class LlmTests {
 
 	WebClient webClient = new WebClient();
 
-	@MockitoBean
-	private AnthropicApi api;
+	@Autowired
+	private AnthropicClient anthropicClient;
+
+	@Autowired
+	private AnthropicClientAsync anthropicClientAsync;
 
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 
-		reset(api);
+		reset(anthropicClient);
+		reset(anthropicClientAsync);
 
-		// Initial call
-		when(api.chatCompletionEntity(argThat(LlmTests::hasSingleAnthropicMessage), any()))
-			.thenReturn(ResponseEntity.ok(firstResponse));
-
-		// Call with embedded tool results
-		when(api.chatCompletionEntity(argThat(LlmTests::hasToolCallResult), any())).thenAnswer(invocation -> {
-			var completionRequest = ((AnthropicApi.ChatCompletionRequest) invocation.getArgument(0));
-			var toolResponse = extractToolResponse(completionRequest);
-			return ResponseEntity.ok(makeFinalResponse.apply("Got tool response [%s]".formatted(toolResponse)));
+		// --- Sync client mocking (for chatClient.prompt().call()) ---
+		when(anthropicClient.messages().create(argThat(LlmTests::hasSingleAnthropicMessage))).thenReturn(firstResponse);
+		when(anthropicClient.messages().create(argThat(LlmTests::hasToolCallResult))).thenAnswer(invocation -> {
+			MessageCreateParams messageParams = invocation.getArgument(0);
+			var toolResponse = extractToolResponse(messageParams);
+			return makeFinalResponse.apply(toolResponse);
 		});
 
-		// Initial call
-		when(api.chatCompletionStream(argThat(LlmTests::hasSingleAnthropicMessage), any()))
-			.thenReturn(Flux.just(firstResponse));
-
-		// Call with embedded tool results
-		when(api.chatCompletionStream(argThat(LlmTests::hasToolCallResult), any())).thenAnswer(invocation -> {
-			var completionRequest = ((AnthropicApi.ChatCompletionRequest) invocation.getArgument(0));
-			var toolResponse = extractToolResponse(completionRequest);
-			return Flux.just(makeFinalResponse.apply("Got tool response [%s]".formatted(toolResponse)));
-		});
+		// --- Async client mocking (for chatClient.prompt().stream()) ---
+		when(anthropicClientAsync.messages().createStreaming(argThat(LlmTests::hasSingleAnthropicMessage)))
+			.thenReturn(fakeAsyncStreamResponse(messageToStreamEvents(firstResponse)));
+		when(anthropicClientAsync.messages().createStreaming(argThat(LlmTests::hasToolCallResult)))
+			.thenAnswer(invocation -> {
+				MessageCreateParams messageParams = invocation.getArgument(0);
+				var toolResponse = extractToolResponse(messageParams);
+				return fakeAsyncStreamResponse(messageToStreamEvents(makeFinalResponse.apply(toolResponse)));
+			});
 	}
 
 	@Test
@@ -149,7 +207,7 @@ class LlmTests {
 
 		var resp = webClient.getPage("http://127.0.0.1:" + port + "/stream-no-context?question=doesnt-matter");
 		var contentAsString = resp.getWebResponse().getContentAsString();
-		assertThat(contentAsString).contains("Failed to send message");
+		assertThat(contentAsString).contains("error when sending message");
 	}
 
 	@Configuration
@@ -163,14 +221,22 @@ class LlmTests {
 	static class StreamableHttpConfig {
 
 		@Bean
-		McpSyncClientCustomizer syncClientCustomizer() {
+		McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
 			return (name, syncSpec) -> syncSpec
 				.transportContextProvider(new AuthenticationMcpTransportContextProvider());
 		}
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
+					"authserver");
+		}
+
+		@Bean
+		McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
+				McpSyncHttpClientRequestCustomizer requestCustomizer) {
+			return (name, builder) -> builder.httpRequestCustomizer(requestCustomizer);
 		}
 
 		@Bean
@@ -180,35 +246,81 @@ class LlmTests {
 				.build();
 		}
 
+		@Bean
+		AnthropicClient anthropicClient() {
+			return mock(AnthropicClient.class, RETURNS_DEEP_STUBS);
+		}
+
+		@Bean
+		AnthropicClientAsync anthropicClientAsync() {
+			return mock(AnthropicClientAsync.class, RETURNS_DEEP_STUBS);
+		}
+
+		@Bean
+		public AnthropicChatModel anthropicChatModel(AnthropicChatProperties chatProperties,
+				ToolCallingManager toolCallingManager, AnthropicClient anthropicClient,
+				AnthropicClientAsync anthropicClientAsync) {
+			AnthropicChatOptions options = chatProperties.getOptions();
+
+			return AnthropicChatModel.builder()
+				.options(options)
+				.toolCallingManager(toolCallingManager)
+				.toolExecutionEligibilityPredicate(new DefaultToolExecutionEligibilityPredicate())
+				.anthropicClient(anthropicClient)
+				.anthropicClientAsync(anthropicClientAsync)
+				.build();
+		}
+
+	}
+
+	private void ensureAuthServerLogin() throws IOException {
+		HtmlPage loginPage = this.webClient.getPage(authorizationServerUrl);
+
+		if (loginPage.getWebResponse().getStatusCode() == 404) {
+			// Already logged in
+			return;
+		}
+		loginPage.<HtmlInput>querySelector("#username").type("test-user");
+		loginPage.<HtmlInput>querySelector("#password").type("test-password");
+		loginPage.<HtmlButton>querySelector("button").click();
+	}
+
+	// Anthropic mocking and Mockito argument matching
+	// Hic sunt dracones.
+	private static boolean hasToolCallResult(MessageCreateParams messageCreateParams) {
+		return messageCreateParams != null && messageCreateParams.messages()
+			.stream()
+			.map(MessageParam::content)
+			.filter(MessageParam.Content::isBlockParams)
+			.map(MessageParam.Content::asBlockParams)
+			.flatMap(Collection::stream)
+			.anyMatch(ContentBlockParam::isToolResult);
+	}
+
+	private static boolean hasSingleAnthropicMessage(MessageCreateParams messageCreateParams) {
+		return messageCreateParams != null && messageCreateParams.messages().size() == 1;
+	}
+
+	private String extractToolResponse(MessageCreateParams messageCreateParams) {
+		return messageCreateParams.messages()
+			.stream()
+			.map(MessageParam::content)
+			.filter(MessageParam.Content::isBlockParams)
+			.map(MessageParam.Content::asBlockParams)
+			.flatMap(Collection::stream)
+			.filter(ContentBlockParam::isToolResult)
+			.map(ContentBlockParam::asToolResult)
+			.map(ToolResultBlockParam::content)
+			.flatMap(Optional::stream)
+			.map(ToolResultBlockParam.Content::string)
+			.flatMap(Optional::stream)
+			.map(this::deserializeToolResult)
+			.findFirst()
+			.get();
 	}
 
 	record ToolResult(@JsonProperty("text") String text) {
 
-	}
-
-	private static boolean hasToolCallResult(AnthropicApi.ChatCompletionRequest argument) {
-		return argument != null && argument.messages()
-			.stream()
-			.map(AnthropicApi.AnthropicMessage::content)
-			.flatMap(Collection::stream)
-			.map(AnthropicApi.ContentBlock::type)
-			.anyMatch(AnthropicApi.ContentBlock.Type.TOOL_RESULT::equals);
-	}
-
-	private static boolean hasSingleAnthropicMessage(AnthropicApi.ChatCompletionRequest argument) {
-		return argument != null && argument.messages().size() == 1;
-	}
-
-	private String extractToolResponse(AnthropicApi.ChatCompletionRequest completionRequest) {
-		return completionRequest.messages()
-			.stream()
-			.map(AnthropicApi.AnthropicMessage::content)
-			.map(c -> c.get(0))
-			.filter(m -> m.type().equals(AnthropicApi.ContentBlock.Type.TOOL_RESULT))
-			.map(AnthropicApi.ContentBlock::content)
-			.map(content -> deserializeToolResult(content.toString()))
-			.findFirst()
-			.get();
 	}
 
 	private String deserializeToolResult(String content) {
@@ -222,16 +334,98 @@ class LlmTests {
 		}
 	}
 
-	private void ensureAuthServerLogin() throws IOException {
-		HtmlPage loginPage = this.webClient.getPage(authorizationServerUrl);
+	private static List<RawMessageStreamEvent> messageToStreamEvents(Message message) {
+		List<RawMessageStreamEvent> events = new ArrayList<>();
 
-		if (loginPage.getWebResponse().getStatusCode() == 404) {
-			// Already logged in
-			return;
+		events.add(RawMessageStreamEvent.ofMessageStart(RawMessageStartEvent.builder().message(message).build()));
+
+		for (int i = 0; i < message.content().size(); i++) {
+			ContentBlock block = message.content().get(i);
+
+			RawContentBlockStartEvent.ContentBlock startBlock;
+			RawContentBlockDeltaEvent deltaEvent;
+
+			if (block.isToolUse()) {
+				ToolUseBlock toolUse = block.asToolUse();
+				startBlock = RawContentBlockStartEvent.ContentBlock.ofToolUse(ToolUseBlock.builder()
+					.id(toolUse.id())
+					.name(toolUse.name())
+					.type(JsonString.of("tool_use"))
+					.caller(toolUse.caller())
+					.input(JsonNull.of())
+					.build());
+				deltaEvent = RawContentBlockDeltaEvent.builder()
+					.index(i)
+					.delta(RawContentBlockDelta.ofInputJson(InputJsonDelta.builder().partialJson("{}").build()))
+					.build();
+			}
+			else if (block.isText()) {
+				TextBlock textBlock = block.asText();
+				startBlock = RawContentBlockStartEvent.ContentBlock
+					.ofText(TextBlock.builder().text("").citations(Optional.empty()).build());
+				deltaEvent = RawContentBlockDeltaEvent.builder()
+					.index(i)
+					.delta(RawContentBlockDelta.ofText(TextDelta.builder().text(textBlock.text()).build()))
+					.build();
+			}
+			else {
+				continue;
+			}
+
+			events.add(RawMessageStreamEvent
+				.ofContentBlockStart(RawContentBlockStartEvent.builder().contentBlock(startBlock).index(i).build()));
+			events.add(RawMessageStreamEvent.ofContentBlockDelta(deltaEvent));
+			events.add(RawMessageStreamEvent.ofContentBlockStop(RawContentBlockStopEvent.builder().index(i).build()));
 		}
-		loginPage.<HtmlInput>querySelector("#username").type("test-user");
-		loginPage.<HtmlInput>querySelector("#password").type("test-password");
-		loginPage.<HtmlButton>querySelector("button").click();
+
+		StopReason stopReason = message.stopReason().orElse(StopReason.END_TURN);
+		String stopSequence = message.stopSequence().orElse(null);
+		events.add(RawMessageStreamEvent.ofMessageDelta(RawMessageDeltaEvent.builder()
+			.delta(RawMessageDeltaEvent.Delta.builder()
+				.stopReason(stopReason)
+				.stopSequence(stopSequence)
+				.container((Container) null)
+				.build())
+			.usage(mock(MessageDeltaUsage.class))
+			.build()));
+
+		return events;
+	}
+
+	private static <T> AsyncStreamResponse<T> fakeAsyncStreamResponse(List<T> events) {
+		return new AsyncStreamResponse<T>() {
+			private final CompletableFuture<Void> completeFuture = new CompletableFuture<>();
+
+			@Override
+			public AsyncStreamResponse<T> subscribe(Handler<? super T> handler) {
+				try {
+					for (T event : events) {
+						handler.onNext(event);
+					}
+					handler.onComplete(Optional.empty());
+					completeFuture.complete(null);
+				}
+				catch (Exception e) {
+					handler.onComplete(Optional.of(e));
+					completeFuture.completeExceptionally(e);
+				}
+				return this;
+			}
+
+			@Override
+			public AsyncStreamResponse<T> subscribe(Handler<? super T> handler, Executor executor) {
+				return subscribe(handler);
+			}
+
+			@Override
+			public CompletableFuture<Void> onCompleteFuture() {
+				return completeFuture;
+			}
+
+			@Override
+			public void close() {
+			}
+		};
 	}
 
 }

@@ -42,6 +42,12 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
         </dependency>
+        <!-- TODO: this should be in mcp-client-webflux -->
+        <!-- https://github.com/spring-projects/spring-ai/issues/5614 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webclient</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springaicommunity</groupId>
             <artifactId>mcp-server-security</artifactId>
@@ -101,6 +107,11 @@
             <artifactId>checker-qual</artifactId>
             <version>3.49.3</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-json-jackson3</artifactId>
+            <version>${mcp.java.sdk.version}</version>
         </dependency>
     </dependencies>
     <build>
