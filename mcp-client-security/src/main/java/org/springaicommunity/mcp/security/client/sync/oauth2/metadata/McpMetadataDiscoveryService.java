@@ -18,7 +18,6 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.metadata;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
@@ -51,6 +50,8 @@ public class McpMetadataDiscoveryService {
 	private static final Logger log = LoggerFactory.getLogger(McpMetadataDiscoveryService.class);
 
 	private final RestClient restClient;
+
+	private String WELL_KNOWN_PATH_SEGMENT = "/.well-known/oauth-protected-resource";
 
 	public McpMetadataDiscoveryService() {
 		this.restClient = RestClient.builder()
@@ -85,15 +86,9 @@ public class McpMetadataDiscoveryService {
 				return null;
 			}
 			log.debug("Got WWW-authenticate={}", authenticateHeader);
-			var protectedResourceMetadataUrl = extractWwwAuthenticateParameters("resource_metadata",
-					authenticateHeader);
-			if (protectedResourceMetadataUrl == null) {
-				return null;
-			}
-			var scope = extractWwwAuthenticateParameters("scope", authenticateHeader);
-			var authenticateParams = new WwwAuthenticateParameters(protectedResourceMetadataUrl, scope);
-			log.debug("Got www-authenticate parameters {}", authenticateParams);
-			return authenticateParams;
+			var authenticateParameters = WwwAuthenticateParameters.parse(authenticateHeader);
+			log.debug("Got www-authenticate parameters {}", authenticateParameters);
+			return authenticateParameters;
 		}
 		log.debug("Could not get www-authenticate parameters");
 		return null;
@@ -105,67 +100,91 @@ public class McpMetadataDiscoveryService {
 	 */
 	public McpMetadata getMcpMetadata(String mcpServerUrl) {
 		var wwwAuthenticateParameters = getWwwAuthenticateParameters(mcpServerUrl);
-		var candidateUrls = new ArrayList<String>();
+		return getMcpMetadata(mcpServerUrl, wwwAuthenticateParameters);
+	}
+
+	public McpMetadata getMcpMetadata(String mcpServerUrl,
+			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters) {
+		ProtectedResourceMetadata metadata = null;
 		if (wwwAuthenticateParameters != null) {
-			candidateUrls.add(wwwAuthenticateParameters.resourceMetadata());
+			metadata = getProtectedResourceMetadata(wwwAuthenticateParameters.getResourceMetadata());
+			if (metadata != null && !metadata.resource().equals(mcpServerUrl)) {
+				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server url [%s]"
+					.formatted(metadata.resource(), mcpServerUrl));
+			}
 		}
-		candidateUrls.add(computeWellKnownProtectedResourceUrl(mcpServerUrl, true));
-		candidateUrls.add(computeWellKnownProtectedResourceUrl(mcpServerUrl, false));
-		var protectedResourceMetadata = getProtectedResourceMetadata(candidateUrls);
-		if (!mcpServerUrl.startsWith(protectedResourceMetadata.resource())) {
-			throw new IllegalStateException("Resource identifier [%s] does not match MCP Server url [%s]"
-				.formatted(protectedResourceMetadata.resource(), mcpServerUrl));
+		var rootUrl = UriComponentsBuilder.fromUriString(mcpServerUrl).replacePath(null).toUriString();
+		var path = UriComponentsBuilder.fromUriString(mcpServerUrl).build().getPath();
+		if (metadata == null) {
+			var candidateUrl = computeWellKnownProtectedResourceUrl(rootUrl, path);
+			metadata = getProtectedResourceMetadata(candidateUrl);
+			if (metadata != null && !metadata.resource().equals(mcpServerUrl)) {
+				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server url [%s]"
+					.formatted(metadata.resource(), mcpServerUrl));
+			}
 		}
-		return new McpMetadata(wwwAuthenticateParameters, protectedResourceMetadata);
+		if (metadata == null) {
+			var candidateUrl = computeWellKnownProtectedResourceUrl(rootUrl, null);
+			metadata = getProtectedResourceMetadata(candidateUrl);
+			if (metadata != null && !metadata.resource().equals(rootUrl)) {
+				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server root url [%s]"
+					.formatted(metadata.resource(), mcpServerUrl));
+			}
+		}
+		if (metadata == null) {
+			throw new IllegalStateException("Could not find protected resource metadata");
+		}
+		return new McpMetadata(wwwAuthenticateParameters, metadata);
 	}
 
 	/**
 	 * Get Protected Resource Metadata document.
+	 * @param mcpServerUrl The URL of the MCP server, used for validation
 	 * @param resourceMetadataUrlCandidates The URLs from which to fetch the document
 	 * @return The Protected Resource Metadata document
 	 */
-	public ProtectedResourceMetadata getProtectedResourceMetadata(Collection<String> resourceMetadataUrlCandidates) {
+	public ProtectedResourceMetadata getProtectedResourceMetadata(String mcpServerUrl,
+			Collection<String> resourceMetadataUrlCandidates) {
 		for (var protectedResourceMetadataUrl : resourceMetadataUrlCandidates) {
-			try {
-				log.debug("Reading protected resource metadata [{}]", protectedResourceMetadataUrl);
-				var prm = restClient.get()
-					.uri(protectedResourceMetadataUrl)
-					.retrieve()
-					.body(ProtectedResourceMetadata.class);
-				if (prm == null) {
-					continue;
+			var prm = getProtectedResourceMetadata(protectedResourceMetadataUrl);
+			if (prm != null) {
+				if (mcpServerUrl.startsWith(prm.resource())) {
+					return prm;
 				}
-				log.debug("Got Protected Resource Metadata: {}", prm);
-				return prm;
-			}
-			catch (HttpClientErrorException.NotFound | HttpClientErrorException.Unauthorized ignored) {
-				// ignored
+				log.debug("Resource identifier [{}] does not match MCP Server url [{}]", prm.resource(), mcpServerUrl);
 			}
 		}
 		throw new IllegalStateException("Could not find protected resource metadata");
 	}
 
-	private String computeWellKnownProtectedResourceUrl(String mcpServerUrl, boolean includePath) {
-		var path = "";
-		if (includePath) {
-			var url = UriComponentsBuilder.fromUriString(mcpServerUrl).build();
-			if (url.getPath() != null) {
-				path = url.getPath();
+	/**
+	 * Get Protected Resource Metadata document.
+	 * @param resourceMetadataUrl The URL from which to fetch the document
+	 * @return The Protected Resource Metadata document
+	 */
+	@Nullable public ProtectedResourceMetadata getProtectedResourceMetadata(String resourceMetadataUrl) {
+		try {
+			log.debug("Reading protected resource metadata [{}]", resourceMetadataUrl);
+			var prm = restClient.get().uri(resourceMetadataUrl).retrieve().body(ProtectedResourceMetadata.class);
+			if (prm == null) {
+				log.debug("Protected resource metadata body is null for [{}]", resourceMetadataUrl);
+				return null;
 			}
+			log.debug("Got Protected Resource Metadata: {}", prm);
+			return prm;
 		}
-		var prmUrl = UriComponentsBuilder.fromUriString(mcpServerUrl)
-			.replacePath("/.well-known/oauth-protected-resource" + path)
-			.toUriString();
-		return prmUrl;
-	}
-
-	@Nullable private static String extractWwwAuthenticateParameters(String parameterName, String authenticateHeader) {
-		var pattern = Pattern.compile(parameterName + "=(?:\"([^\"]+)\"|([^\\s,]+))");
-		var matcher = pattern.matcher(authenticateHeader);
-		if (matcher.find()) {
-			return matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+		catch (HttpClientErrorException.NotFound | HttpClientErrorException.Unauthorized e) {
+			log.debug("Could not get protected resource metadata from [{}]: {}", resourceMetadataUrl, e.getMessage());
 		}
 		return null;
+	}
+
+	private String computeWellKnownProtectedResourceUrl(String rootUrl, @Nullable String path) {
+		path = path != null ? path : "";
+		return UriComponentsBuilder.fromUriString(rootUrl)
+			.replacePath(null)
+			.replacePath(WELL_KNOWN_PATH_SEGMENT + path)
+			.toUriString();
 	}
 
 }

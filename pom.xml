@@ -73,8 +73,8 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 
-        <mcp.java.sdk.version>0.17.2</mcp.java.sdk.version>
-        <spring-ai.version>2.0.0-M2</spring-ai.version>
+        <mcp.java.sdk.version>1.1.0</mcp.java.sdk.version>
+        <spring-ai.version>2.0.0-M3</spring-ai.version>
         <spring-boot.version>4.0.2</spring-boot.version>
         <spring-boot-testjars.version>0.4.0.0</spring-boot-testjars.version>
 
@@ -351,7 +351,7 @@
                             <excludeArtifacts>
                                 mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webclient,sample-mcp-server-secured-tools,sample-mcp-server-api-key,integration-tests
                             </excludeArtifacts>
-                             <autoPublish>true</autoPublish>
+                            <autoPublish>true</autoPublish>
                         </configuration>
                     </plugin>
                     <plugin>

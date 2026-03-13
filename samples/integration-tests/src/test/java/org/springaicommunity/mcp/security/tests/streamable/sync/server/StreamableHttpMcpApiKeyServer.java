@@ -1,5 +1,6 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.server;
 
+import java.util.Collections;
 import java.util.List;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -16,6 +17,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -69,7 +72,7 @@ public class StreamableHttpMcpApiKeyServer {
 	}
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpServerApiKey(), (mcpAuthorization) -> {
 				mcpAuthorization.apiKeyRepository(buildApiKeyRepository());

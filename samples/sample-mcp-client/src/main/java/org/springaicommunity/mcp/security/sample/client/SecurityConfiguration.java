@@ -16,6 +16,8 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
+import org.springaicommunity.mcp.security.client.sync.config.McpClientOAuth2Configurer;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -34,7 +36,7 @@ class SecurityConfiguration {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-			.oauth2Client(Customizer.withDefaults())
+			.with(McpClientOAuth2Configurer.mcpClientOAuth2(), Customizer.withDefaults())
 			.csrf(CsrfConfigurer::disable)
 			.build();
 	}

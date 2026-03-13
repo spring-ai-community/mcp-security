@@ -18,8 +18,7 @@ package org.springaicommunity.mcp.security.sample.server.streamable;
 
 import java.time.LocalDateTime;
 
-import org.springaicommunity.mcp.annotation.McpTool;
-
+import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -54,7 +53,6 @@ public class WeatherService {
 					latitude, longitude)
 			.retrieve()
 			.body(WeatherResponse.class);
-
 	}
 
 	@McpTool(name = "greet", description = "Greet the current user, by name, based on their authentication")

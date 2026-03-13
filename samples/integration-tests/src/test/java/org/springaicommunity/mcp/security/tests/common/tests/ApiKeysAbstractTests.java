@@ -1,10 +1,13 @@
 package org.springaicommunity.mcp.security.tests.common.tests;
 
+import java.net.http.HttpResponse;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.transport.McpHttpClientTransportAuthorizationException;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpTransportException;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
@@ -36,10 +39,13 @@ public abstract class ApiKeysAbstractTests {
 				// a poor String representation.
 				.isInstanceOf(RuntimeException.class)
 				.satisfiesAnyOf(e -> {
-					// message with http client
-					assertThat(e).hasMessageStartingWith("Failed to send message: DummyEvent");
+					// message with HttpClient
+					assertThat(e).isInstanceOf(McpHttpClientTransportAuthorizationException.class)
+						.extracting("responseInfo", type(HttpResponse.ResponseInfo.class))
+						.extracting(HttpResponse.ResponseInfo::statusCode)
+						.isEqualTo(401);
 				}, e -> {
-					// message with webclient
+					// message with WebClient
 					assertThat(e).hasMessageStartingWith("401 Unauthorized from POST");
 				});
 		}
@@ -86,7 +92,16 @@ public abstract class ApiKeysAbstractTests {
 
 		currentApiKey.set(secondApiKey);
 		assertThatThrownBy(() -> client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build()))
-			.hasMessageContaining("403");
+			.satisfiesAnyOf(e -> {
+				// for HttpClient
+				assertThat(e).isInstanceOf(McpHttpClientTransportAuthorizationException.class)
+					.extracting("responseInfo", type(HttpResponse.ResponseInfo.class))
+					.extracting(HttpResponse.ResponseInfo::statusCode)
+					.isEqualTo(403);
+			}, e -> {
+				// for WebClient
+				assertThat(e).isInstanceOf(McpTransportException.class).hasMessageContaining("403");
+			});
 	}
 
 }

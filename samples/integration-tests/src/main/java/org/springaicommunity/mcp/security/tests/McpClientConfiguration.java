@@ -18,13 +18,16 @@ package org.springaicommunity.mcp.security.tests;
 
 import java.util.ArrayList;
 
+import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
-import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
@@ -47,7 +50,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class McpClientConfiguration {
 
 	@Bean
-	McpSyncClientCustomizer syncClientCustomizer() {
+	McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
 		return (name, syncSpec) -> syncSpec.transportContextProvider(new AuthenticationMcpTransportContextProvider());
 	}
 
@@ -61,11 +64,16 @@ public class McpClientConfiguration {
 	@Bean
 	McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProperties properties,
 			@Value("${mcp.server.url:}") String mcpServerUrl) {
-		var repo = new InMemoryMcpClientRegistrationRepository(new DynamicClientRegistrationService(),
-				new McpMetadataDiscoveryService());
+		var repo = new InMemoryMcpClientRegistrationRepository();
 		new ArrayList<>(new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().values())
-			.forEach(reg -> repo.addPreRegisteredClient(reg, mcpServerUrl));
+			.forEach(reg -> repo.addClientRegistration(reg, mcpServerUrl));
 		return repo;
+	}
+
+	@Bean
+	McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
+				new DynamicClientRegistrationService(), new McpMetadataDiscoveryService());
 	}
 
 }

@@ -29,13 +29,35 @@ import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransport
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
+ * An {@link McpSyncHttpClientRequestCustomizer} that adds an OAuth2 access token to
+ * outgoing MCP client HTTP requests using the {@code authorization_code} grant type.
+ * <p>
+ * This customizer is intended for MCP client authorization scenarios where the client
+ * acts on behalf of an authenticated end user. It retrieves an access token via the
+ * {@link OAuth2AuthorizedClientManager} and attaches it as a {@code Bearer} token in the
+ * {@code Authorization} header of each outgoing MCP request.
+ * <p>
+ * If the current token's scopes do not cover all scopes required by the
+ * {@link ClientRegistrationRepository client registration}, a
+ * {@link ClientAuthorizationRequiredException} is thrown to trigger re-authorization
+ * (e.g. scope step-up).
+ * <p>
+ * If the client registration does not exist yet (e.g. it is registered dynamically), the
+ * request is sent without a token. The MCP server will respond with an HTTP 401, and
+ * {@link OAuth2SyncAuthorizationErrorHandler} will handle that response to perform
+ * dynamic client registration before retrying.
+ *
  * @author Daniel Garnier-Moiroux
+ * @see OAuth2SyncAuthorizationErrorHandler
  */
 public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
@@ -45,9 +67,12 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 	private final String clientRegistrationId;
 
+	private final ClientRegistrationRepository clientRegistrationRepository;
+
 	public OAuth2AuthorizationCodeSyncHttpRequestCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
-			String clientRegistrationId) {
+			ClientRegistrationRepository clientRegistrationRepository, String clientRegistrationId) {
 		this.authorizedClientManager = authorizedClientManager;
+		this.clientRegistrationRepository = clientRegistrationRepository;
 		this.clientRegistrationId = clientRegistrationId;
 	}
 
@@ -68,14 +93,33 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest())
 			.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse())
 			.build();
-		log.debug("Requesting access token");
-		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
+		log.debug("Requesting access token for client [{}]", this.clientRegistrationId);
+
+		var registration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);
+		if (registration == null) {
+			log.debug("Client [{}] does not exist. It may be dynamically registered at a later point, skipping.",
+					this.clientRegistrationId);
+			return;
+		}
+
+		OAuth2AuthorizedClient authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
 		if (authorizedClient == null) {
 			throw new IllegalArgumentException(
 					"Authorization not supported for client [" + this.clientRegistrationId + "]");
 		}
+		log.debug("Client [{}] is authorized", this.clientRegistrationId);
+
+		if (authorizedClient.getAccessToken().getScopes() != null && registration.getScopes() != null
+				&& !authorizedClient.getAccessToken().getScopes().containsAll(registration.getScopes())) {
+			log.debug("Existing token scopes {} do not match requested scopes {}. Requesting a new token.",
+					authorizedClient.getAccessToken().getScopes(), registration.getScopes());
+			throw new ClientAuthorizationRequiredException(this.clientRegistrationId);
+		}
+		else {
+			log.debug("Token scopes match requested scopes {}", registration.getScopes());
+		}
 		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
-		log.debug("Obtained access token");
+		log.debug("Adding token to header");
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 

@@ -2,12 +2,10 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
 import java.io.IOException;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -22,11 +20,13 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.webclient.McpOAuth2
 import org.springaicommunity.mcp.security.tests.McpClientConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
+import org.springframework.ai.mcp.client.webflux.transport.WebClientStreamableHttpTransport;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -86,7 +86,7 @@ class StreamableHttpWebClientToolsSecuredTests {
 			.filter(new McpOAuth2AuthorizationCodeExchangeFilterFunction(clientManager, "authserver"));
 		webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		var transport = WebClientStreamableHttpTransport.builder(clientBuilder)
-			.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
 			.build();
 		this.mcpClient = McpClient.sync(transport)
 			.clientInfo(new McpSchema.Implementation("test-client", new McpClientCommonProperties().getVersion()))

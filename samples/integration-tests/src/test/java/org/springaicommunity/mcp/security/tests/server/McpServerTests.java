@@ -40,7 +40,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 		spring.ai.mcp.server.protocol=STATELESS
 		spring.ai.mcp.client.type=SYNC
 		server.servlet.context-path=/ctx
-		logging.level.org.springframework.security=TRACE
 		""")
 @AutoConfigureRestTestClient
 class McpServerTests {
@@ -109,7 +108,7 @@ class McpServerTests {
 	}
 
 	@Test
-	@Disabled("Not implemented. See https://github.com/spring-ai-community/mcp-security/issues/18")
+	@Disabled("Not implemented. See https://github.com/spring-ai-community/mcp-security/issues/25")
 	void requestWithTokenMissingScope() {
 		var jwt = jwt("test.read");
 

@@ -2,33 +2,39 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.dcr;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
+import java.util.UUID;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2SyncAuthorizationErrorHandler;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
 import org.springaicommunity.mcp.security.tests.common.configuration.McpServerConfiguration;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.SseWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
-import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,12 +63,17 @@ import static org.springaicommunity.mcp.security.client.sync.config.McpClientOAu
 		""")
 class DynamicClientRegistrationTests {
 
+	private static final String PRE_REGISTRATION_ID = "default";
+
 	WebClient webClient = new WebClient();
 
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
 
 	@Value("${mcp.server.url}")
+	String mcpServerBaseUrl;
+
+	@Value("#{'${mcp.server.url}' + '/mcp'}")
 	String mcpServerUrl;
 
 	@LocalServerPort
@@ -74,21 +85,61 @@ class DynamicClientRegistrationTests {
 	@Autowired
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
+	@Autowired
+	private ClientRegistrationRepository clientRegistrationRepository;
+
+	@Autowired
+	private McpOAuth2ClientManager mcpOAuth2ClientManager;
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 	}
 
 	@Test
-	void canCallTool() throws IOException {
+	@DisplayName("Discover MCP Server authorization needs, automatically register client")
+	void fullDynamicClientRegistration() throws IOException {
+		String testRegistrationId = UUID.randomUUID().toString();
+
 		ensureAuthServerLogin();
+		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager,
+				this.clientRegistrationRepository, testRegistrationId);
+		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, testRegistrationId,
+				mcpServerUrl);
 
-		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager, "default");
-
-		var transport = HttpClientStreamableHttpTransport.builder(this.mcpServerUrl)
+		var transport = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
 			.httpRequestCustomizer(requestCustomizer)
+			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
+			.build();
+
+		var client = McpClient.sync(transport)
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+		inMemoryMcpClientRepository.addClient("test-client-authcode", client);
+
+		var callToolResponse = webClient
+			.getPage("http://localhost:" + port + "/tool/call?clientName=test-client-authcode&toolName=greeter");
+		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
+		assertThat(contentAsString)
+			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
+	}
+
+	@Test
+	@DisplayName("Pre-register client with auth server in configuration")
+	void preRegisteredClient() throws IOException {
+		ensureAuthServerLogin();
+		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager,
+				this.clientRegistrationRepository, PRE_REGISTRATION_ID);
+		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, PRE_REGISTRATION_ID,
+				mcpServerUrl);
+
+		var transport = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
+			.clientBuilder(HttpClient.newBuilder())
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
+			.httpRequestCustomizer(requestCustomizer)
+			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
 			.build();
 
 		var client = McpClient.sync(transport)
@@ -115,22 +166,29 @@ class DynamicClientRegistrationTests {
 	static class StreamableHttpConfig {
 
 		@Bean
-		McpSyncClientCustomizer syncClientCustomizer() {
+		McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
 			return (name, syncSpec) -> syncSpec
 				.transportContextProvider(new AuthenticationMcpTransportContextProvider());
 		}
 
 		@Bean
-		SecurityFilterChain securityFilterChain(HttpSecurity http, @Value("${mcp.server.url}") String mcpServerUrl) {
+		SecurityFilterChain securityFilterChain(HttpSecurity http,
+				@Value("${mcp.server.url}") String mcpServerBaseUrl) {
 			return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-				.with(mcpClientOAuth2(), oauth2 -> oauth2.registerMcpOAuth2Client("default", mcpServerUrl + "/mcp"))
+				.with(mcpClientOAuth2(),
+						oauth2 -> oauth2.registerMcpOAuth2Client(PRE_REGISTRATION_ID, mcpServerBaseUrl + "/mcp"))
 				.build();
 		}
 
 		@Bean
+		McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+			return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
+					new DynamicClientRegistrationService(), new McpMetadataDiscoveryService());
+		}
+
+		@Bean
 		McpClientRegistrationRepository mcpClientRegistrationRepository() {
-			return new InMemoryMcpClientRegistrationRepository(new DynamicClientRegistrationService(),
-					new McpMetadataDiscoveryService());
+			return new InMemoryMcpClientRegistrationRepository();
 		}
 
 		@Bean
