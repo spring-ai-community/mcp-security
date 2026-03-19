@@ -1,6 +1,7 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.httpclient;
 
 import java.net.http.HttpClient;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -39,6 +40,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = """
 		mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer
+		mcp.server.bind-session=true
 		mcp.server.protocol=STREAMABLE
 		""")
 class StreamableHttpTests extends StreamableHttpAbstractTests {
@@ -107,6 +109,18 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 			.jsonMapper(jsonMapper)
 			.clientBuilder(HttpClient.newBuilder())
 			.httpRequestCustomizer(requestCustomizer)
+			.build();
+		return transport;
+	}
+
+	@Override
+	public HttpClientStreamableHttpTransport buildTokenTransport(AtomicReference<String> currentToken) {
+		var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
+			.jsonMapper(jsonMapper)
+			.clientBuilder(HttpClient.newBuilder())
+			.httpRequestCustomizer((builder, method, endpoint, body, context) -> {
+				builder.header("Authorization", "Bearer " + currentToken.get());
+			})
 			.build();
 		return transport;
 	}

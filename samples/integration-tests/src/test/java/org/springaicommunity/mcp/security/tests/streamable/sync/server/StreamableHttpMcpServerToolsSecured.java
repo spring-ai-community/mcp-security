@@ -1,8 +1,9 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.server;
 
+import java.util.List;
+
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
-import java.util.List;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;

@@ -129,6 +129,28 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
+	void sessionBindingEnforced() {
+		var sessionId = java.util.UUID.randomUUID().toString();
+		var initializeRequest = this.mvc.get()
+			.uri("/default/session")
+			.header("X-API-key", "api01.test-secret")
+			.header("X-Set-Session-Id", sessionId);
+		assertThat(initializeRequest).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+
+		var validRequest = this.mvc.get()
+			.uri("/default")
+			.header("X-API-key", "api01.test-secret")
+			.header(io.modelcontextprotocol.spec.HttpHeaders.MCP_SESSION_ID, sessionId);
+		assertThat(validRequest).hasStatus(HttpStatus.OK);
+
+		var invalidRequest = this.mvc.get()
+			.uri("/default")
+			.header("X-API-key", "api02.test-secret")
+			.header(io.modelcontextprotocol.spec.HttpHeaders.MCP_SESSION_ID, sessionId);
+		assertThat(invalidRequest).hasStatus(HttpStatus.FORBIDDEN);
+	}
+
+	@Test
 	void postProcessors(@Autowired PostProcessorRecorder postProcessorRecorder) {
 		assertThat(postProcessorRecorder.getPostProcessedClasses()).containsExactlyInAnyOrder(
 				ApiKeyAuthenticationConverter.class, ApiKeyAuthenticationFilter.class,
@@ -153,6 +175,7 @@ class McpApiKeyConfigurerTest {
 			}).with(mcpServerApiKey(), apiKey -> {
 				apiKey.apiKeyRepository(repo());
 				apiKey.withObjectPostProcessor(postProcessorRecorder.getPostProcessor());
+				apiKey.sessionBinding(Customizer.withDefaults());
 			}).anonymous(Customizer.withDefaults()).build();
 		}
 
@@ -180,7 +203,8 @@ class McpApiKeyConfigurerTest {
 
 		static ApiKeyEntityRepository<@NonNull ApiKeyEntity> repo() {
 			return new InMemoryApiKeyEntityRepository<>(
-					List.of(ApiKeyEntityImpl.builder().id("api01").secret("test-secret").name("first key").build()));
+					List.of(ApiKeyEntityImpl.builder().id("api01").secret("test-secret").name("first key").build(),
+							ApiKeyEntityImpl.builder().id("api02").secret("test-secret").name("second key").build()));
 		}
 
 		@Bean
@@ -188,7 +212,12 @@ class McpApiKeyConfigurerTest {
 			return RouterFunctions.route((req) -> true, req -> {
 				var authentication = SecurityContextHolder.getContext().getAuthentication();
 				var name = authentication != null ? authentication.getName() : "";
-				return ServerResponse.ok().body("Hello " + name);
+				var builder = ServerResponse.ok();
+				var sessionId = req.headers().firstHeader("X-Set-Session-Id");
+				if (sessionId != null) {
+					builder.header(io.modelcontextprotocol.spec.HttpHeaders.MCP_SESSION_ID, sessionId);
+				}
+				return builder.body("Hello " + name);
 			});
 		}
 

@@ -16,9 +16,19 @@
 
 package org.springaicommunity.mcp.security.tests;
 
+import java.util.ArrayList;
+
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 
 import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientPropertiesMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -33,6 +43,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @Import({ InMemoryMcpClientRepository.class, McpController.class })
 @EnableWebSecurity
+@EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class McpClientConfiguration {
 
 	@Bean
@@ -45,6 +56,16 @@ public class McpClientConfiguration {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
 			.oauth2Client(Customizer.withDefaults())
 			.build();
+	}
+
+	@Bean
+	McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProperties properties,
+			@Value("${mcp.server.url:}") String mcpServerUrl) {
+		var repo = new InMemoryMcpClientRegistrationRepository(new DynamicClientRegistrationService(),
+				new McpMetadataDiscoveryService());
+		new ArrayList<>(new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().values())
+			.forEach(reg -> repo.addPreRegisteredClient(reg, mcpServerUrl));
+		return repo;
 	}
 
 }

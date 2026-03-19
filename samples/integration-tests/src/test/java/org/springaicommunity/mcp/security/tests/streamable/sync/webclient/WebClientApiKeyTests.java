@@ -1,5 +1,7 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
@@ -19,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
@@ -45,6 +48,17 @@ public class WebClientApiKeyTests extends ApiKeysAbstractTests {
 	protected McpClientTransport buildAuthenticatedTransport() {
 		return WebClientStreamableHttpTransport
 			.builder(WebClient.builder().baseUrl(this.mcpServerUrl).defaultHeader("X-API-Key", "api01.mycustomapikey"))
+			.jsonMapper(jsonMapper)
+			.build();
+	}
+
+	@Override
+	protected McpClientTransport buildAuthenticatedTransport(AtomicReference<String> currentApiKey) {
+		return WebClientStreamableHttpTransport
+			.builder(WebClient.builder().baseUrl(this.mcpServerUrl).filter((request, next) -> {
+				var requestWithApiKey = ClientRequest.from(request).header("X-API-Key", currentApiKey.get()).build();
+				return next.exchange(requestWithApiKey);
+			}))
 			.jsonMapper(jsonMapper)
 			.build();
 	}

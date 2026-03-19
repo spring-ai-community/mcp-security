@@ -5,6 +5,7 @@ import java.util.List;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.springaicommunity.mcp.security.server.apikey.ApiKey;
 import org.springaicommunity.mcp.security.server.config.McpApiKeyConfigurer;
+import org.springaicommunity.mcp.security.server.session.McpSessionFilter;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +37,8 @@ public class McpServerApiKeyConfiguration {
 						springBootStarter("security"), springAiStarter("mcp-server-webmvc"))
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
 				.classes(AllowAllCorsConfigurationSource.class)
-				.classes(McpApiKeyConfigurer.class)
+				.scan(McpApiKeyConfigurer.class)
+				.scan(McpSessionFilter.class)
 				.scan(ApiKey.class));
 	}
 

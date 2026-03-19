@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -70,7 +71,10 @@ public class StreamableHttpMcpApiKeyServer {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpServerApiKey(), (mcpAuthorization) -> mcpAuthorization.apiKeyRepository(buildApiKeyRepository()))
+			.with(mcpServerApiKey(), (mcpAuthorization) -> {
+				mcpAuthorization.apiKeyRepository(buildApiKeyRepository());
+				mcpAuthorization.sessionBinding(Customizer.withDefaults());
+			})
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))
 			.csrf(CsrfConfigurer::disable)
@@ -79,8 +83,9 @@ public class StreamableHttpMcpApiKeyServer {
 	}
 
 	private ApiKeyEntityRepository<@NonNull ApiKeyEntityImpl> buildApiKeyRepository() {
-		return new InMemoryApiKeyEntityRepository<>(
-				List.of(ApiKeyEntityImpl.builder().name("test api key").id("api01").secret("mycustomapikey").build()));
+		return new InMemoryApiKeyEntityRepository<>(List.of(
+				ApiKeyEntityImpl.builder().name("test api key").id("api01").secret("mycustomapikey").build(),
+				ApiKeyEntityImpl.builder().name("another api key").id("api02").secret("anothercustomapikey").build()));
 	}
 
 }

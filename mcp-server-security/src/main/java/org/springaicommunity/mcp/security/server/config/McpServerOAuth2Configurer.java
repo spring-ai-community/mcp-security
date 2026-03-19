@@ -52,6 +52,8 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	@Nullable private JwtDecoder jwtDecoder;
 
+	@Nullable private SessionBindingConfigurer sessionBindingConfigurer;
+
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
 		return this;
@@ -85,6 +87,25 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	/**
+	 * Enable binding a specific MCP Session to a given user identifier, as per Security
+	 * Best Practices. When a session is established with a client sending a Bearer token,
+	 * the session is bound to the principal's name. In practice, with OAuth2, it will be
+	 * the Bearer token's {@code sub} claim.
+	 * @param sessionBindingCustomizer customizer for session bindings configuration
+	 * @return The {@link McpServerOAuth2Configurer} for further configuration
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-4">Security
+	 * best practices</a>
+	 */
+	public McpServerOAuth2Configurer sessionBinding(Customizer<SessionBindingConfigurer> sessionBindingCustomizer) {
+		if (this.sessionBindingConfigurer == null) {
+			this.sessionBindingConfigurer = new SessionBindingConfigurer();
+		}
+		sessionBindingCustomizer.customize(sessionBindingConfigurer);
+		return this;
+	}
+
+	/**
 	 * Customize the underlying Spring Security OAuth2 Resource Server configuration,
 	 * through a {@link OAuth2ResourceServerConfigurer}.
 	 * @param oauth2ResourceServerCustomizer a customizer of OAuth2 Resource Server.
@@ -113,6 +134,9 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(issuerUri)));
 			this.oauth2ResourceServerCustomizer.customize(resourceServer);
 		});
+		if (this.sessionBindingConfigurer != null) {
+			this.sessionBindingConfigurer.init(http);
+		}
 	}
 
 	private JwtDecoder getJwtDecoder(String issuerUri) {

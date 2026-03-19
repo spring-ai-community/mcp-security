@@ -6,6 +6,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		classes = StatelessWebClientTests.StreamableHttpConfig.class, properties = """
 				mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer
+				mcp.server.bind-session=false
 				mcp.server.protocol=STATELESS
 				""")
 @ActiveProfiles("sync")

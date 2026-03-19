@@ -1,6 +1,8 @@
 package org.springaicommunity.mcp.security.tests.common.tests;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import io.modelcontextprotocol.client.McpClient;
@@ -14,16 +16,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit.jupiter.EnabledIf;
 import org.springframework.test.json.JsonContent;
 import org.springframework.test.json.JsonContentAssert;
 import org.springframework.web.client.RestClient;
@@ -43,6 +51,8 @@ public abstract class StreamableHttpAbstractTests {
 
 	public abstract McpClientTransport buildClientCredentialsTransport();
 
+	public abstract McpClientTransport buildTokenTransport(AtomicReference<String> currentToken);
+
 	@Value("${authorization.server.url}")
 	String authorizationServerUrl;
 
@@ -55,7 +65,7 @@ public abstract class StreamableHttpAbstractTests {
 	WebClient webClient = new WebClient();
 
 	@Autowired
-	protected InMemoryClientRegistrationRepository clientRegistrationRepository;
+	protected ClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
 	protected OAuth2AuthorizedClientService authorizedClientService;
@@ -66,9 +76,16 @@ public abstract class StreamableHttpAbstractTests {
 	@Autowired
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
+	@Autowired
+	private McpClientRegistrationRepository mcpClientRegistrationRepository;
+
+	protected AuthorizedClientServiceOAuth2AuthorizedClientManager clientCredentialsClientManager;
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+		this.clientCredentialsClientManager = new AuthorizedClientServiceOAuth2AuthorizedClientManager(
+				this.clientRegistrationRepository, this.authorizedClientService);
 	}
 
 	@Test
@@ -179,16 +196,19 @@ public abstract class StreamableHttpAbstractTests {
 	@Test
 	@DisplayName("With hybrid, can use both client_credentials and authorization_code flows")
 	void whenHybridAndClientCredentialsCanCall() throws IOException {
-		var transport = buildHybridTransport();
-
-		var client = McpClient.sync(transport)
+		// We need to create two clients because session binding is active,
+		// each transport session will be bound to a specific user (oauth2 client or
+		// end-user)
+		var authorizationCodeClient = McpClient.sync(buildHybridTransport())
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+		var clientCredentialsClient = McpClient.sync(buildHybridTransport())
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
 			.build();
 
-		inMemoryMcpClientRepository.addClient("test-client-hybrid", client);
+		inMemoryMcpClientRepository.addClient("test-client-hybrid", authorizationCodeClient);
 
-		var resp = inMemoryMcpClientRepository.getClientByName("test-client-hybrid")
-			.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+		var resp = clientCredentialsClient.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
 
 		assertThat(resp.content()).hasSize(1)
 			.first()
@@ -225,6 +245,50 @@ public abstract class StreamableHttpAbstractTests {
 		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
 		assertThat(contentAsString)
 			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
+	}
+
+	@Test
+	@DisplayName("Enforces sessions binding")
+	// Stateless transport does not have session IDs
+	@EnabledIf(value = "#{'${mcp.server.protocol}'.equals('STREAMABLE')}", loadContext = true)
+	void sessionBinding() {
+		var firstRegistrationId = "first";
+		mcpClientRegistrationRepository.registerMcpClient(firstRegistrationId, mcpServerUrl + "/mcp",
+				DynamicClientRegistrationRequest.builder()
+					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
+					.build());
+		var secondRegistrationId = "second";
+		mcpClientRegistrationRepository.registerMcpClient(secondRegistrationId, mcpServerUrl + "/mcp",
+				DynamicClientRegistrationRequest.builder()
+					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
+					.build());
+
+		var firstToken = this.clientCredentialsClientManager
+			.authorize(OAuth2AuthorizeRequest.withClientRegistrationId(firstRegistrationId)
+				.principal("mcp-client-service")
+				.build())
+			.getAccessToken()
+			.getTokenValue();
+		var secondToken = this.clientCredentialsClientManager
+			.authorize(OAuth2AuthorizeRequest.withClientRegistrationId(secondRegistrationId)
+				.principal("mcp-client-service")
+				.build())
+			.getAccessToken()
+			.getTokenValue();
+		var currentToken = new AtomicReference<String>();
+		var transport = buildTokenTransport(currentToken);
+
+		var client = McpClient.sync(transport)
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+
+		currentToken.set(firstToken);
+		var firstResponse = client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+		assertThat(firstResponse.isError()).isFalse();
+
+		currentToken.set(secondToken);
+		assertThatThrownBy(() -> client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build()))
+			.hasMessageContaining("403");
 	}
 
 	private void ensureAuthServerLogin() throws IOException {
