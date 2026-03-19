@@ -1,9 +1,12 @@
 package org.springaicommunity.mcp.security.tests.common.tests;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,6 +19,8 @@ public abstract class ApiKeysAbstractTests {
 	protected abstract McpClientTransport buildUnauthenticatedTransport();
 
 	protected abstract McpClientTransport buildAuthenticatedTransport();
+
+	protected abstract McpClientTransport buildAuthenticatedTransport(AtomicReference<String> currentApiKey);
 
 	@Test
 	public void notAuthenticated() {
@@ -63,6 +68,25 @@ public abstract class ApiKeysAbstractTests {
 		catch (Exception e) {
 			fail(e);
 		}
+	}
+
+	@Test
+	void apiKeySessionBinding() {
+		var firstApiKey = "api01.mycustomapikey";
+		var secondApiKey = "api02.anothercustomapikey";
+		AtomicReference<String> currentApiKey = new AtomicReference<>(firstApiKey);
+
+		var client = McpClient.sync(buildAuthenticatedTransport(currentApiKey))
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build();
+
+		currentApiKey.set(firstApiKey);
+		var firstResponse = client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build());
+		assertThat(firstResponse.isError()).isFalse();
+
+		currentApiKey.set(secondApiKey);
+		assertThatThrownBy(() -> client.callTool(McpSchema.CallToolRequest.builder().name("greeter").build()))
+			.hasMessageContaining("403");
 	}
 
 }

@@ -158,11 +158,10 @@ class McpServerTests {
 			return http.authorizeHttpRequests(authz -> {
 				authz.requestMatchers("/with-write-scope").hasAuthority("SCOPE_test.write");
 				authz.anyRequest().authenticated();
-			})
-				.with(McpServerOAuth2Configurer.mcpServerOAuth2()
-					.authorizationServer("https://example.com")
-					.jwtDecoder(jwtDecoder))
-				.build();
+			}).with(McpServerOAuth2Configurer.mcpServerOAuth2(), oauth2 -> {
+				oauth2.authorizationServer("https://example.com");
+				oauth2.jwtDecoder(jwtDecoder);
+			}).build();
 		}
 
 		@Bean

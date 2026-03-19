@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Order;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.session.McpSessionBindingRepository;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +32,8 @@ public class McpServerConfiguration {
 	public CommonsExecWebServerFactoryBean mcpServer(@Value("${authorization.server.url}") String issuerUri,
 			@Value("${mcp.server.protocol}") String mcpServerProtocol,
 			@Value("${mcp.server.class}") String mcpServerClass,
-			@Value("${mcp.server.validate-audience-claim:'false'}") String validateAudienceClaim) {
+			@Value("${mcp.server.validate-audience-claim:false}") String validateAudienceClaim,
+			@Value("${mcp.server.bind-session:false}") String bindSession) {
 		// The properties file is inferred from the bean name, here it's in
 		// resources/testjars/mcpServer
 		String mcpServerResourceName = mcpServerClass.replace('.', '/') + ".class";
@@ -41,15 +43,18 @@ public class McpServerConfiguration {
 			.systemProperties(props -> {
 				props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
 				props.putIfAbsent("spring.ai.mcp.server.protocol", mcpServerProtocol);
+				// TODO: fix prop
 				props.putIfAbsent("mcp.server-validate-audience-claim", validateAudienceClaim);
+				props.putIfAbsent("mcp.server.bind-session", bindSession);
 			})
 			.classpath((classpath) -> classpath
 				.entries(springBootStarter("webmvc"), springBootStarter("oauth2-resource-server"),
 						springBootDependency("spring-boot-jackson2"), springAiStarter("mcp-server-webmvc"))
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
-				.classes(McpServerOAuth2Configurer.class)
 				.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 				.classes(AllowAllCorsConfigurationSource.class)
+				.scan(McpSessionBindingRepository.class)
+				.scan(McpServerOAuth2Configurer.class)
 				.scan(ResourceIdentifier.class));
 	}
 

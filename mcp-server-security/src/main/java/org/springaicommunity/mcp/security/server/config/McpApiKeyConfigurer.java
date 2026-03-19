@@ -17,12 +17,14 @@
 package org.springaicommunity.mcp.security.server.config;
 
 import org.jspecify.annotations.Nullable;
+import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntity;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationProvider;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter;
 
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -42,11 +44,16 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 
 	private @Nullable AuthenticationConverter authenticationConverter;
 
+	@Nullable private SessionBindingConfigurer sessionBindingConfigurer;
+
 	@Override
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
 		http.authenticationProvider(postProcess(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository)));
 		registerCsrfOverride(http);
+		if (this.sessionBindingConfigurer != null) {
+			this.sessionBindingConfigurer.init(http);
+		}
 	}
 
 	@Override
@@ -110,6 +117,25 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	 */
 	public McpApiKeyConfigurer authenticationConverter(AuthenticationConverter authenticationConverter) {
 		this.authenticationConverter = authenticationConverter;
+		return this;
+	}
+
+	/**
+	 * Enable binding a specific MCP Session to a given user identifier, as per Security
+	 * Best Practices. When a session is established with a client sending an API key, the
+	 * session is bound to the principal's name, by default the
+	 * {@link ApiKeyEntity#getId()}.
+	 * @param sessionBindingCustomizer customizer for session bindings configuration
+	 * @return The {@link McpApiKeyConfigurer} for further configuration
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-4">Security
+	 * best practices</a>
+	 */
+	public McpApiKeyConfigurer sessionBinding(Customizer<SessionBindingConfigurer> sessionBindingCustomizer) {
+		if (this.sessionBindingConfigurer == null) {
+			this.sessionBindingConfigurer = new SessionBindingConfigurer();
+		}
+		sessionBindingCustomizer.customize(sessionBindingConfigurer);
 		return this;
 	}
 

@@ -1,5 +1,7 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.WebClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
@@ -31,6 +33,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 /**
@@ -41,6 +44,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		classes = StreamableHttpWebClientTests.StreamableHttpConfig.class, properties = """
 				mcp.server.class=org.springaicommunity.mcp.security.tests.streamable.sync.server.StreamableHttpMcpServer
+				mcp.server.bind-session=true
 				mcp.server.protocol=STREAMABLE
 				""")
 @ActiveProfiles("sync")
@@ -84,6 +88,17 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 			.baseUrl(mcpServerUrl)
 			.filter(new McpOAuth2ClientCredentialsExchangeFilterFunction(clientManager, clientRegistrationRepository,
 					"authserver-client-credentials"));
+
+		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
+	}
+
+	@Override
+	public McpClientTransport buildTokenTransport(AtomicReference<String> currentToken) {
+		var clientBuilder = webClientBuilder.clone().baseUrl(mcpServerUrl).filter((request, next) -> {
+			var token = currentToken.get();
+			var requestWithToken = ClientRequest.from(request).headers(h -> h.setBearerAuth(token)).build();
+			return next.exchange(requestWithToken);
+		});
 
 		return WebClientStreamableHttpTransport.builder(clientBuilder).jsonMapper(jsonMapper).build();
 	}

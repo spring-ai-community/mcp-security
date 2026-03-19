@@ -2,6 +2,7 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.httpclient;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -49,6 +50,16 @@ public class ApiKeyTests extends ApiKeysAbstractTests {
 			.jsonMapper(jsonMapper)
 			.clientBuilder(HttpClient.newBuilder())
 			.requestBuilder(HttpRequest.newBuilder().header("X-API-key", "api01.mycustomapikey"))
+			.build();
+	}
+
+	@Override
+	protected McpClientTransport buildAuthenticatedTransport(AtomicReference<String> currentApiKey) {
+		return HttpClientStreamableHttpTransport.builder(this.mcpServerUrl)
+			.jsonMapper(jsonMapper)
+			.clientBuilder(HttpClient.newBuilder())
+			.httpRequestCustomizer(
+					(builder, method, endpoint, body, context) -> builder.header("X-API-key", currentApiKey.get()))
 			.build();
 	}
 

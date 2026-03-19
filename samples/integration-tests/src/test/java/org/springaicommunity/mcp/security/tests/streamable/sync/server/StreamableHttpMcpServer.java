@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -64,16 +65,20 @@ public class StreamableHttpMcpServer {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
 			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl,
-			@Value("${mcp.server.validate-audience-claim:false}") boolean validateAudienceClaim) throws Exception {
+			@Value("${mcp.server.validate-audience-claim:false}") boolean validateAudienceClaim,
+			@Value("${mcp.server.bind-session:false}") boolean bindSession) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpServerOAuth2(),
-					(mcpAuthorization) -> mcpAuthorization.authorizationServer(issuerUrl)
-						.validateAudienceClaim(validateAudienceClaim)
-						.resourcePath("/mcp"))
+			.with(mcpServerOAuth2(), (mcpAuthorization) -> {
+				mcpAuthorization.authorizationServer(issuerUrl);
+				mcpAuthorization.validateAudienceClaim(validateAudienceClaim);
+				mcpAuthorization.resourcePath("/mcp");
+				if (bindSession) {
+					mcpAuthorization.sessionBinding(Customizer.withDefaults());
+				}
+			})
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))
 			.csrf(CsrfConfigurer::disable)
-
 			.build();
 	}
 
