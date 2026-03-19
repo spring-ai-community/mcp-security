@@ -1,5 +1,7 @@
 package org.springaicommunity.mcp.security.server.config;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.jspecify.annotations.NonNull;
@@ -9,15 +11,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntity;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyImpl;
+import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationProvider;
 import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationToken;
 import org.springaicommunity.mcp.security.server.apikey.memory.ApiKeyEntityImpl;
 import org.springaicommunity.mcp.security.server.apikey.memory.InMemoryApiKeyEntityRepository;
+import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
+import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -122,20 +128,32 @@ class McpApiKeyConfigurerTest {
 		assertThat(resp).hasStatus(HttpStatus.UNAUTHORIZED);
 	}
 
-	@Configuration
+	@Test
+	void postProcessors(@Autowired PostProcessorRecorder postProcessorRecorder) {
+		assertThat(postProcessorRecorder.getPostProcessedClasses()).containsExactlyInAnyOrder(
+				ApiKeyAuthenticationConverter.class, ApiKeyAuthenticationFilter.class,
+				ApiKeyAuthenticationProvider.class);
+	}
+
+	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
 	@EnableWebSecurity
 	static class TestConfig {
 
 		@Bean
-		SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+		PostProcessorRecorder postProcessedObjects() {
+			return new PostProcessorRecorder();
+		}
+
+		@Bean
+		SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http, PostProcessorRecorder postProcessorRecorder) {
 			return http.securityMatcher("/default/**").authorizeHttpRequests(authz -> {
 				authz.requestMatchers("/default/public").permitAll();
 				authz.anyRequest().authenticated();
-			})
-				.with(mcpServerApiKey(), apiKey -> apiKey.apiKeyRepository(repo()))
-				.anonymous(Customizer.withDefaults())
-				.build();
+			}).with(mcpServerApiKey(), apiKey -> {
+				apiKey.apiKeyRepository(repo());
+				apiKey.withObjectPostProcessor(postProcessorRecorder.getPostProcessor());
+			}).anonymous(Customizer.withDefaults()).build();
 		}
 
 		@Bean
@@ -172,6 +190,26 @@ class McpApiKeyConfigurerTest {
 				var name = authentication != null ? authentication.getName() : "";
 				return ServerResponse.ok().body("Hello " + name);
 			});
+		}
+
+	}
+
+	static class PostProcessorRecorder {
+
+		private final List<Class<?>> postProcessedClasses = new ArrayList<>();
+
+		private ObjectPostProcessor<Object> getPostProcessor() {
+			return new ObjectPostProcessor<>() {
+				@Override
+				public <O extends Object> O postProcess(O object) {
+					postProcessedClasses.add(object.getClass());
+					return object;
+				}
+			};
+		}
+
+		public List<Class<?>> getPostProcessedClasses() {
+			return Collections.unmodifiableList(postProcessedClasses);
 		}
 
 	}

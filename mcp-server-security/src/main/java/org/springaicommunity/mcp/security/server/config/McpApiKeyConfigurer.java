@@ -45,7 +45,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	@Override
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
-		http.authenticationProvider(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository));
+		http.authenticationProvider(postProcess(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository)));
 		registerCsrfOverride(http);
 	}
 
@@ -56,8 +56,8 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 		var authManager = http.getSharedObject(AuthenticationManager.class);
 
 		var authenticationConverter = getAuthenticationConverter();
-		var filter = new ApiKeyAuthenticationFilter(authManager, authenticationConverter);
-		http.addFilterBefore(filter, BasicAuthenticationFilter.class);
+		var filter = new ApiKeyAuthenticationFilter(authManager, postProcess(authenticationConverter));
+		http.addFilterBefore(postProcess(filter), BasicAuthenticationFilter.class);
 	}
 
 	private AuthenticationConverter getAuthenticationConverter() {
