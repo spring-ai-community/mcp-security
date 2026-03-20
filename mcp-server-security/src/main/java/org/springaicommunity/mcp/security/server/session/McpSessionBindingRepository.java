@@ -19,7 +19,8 @@ package org.springaicommunity.mcp.security.server.session;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Repository interface for managing MCP session bindings.
+ * Repository for managing MCP session bindings. Sessions are bound to a unique
+ * identifier, typically the users' OAuth2 token {@code sub} claim.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -36,7 +37,8 @@ public interface McpSessionBindingRepository {
 	 * Binds the given session ID to the given session binding ID.
 	 * @param sessionId the session ID
 	 * @param sessionBindingId the session binding ID
-	 * @throws InvalidMcpSessionBindingException if the binding is invalid
+	 * @throws InvalidMcpSessionBindingException if a binding already exists for this
+	 * session
 	 */
 	void bindSession(String sessionId, String sessionBindingId) throws InvalidMcpSessionBindingException;
 

@@ -6,6 +6,7 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.junit.jupiter.api.Order;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
+import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJwtDecoder;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.server.session.McpSessionBindingRepository;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
@@ -43,8 +44,7 @@ public class McpServerConfiguration {
 			.systemProperties(props -> {
 				props.putIfAbsent("spring.security.oauth2.resourceserver.jwt.issuer-uri", issuerUri);
 				props.putIfAbsent("spring.ai.mcp.server.protocol", mcpServerProtocol);
-				// TODO: fix prop
-				props.putIfAbsent("mcp.server-validate-audience-claim", validateAudienceClaim);
+				props.putIfAbsent("mcp.server.validate-audience-claim", validateAudienceClaim);
 				props.putIfAbsent("mcp.server.bind-session", bindSession);
 			})
 			.classpath((classpath) -> classpath
@@ -53,6 +53,7 @@ public class McpServerConfiguration {
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
 				.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 				.classes(AllowAllCorsConfigurationSource.class)
+				.scan(AudienceValidationJwtDecoder.class)
 				.scan(McpSessionBindingRepository.class)
 				.scan(McpServerOAuth2Configurer.class)
 				.scan(ResourceIdentifier.class));

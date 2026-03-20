@@ -121,9 +121,9 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	}
 
 	/**
-	 * Enable binding a specific MCP Session to a given user identifier, as per Security
-	 * Best Practices. When a session is established with a client sending an API key, the
-	 * session is bound to the principal's name, by default the
+	 * Enable binding a specific MCP Session to a given user/client identifier, as per
+	 * Security Best Practices. When a session is established with a client sending an API
+	 * key, the session is bound to the principal's name, by default the
 	 * {@link ApiKeyEntity#getId()}.
 	 * @param sessionBindingCustomizer customizer for session bindings configuration
 	 * @return The {@link McpApiKeyConfigurer} for further configuration

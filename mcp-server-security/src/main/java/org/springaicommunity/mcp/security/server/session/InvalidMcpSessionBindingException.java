@@ -23,10 +23,6 @@ package org.springaicommunity.mcp.security.server.session;
  */
 public class InvalidMcpSessionBindingException extends Exception {
 
-	/**
-	 * Constructs a new exception with the specified detail message.
-	 * @param message the detail message
-	 */
 	public InvalidMcpSessionBindingException(String message) {
 		super(message);
 	}
