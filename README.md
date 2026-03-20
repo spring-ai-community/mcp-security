@@ -113,12 +113,19 @@ class McpServerConfiguration {
                         (mcpAuthorization) -> {
                             // REQUIRED: the issuerURI
                             mcpAuthorization.authorizationServer(issuerUrl);
+
                             // OPTIONAL: enforce the `aud` claim in the JWT token.
                             // Not all authorization servers support resource indicators,
                             // so it may be absent. Defaults to `false`.
                             // See RFC 8707 Resource Indicators for OAuth 2.0
                             // https://www.rfc-editor.org/rfc/rfc8707.html
-                            mcpAuthorization.validateAudienceClaim(true);
+                            //
+                            // mcpAuthorization.validateAudienceClaim(true);
+
+                            // OPTIONAL: bind the MCP session to the user's identity
+                            // This ensures that a session created by a user can only be accessed by that user
+                            //
+                            // mcpAuthorization.sessionBinding(Customizer.withDefaults());
                         }
                 )
                 .build();
@@ -272,6 +279,12 @@ class McpServerConfiguration {
                             //     var key = extractKey(request);
                             //     return ApiKeyAuthenticationToken.unauthenticated(key);
                             // });
+
+                            // OPTIONAL: bind the MCP session to the user's identity
+                            // This ensures that a session created with a given API key
+                            // can only be used with that API key
+                            //
+                            // apiKey.sessionBinding(Customizer.withDefaults());
                         }
                 )
                 .build();
