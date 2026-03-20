@@ -87,10 +87,10 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	/**
-	 * Enable binding a specific MCP Session to a given user identifier, as per Security
-	 * Best Practices. When a session is established with a client sending a Bearer token,
-	 * the session is bound to the principal's name. In practice, with OAuth2, it will be
-	 * the Bearer token's {@code sub} claim.
+	 * Enable binding a specific MCP Session to a given user/client identifier, as per
+	 * Security Best Practices. When a session is established with a client sending a
+	 * Bearer token, the session is bound to the principal's name. In practice, with
+	 * OAuth2, it will be the Bearer token's {@code sub} claim.
 	 * @param sessionBindingCustomizer customizer for session bindings configuration
 	 * @return The {@link McpServerOAuth2Configurer} for further configuration
 	 * @see <a href=

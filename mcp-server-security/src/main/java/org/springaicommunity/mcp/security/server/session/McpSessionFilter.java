@@ -28,6 +28,7 @@ import org.jspecify.annotations.Nullable;
 
 import org.springframework.security.authentication.AuthenticationTrustResolver;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -46,10 +47,6 @@ public class McpSessionFilter extends OncePerRequestFilter {
 
 	private Function<HttpServletRequest, String> sessionBindingIdResolver = this::defaultSessionBindingIdResolver;
 
-	/**
-	 * Creates a new instance.
-	 * @param sessionBindingRepository the repository to use
-	 */
 	public McpSessionFilter(McpSessionBindingRepository sessionBindingRepository) {
 		this.sessionBindingRepository = sessionBindingRepository;
 	}
@@ -89,7 +86,11 @@ public class McpSessionFilter extends OncePerRequestFilter {
 	}
 
 	/**
-	 * Sets the resolver used to determine the session binding ID.
+	 * Sets the resolver used to determine the session binding ID from the current
+	 * context. This can be from the current {@link HttpServletRequest}, or from some
+	 * thread locals.
+	 * <p>
+	 * Defaults to extracting the authentication's name from the {@link SecurityContext}.
 	 * @param sessionBindingIdResolver the resolver to use
 	 */
 	public void setSessionBindingIdResolver(Function<HttpServletRequest, @Nullable String> sessionBindingIdResolver) {

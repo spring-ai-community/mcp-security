@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.server.session;
 
 import java.time.Duration;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,9 +57,11 @@ class InMemoryMcpSessionBindingRepositoryTests {
 		this.repository.bindSession("session1", "user1");
 		assertThat(this.repository.findSessionBindingId("session1")).isNotNull();
 
-		Thread.sleep(100);
-
-		assertThat(this.repository.findSessionBindingId("session1")).isNull();
+		Awaitility.await()
+			.pollDelay(Duration.ofMillis(50))
+			.atMost(Duration.ofMillis(500))
+			.pollInterval(Duration.ofMillis(50))
+			.untilAsserted(() -> assertThat(this.repository.findSessionBindingId("session1")).isNull());
 	}
 
 	@Test
@@ -67,9 +70,12 @@ class InMemoryMcpSessionBindingRepositoryTests {
 		this.repository.bindSession("session1", "user1");
 		assertThat(this.repository.findSessionBindingId("session1")).isNotNull();
 
-		Thread.sleep(100);
-
-		// This is not a real use-case as sessions IDs MUST be random
+		// This is not a real use-case as sessions IDs MUST be random ; you can't re-bind
+		Awaitility.await()
+			.pollDelay(Duration.ofMillis(50))
+			.atMost(Duration.ofMillis(500))
+			.pollInterval(Duration.ofMillis(50))
+			.untilAsserted(() -> assertThat(this.repository.findSessionBindingId("session1")).isNull());
 		assertThatNoException().isThrownBy(() -> this.repository.bindSession("session1", "user2"));
 	}
 

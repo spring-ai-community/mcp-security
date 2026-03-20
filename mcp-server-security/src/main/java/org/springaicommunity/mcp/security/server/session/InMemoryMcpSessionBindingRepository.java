@@ -26,7 +26,11 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * In-memory implementation of {@link McpSessionBindingRepository}.
+ * In-memory implementation of {@link McpSessionBindingRepository}. Stores session
+ * bindings in a {@code Map}.
+ * <p>
+ * It tracks session activity, and purges session bindings when the session has been
+ * inactive for more than two days.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -68,7 +72,7 @@ public class InMemoryMcpSessionBindingRepository implements McpSessionBindingRep
 	}
 
 	/**
-	 * Sets the session timeout duration.
+	 * Sets the session timeout duration. Defaults to 2 days.
 	 * @param sessionTimeout the session timeout
 	 */
 	public void setSessionTimeout(Duration sessionTimeout) {

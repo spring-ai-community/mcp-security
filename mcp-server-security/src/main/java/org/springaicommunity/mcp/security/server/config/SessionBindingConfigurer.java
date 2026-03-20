@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2026-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.util.function.Function;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
-
 import org.springaicommunity.mcp.security.server.session.InMemoryMcpSessionBindingRepository;
 import org.springaicommunity.mcp.security.server.session.McpSessionBindingRepository;
 import org.springaicommunity.mcp.security.server.session.McpSessionFilter;
@@ -39,7 +38,8 @@ import org.springframework.util.StringUtils;
  * <p>
  * This configurer registers an {@link McpSessionFilter} that binds an MCP Session ID to a
  * specific user identifier, as per Security Best Practices. When a session is
- * established, the session is bound to the principal's name.
+ * established, the session is bound to the principal's name (user id, client id, etc).
+ * Subsequent calls using that Session ID must be made by the same user/client.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
@@ -63,7 +63,7 @@ public final class SessionBindingConfigurer extends AbstractHttpConfigurer<Sessi
 
 	/**
 	 * Use this {@link McpSessionBindingRepository} as the backing repository for session
-	 * to userId bindings.
+	 * bindings.
 	 * @param sessionBindingRepository the repository used for storing session bindings.
 	 * @return The {@link SessionBindingConfigurer} for further configuration.
 	 */
@@ -73,7 +73,8 @@ public final class SessionBindingConfigurer extends AbstractHttpConfigurer<Sessi
 	}
 
 	/**
-	 * Set the resolver used to extract the Session Binding ID from the context.
+	 * Set the resolver used to extract the Session Binding ID from the context. This
+	 * could be the current OAuth2 Token {@code sub} claim, the API key id, etc.
 	 * @param sessionBindingIdResolver the resolver
 	 * @return The {@link SessionBindingConfigurer} for further configuration.
 	 */
