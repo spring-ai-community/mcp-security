@@ -18,6 +18,8 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.net.URI;
 import java.net.http.HttpRequest;
+import java.util.Collection;
+import java.util.Collections;
 
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
@@ -109,14 +111,16 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		}
 		log.debug("Client [{}] is authorized", this.clientRegistrationId);
 
-		if (authorizedClient.getAccessToken().getScopes() != null && registration.getScopes() != null
-				&& !authorizedClient.getAccessToken().getScopes().containsAll(registration.getScopes())) {
+		Collection<String> scopes = registration.getScopes() != null ? registration.getScopes()
+				: Collections.emptyList();
+		if (authorizedClient.getAccessToken().getScopes() != null
+				&& !authorizedClient.getAccessToken().getScopes().containsAll(scopes)) {
 			log.debug("Existing token scopes {} do not match requested scopes {}. Requesting a new token.",
-					authorizedClient.getAccessToken().getScopes(), registration.getScopes());
+					authorizedClient.getAccessToken().getScopes(), scopes);
 			throw new ClientAuthorizationRequiredException(this.clientRegistrationId);
 		}
 		else {
-			log.debug("Token scopes match requested scopes {}", registration.getScopes());
+			log.debug("Token scopes match requested scopes {}", scopes);
 		}
 		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 		log.debug("Adding token to header");

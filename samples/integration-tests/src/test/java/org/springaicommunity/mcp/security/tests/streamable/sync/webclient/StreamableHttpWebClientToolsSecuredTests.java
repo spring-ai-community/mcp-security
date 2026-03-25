@@ -1,16 +1,11 @@
 package org.springaicommunity.mcp.security.tests.streamable.sync.webclient;
 
-import java.io.IOException;
-
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.htmlunit.WebClient;
-import org.htmlunit.html.HtmlButton;
-import org.htmlunit.html.HtmlInput;
-import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -34,12 +29,12 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerAutoConfiguration;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerJwtAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,14 +55,8 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 @ActiveProfiles("sync")
 class StreamableHttpWebClientToolsSecuredTests {
 
-	@Value("${authorization.server.url}")
-	String authorizationServerUrl;
-
 	@Value("${mcp.server.url}")
 	String mcpServerUrl;
-
-	@LocalServerPort
-	int port;
 
 	WebClient webClient = new WebClient();
 
@@ -123,18 +112,6 @@ class StreamableHttpWebClientToolsSecuredTests {
 			.isEqualTo("not authenticated");
 	}
 
-	private void ensureAuthServerLogin() throws IOException {
-		HtmlPage loginPage = this.webClient.getPage(authorizationServerUrl);
-
-		if (loginPage.getWebResponse().getStatusCode() == 404) {
-			// Already logged in
-			return;
-		}
-		loginPage.<HtmlInput>querySelector("#username").type("test-user");
-		loginPage.<HtmlInput>querySelector("#password").type("test-password");
-		loginPage.<HtmlButton>querySelector("button").click();
-	}
-
 	@Configuration
 	@EnableWebMvc
 	@EnableWebSecurity
@@ -146,8 +123,10 @@ class StreamableHttpWebClientToolsSecuredTests {
 	static class StreamableHttpToolsSecuredConfig {
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
+					"authserver");
 		}
 
 	}

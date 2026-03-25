@@ -20,6 +20,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
@@ -38,8 +40,6 @@ import static org.springframework.security.oauth2.core.OAuth2ErrorCodes.INSUFFIC
  * {@link McpClientRegistrationRepository} and uses {@link McpMetadataDiscoveryService}
  * and {@link DynamicClientRegistrationService} to discover MCP server metadata and
  * perform dynamic client registration.
- * <p>
- * This implementation is not thread-safe and follows a "last update wins" strategy.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
@@ -47,6 +47,8 @@ import static org.springframework.security.oauth2.core.OAuth2ErrorCodes.INSUFFIC
  * Authorization</a>
  */
 public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
+
+	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2ClientManager.class);
 
 	private final McpClientRegistrationRepository repository;
 
@@ -71,8 +73,10 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
 		Assert.notNull(dynamicClientRegistrationRequest, "dynamicClientRegistrationRequest cannot be null");
 		if (this.repository.findByRegistrationId(registrationId) != null) {
+			log.debug("Client registration [{}] already exists, skipping", registrationId);
 			return;
 		}
+		log.debug("Registering MCP client [{}] for server [{}] via metadata discovery", registrationId, mcpServerUrl);
 		var wwwAuthenticateParameters = this.discovery.getWwwAuthenticateParameters(mcpServerUrl);
 		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
 	}
@@ -85,8 +89,11 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 		Assert.hasText(wwwAuthenticateHeader, "wwwAuthenticateHeader cannot be empty");
 		Assert.notNull(dynamicClientRegistrationRequest, "dynamicClientRegistrationRequest cannot be null");
 		if (this.repository.findByRegistrationId(registrationId) != null) {
+			log.debug("Client registration [{}] already exists, skipping", registrationId);
 			return;
 		}
+		log.debug("Registering MCP client [{}] for server [{}] from WWW-Authenticate header", registrationId,
+				mcpServerUrl);
 		var wwwAuthenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
 		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
 	}
@@ -97,25 +104,39 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 		Assert.hasText(wwwAuthenticateHeader, "wwwAuthenticateHeader cannot be empty");
 		var authenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
 		if (authenticateParameters == null) {
+			log.debug("Could not parse WWW-Authenticate header [{}] for registration [{}]", wwwAuthenticateHeader,
+					registrationId);
 			return false;
 		}
 		if (!INSUFFICIENT_SCOPE.equals(authenticateParameters.getError())) {
+			log.debug("WWW-Authenticate error is [{}], not insufficient_scope, skipping update for registration [{}]",
+					authenticateParameters.getError(), registrationId);
 			return false;
 		}
 		if (!StringUtils.hasText(authenticateParameters.getScope())) {
+			log.debug("No scope in WWW-Authenticate header for registration [{}]", registrationId);
 			return false;
 		}
 		var scopes = authenticateParameters.getScope().split(" ");
 		if (scopes.length == 0) {
+			log.debug("No scope in WWW-Authenticate header for registration [{}]", registrationId);
 			return false;
 		}
 
+		log.debug("Attempting scope step-up for registration [{}] with scopes {}", registrationId,
+				Arrays.asList(scopes));
 		AtomicBoolean result = new AtomicBoolean(false);
 		this.repository.updateClientRegistration(registrationId, builder -> {
 			var existingClient = builder.build();
 			if (existingClient.getScopes() == null || !existingClient.getScopes().containsAll(Arrays.asList(scopes))) {
+				log.debug("Updating scopes for registration [{}]: {} -> {}", registrationId, existingClient.getScopes(),
+						Arrays.asList(scopes));
 				builder.scope(scopes);
 				result.set(true);
+			}
+			else {
+				log.debug("Scopes for registration [{}] already contain required scopes {}", registrationId,
+						Arrays.asList(scopes));
 			}
 		});
 
@@ -129,8 +150,12 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 		Assert.notNull(mcpMetadata.protectedResourceMetadata().authorizationServers(),
 				"cannot find authorization_servers from MCP Server's protected resource metadata");
 		var issuerUrl = mcpMetadata.protectedResourceMetadata().authorizationServers().get(0);
+		log.debug("Discovered authorization server [{}] for registration [{}]", issuerUrl, registrationId);
 		var finalRegistrationRequest = updateScopes(registrationRequest, mcpMetadata);
+		log.debug("Performing dynamic client registration at [{}] for registration [{}]", issuerUrl, registrationId);
 		var registrationResponse = this.clientRegistrationService.register(finalRegistrationRequest, issuerUrl);
+		log.debug("Dynamic client registration successful for registration [{}], clientId=[{}]", registrationId,
+				registrationResponse.clientId());
 		var clientRegistration = toClientRegistration(registrationId, issuerUrl, finalRegistrationRequest,
 				registrationResponse);
 		this.repository.addClientRegistration(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());

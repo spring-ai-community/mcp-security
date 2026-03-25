@@ -32,6 +32,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -114,8 +115,10 @@ class StreamableHttpWebClientTests extends StreamableHttpAbstractTests {
 	static class StreamableHttpConfig {
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, "authserver");
+		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
+					"authserver");
 		}
 
 	}

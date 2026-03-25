@@ -29,6 +29,7 @@ import org.springframework.util.StringUtils;
  * In-memory implementation of {@link McpClientRegistrationRepository} that stores
  * {@link ClientRegistration}s and their associated resource identifiers.
  * <p>
+ * This implementation is not thread-safe and follows a "last update wins" strategy.
  * Relies on a concurrent hashmap, that is never purged.
  *
  * @author Daniel Garnier-Moiroux
