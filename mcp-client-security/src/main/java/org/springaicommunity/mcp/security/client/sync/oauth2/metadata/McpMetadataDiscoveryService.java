@@ -16,7 +16,6 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.metadata;
 
-import java.util.ArrayList;
 import java.util.Collection;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -51,7 +50,7 @@ public class McpMetadataDiscoveryService {
 
 	private final RestClient restClient;
 
-	private String WELL_KNOWN_PATH_SEGMENT = "/.well-known/oauth-protected-resource";
+	private static final String WELL_KNOWN_PATH_SEGMENT = "/.well-known/oauth-protected-resource";
 
 	public McpMetadataDiscoveryService() {
 		this.restClient = RestClient.builder()
