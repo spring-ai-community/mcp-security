@@ -113,8 +113,10 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 		Collection<String> scopes = registration.getScopes() != null ? registration.getScopes()
 				: Collections.emptyList();
-		if (authorizedClient.getAccessToken().getScopes() != null
+		if (authorizedClient.getAccessToken().getScopes() != null && !scopes.isEmpty()
 				&& !authorizedClient.getAccessToken().getScopes().containsAll(scopes)) {
+			// For the access token to have scopes, it's likely the client registration
+			// has scopes - otherwise they are not requested in the first place.
 			log.debug("Existing token scopes {} do not match requested scopes {}. Requesting a new token.",
 					authorizedClient.getAccessToken().getScopes(), scopes);
 			throw new ClientAuthorizationRequiredException(this.clientRegistrationId);
