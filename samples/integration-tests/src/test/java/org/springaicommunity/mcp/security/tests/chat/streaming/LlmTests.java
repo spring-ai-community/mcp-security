@@ -41,7 +41,6 @@ import com.anthropic.models.messages.Usage;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
@@ -227,20 +226,16 @@ class LlmTests {
 		}
 
 		@Bean
-		McpSyncHttpClientRequestCustomizer requestCustomizer(OAuth2AuthorizedClientManager clientManager,
-				ClientRegistrationRepository clientRegistrationRepository) {
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager, clientRegistrationRepository,
-					"authserver");
-		}
-
-		@Bean
 		McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
-				McpSyncHttpClientRequestCustomizer requestCustomizer) {
-			return (name, builder) -> builder.httpRequestCustomizer(requestCustomizer);
+				OAuth2AuthorizedClientManager clientManager,
+				ClientRegistrationRepository clientRegistrationRepository) {
+			return (name, builder) -> builder
+				.httpRequestCustomizer(new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager,
+						clientRegistrationRepository, "authserver"));
 		}
 
 		@Bean
-		SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		SecurityFilterChain securityFilterChain(HttpSecurity http) {
 			return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
 				.oauth2Client(Customizer.withDefaults())
 				.build();

@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -16,8 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2SyncAuthorizationErrorHandler;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
@@ -80,16 +78,13 @@ class DynamicClientRegistrationTests {
 	int port;
 
 	@Autowired
-	private OAuth2AuthorizedClientManager clientManager;
-
-	@Autowired
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private ClientRegistrationRepository clientRegistrationRepository;
+	private OAuth2HttpClientTransportCustomizer transportCustomizer;
 
 	@Autowired
-	private McpOAuth2ClientManager mcpOAuth2ClientManager;
+	private McpClientRegistrationRepository clientRegistrationRepository;
 
 	@BeforeEach
 	void setUp() {
@@ -99,20 +94,16 @@ class DynamicClientRegistrationTests {
 	@Test
 	@DisplayName("Discover MCP Server authorization needs, automatically register client")
 	void fullDynamicClientRegistration() throws IOException {
-		String testRegistrationId = UUID.randomUUID().toString();
+		var oauth2ClientRegistrationName = UUID.randomUUID().toString();
+		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNull();
 
 		ensureAuthServerLogin();
-		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager,
-				this.clientRegistrationRepository, testRegistrationId);
-		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, testRegistrationId,
-				mcpServerUrl);
 
-		var transport = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
+		var builder = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
-			.httpRequestCustomizer(requestCustomizer)
-			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
-			.build();
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
+		transportCustomizer.customize(oauth2ClientRegistrationName, builder);
+		var transport = builder.build();
 
 		var client = McpClient.sync(transport)
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
@@ -124,23 +115,26 @@ class DynamicClientRegistrationTests {
 		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
 		assertThat(contentAsString)
 			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
+
+		// DCR was performed
+		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNotNull();
 	}
 
 	@Test
 	@DisplayName("Pre-register client with auth server in configuration")
 	void preRegisteredClient() throws IOException {
-		ensureAuthServerLogin();
-		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.clientManager,
-				this.clientRegistrationRepository, PRE_REGISTRATION_ID);
-		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, PRE_REGISTRATION_ID,
-				mcpServerUrl);
+		var clientRegistrationName = PRE_REGISTRATION_ID;
+		var preRegistration = clientRegistrationRepository.findByRegistrationId(clientRegistrationName);
+		assertThat(preRegistration).isNotNull();
 
-		var transport = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
+		ensureAuthServerLogin();
+
+		var builder = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
-			.httpRequestCustomizer(requestCustomizer)
-			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
-			.build();
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
+		// we use the same transport name as the existing client registration
+		transportCustomizer.customize(clientRegistrationName, builder);
+		var transport = builder.build();
 
 		var client = McpClient.sync(transport)
 			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
@@ -152,6 +146,9 @@ class DynamicClientRegistrationTests {
 		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
 		assertThat(contentAsString)
 			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
+
+		// No DCR: registration existed already
+		assertThat(clientRegistrationRepository.findByRegistrationId(clientRegistrationName)).isNotNull();
 	}
 
 	@Configuration
@@ -169,6 +166,15 @@ class DynamicClientRegistrationTests {
 		McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
 			return (name, syncSpec) -> syncSpec
 				.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+		}
+
+		@Bean
+		OAuth2HttpClientTransportCustomizer clientTransportCustomizer(
+				OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
+				ClientRegistrationRepository clientRegistrationRepository,
+				McpOAuth2ClientManager mcpOAuth2ClientManager) {
+			return new OAuth2HttpClientTransportCustomizer(oAuth2AuthorizedClientManager, clientRegistrationRepository,
+					mcpOAuth2ClientManager);
 		}
 
 		@Bean
