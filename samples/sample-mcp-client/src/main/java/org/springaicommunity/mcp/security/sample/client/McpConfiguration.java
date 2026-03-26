@@ -16,16 +16,9 @@
 
 package org.springaicommunity.mcp.security.sample.client;
 
-import java.time.Duration;
-
 import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
-import io.modelcontextprotocol.spec.McpSchema;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2SyncAuthorizationErrorHandler;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
@@ -34,7 +27,6 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpCli
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -46,8 +38,6 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
  */
 @Configuration
 class McpConfiguration {
-
-	private static final String REGISTRATION_ID = "authserver";
 
 	@Bean
 	McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
@@ -66,23 +56,10 @@ class McpConfiguration {
 	}
 
 	@Bean
-	McpSyncClient client(OAuth2AuthorizedClientManager manager, McpClientRegistrationRepository repository,
-			McpOAuth2ClientManager mcpOAuth2ClientManager,
-			@Value("${spring.ai.mcp.client.streamable-http.connections.current-weather.url}") String mcpServerUrl) {
-		var customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(manager, repository, REGISTRATION_ID);
-		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, REGISTRATION_ID,
-				mcpServerUrl + "/mcp");
-
-		HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-			.httpRequestCustomizer(customizer)
-			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler))
-			.build();
-
-		return McpClient.sync(transport)
-			.clientInfo(new McpSchema.Implementation("historical-weather", "1.0.0"))
-			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
-			.requestTimeout(Duration.ofSeconds(30))
-			.build();
+	OAuth2HttpClientTransportCustomizer transportCustomizer(OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
+			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager) {
+		return new OAuth2HttpClientTransportCustomizer(oAuth2AuthorizedClientManager, clientRegistrationRepository,
+				mcpOAuth2ClientManager);
 	}
 
 	/**
