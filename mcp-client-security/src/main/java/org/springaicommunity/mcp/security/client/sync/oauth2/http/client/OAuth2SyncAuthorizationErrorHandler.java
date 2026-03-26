@@ -121,36 +121,34 @@ public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientAuthori
 		var wwwAuthenticateHeader = responseInfo.headers().firstValue("www-authenticate").orElse(null);
 		if (wwwAuthenticateHeader == null) {
 			log.debug("No WWW-Authenticate header found, cannot handle authorization error");
-			return false;
 		}
-
-		if (responseInfo.statusCode() == HttpStatus.UNAUTHORIZED.value()) {
-			return handleUnauthorized(wwwAuthenticateHeader, context);
+		else if (responseInfo.statusCode() == HttpStatus.UNAUTHORIZED.value()) {
+			handleUnauthorized(wwwAuthenticateHeader, context);
 		}
 		else if (responseInfo.statusCode() == HttpStatus.FORBIDDEN.value()) {
-			return handleForbidden(wwwAuthenticateHeader);
+			handleForbidden(wwwAuthenticateHeader);
 		}
 
 		return false;
 	}
 
-	private boolean handleUnauthorized(String wwwAuthenticateHeader, McpTransportContext context) {
+	private void handleUnauthorized(String wwwAuthenticateHeader, McpTransportContext context) {
 		log.debug("Handling 401 Unauthorized for client [{}]", this.registrationId);
 		var registrationRequest = resolveRegistrationRequest(context);
 		this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, this.mcpServerUrl, wwwAuthenticateHeader,
 				registrationRequest);
 		log.debug("Client [{}] registered, triggering authorization", this.registrationId);
+		// client changed, retry
 		throw new ClientAuthorizationRequiredException(this.registrationId);
 	}
 
-	private boolean handleForbidden(String wwwAuthenticateHeader) {
+	private void handleForbidden(String wwwAuthenticateHeader) {
 		log.debug("Handling 403 Forbidden for client [{}]", this.registrationId);
 		if (this.mcpOAuth2ClientManager.updateMcpClient(this.registrationId, wwwAuthenticateHeader)) {
 			log.debug("Client [{}] scopes updated, triggering re-authorization", this.registrationId);
+			// client changed, retry
 			throw new ClientAuthorizationRequiredException(this.registrationId);
 		}
-		// client unchanged, should not retry
-		return false;
 	}
 
 	private DynamicClientRegistrationRequest resolveRegistrationRequest(McpTransportContext context) {
