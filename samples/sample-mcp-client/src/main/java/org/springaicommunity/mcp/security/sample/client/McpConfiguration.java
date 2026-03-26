@@ -34,6 +34,7 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpCli
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -66,9 +67,8 @@ class McpConfiguration {
 
 	@Bean
 	McpSyncClient client(OAuth2AuthorizedClientManager manager, McpClientRegistrationRepository repository,
-			McpOAuth2ClientManager mcpOAuth2ClientManager) {
-		var mcpServerUrl = "http://localhost:8090";
-
+			McpOAuth2ClientManager mcpOAuth2ClientManager,
+			@Value("${spring.ai.mcp.client.streamable-http.connections.current-weather.url}") String mcpServerUrl) {
 		var customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(manager, repository, REGISTRATION_ID);
 		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(mcpOAuth2ClientManager, REGISTRATION_ID,
 				mcpServerUrl + "/mcp");
