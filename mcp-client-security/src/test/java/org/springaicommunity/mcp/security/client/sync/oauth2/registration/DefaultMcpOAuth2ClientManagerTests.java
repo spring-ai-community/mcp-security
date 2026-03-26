@@ -297,9 +297,21 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();
-			var updatedRegistration = repository.findByRegistrationId(REGISTRATION_ID);
-			assertThat(updatedRegistration).isNotNull();
-			assertThat(updatedRegistration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
+				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
+		}
+
+		@Test
+		@DisplayName("Adds new scope from WWW-Authenticate header without removing existing scopes")
+		void addsScopesWithoutReplacingExisting() {
+			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
+
+			boolean result = manager.updateMcpClient(REGISTRATION_ID,
+					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:write\"");
+
+			assertThat(result).isTrue();
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
+				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 	}

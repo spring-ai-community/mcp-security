@@ -17,6 +17,8 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jspecify.annotations.Nullable;
@@ -129,9 +131,14 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 		this.repository.updateClientRegistration(registrationId, builder -> {
 			var existingClient = builder.build();
 			if (existingClient.getScopes() == null || !existingClient.getScopes().containsAll(Arrays.asList(scopes))) {
+				Set<String> merged = new LinkedHashSet<>();
+				if (existingClient.getScopes() != null) {
+					merged.addAll(existingClient.getScopes());
+				}
+				merged.addAll(Arrays.asList(scopes));
 				log.debug("Updating scopes for registration [{}]: {} -> {}", registrationId, existingClient.getScopes(),
-						Arrays.asList(scopes));
-				builder.scope(scopes);
+						merged);
+				builder.scope(merged.toArray(String[]::new));
 				result.set(true);
 			}
 			else {
