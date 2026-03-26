@@ -21,6 +21,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -168,6 +169,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 		}
 
 		@Test
+		@DisplayName("Registers scopes from user request")
 		void preservesRequestScopesWhenAlreadySet() {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"mcp:admin\"");
@@ -175,7 +177,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
 			var request = DynamicClientRegistrationRequest.builder().scope("mcp:custom").build();
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration.getScopes()).containsExactly("mcp:custom");
@@ -183,14 +185,11 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 		private void configureMocks(@Nullable WwwAuthenticateParameters wwwAuthParams,
 				ProtectedResourceMetadata protectedResourceMetadata, String dcrResponse) {
-			when(DefaultMcpOAuth2ClientManagerTests.this.discovery.getWwwAuthenticateParameters(MCP_SERVER_URL))
-				.thenReturn(wwwAuthParams);
+			when(discovery.getWwwAuthenticateParameters(MCP_SERVER_URL)).thenReturn(wwwAuthParams);
 			var mcpMetadata = new McpMetadata(wwwAuthParams, protectedResourceMetadata);
-			when(DefaultMcpOAuth2ClientManagerTests.this.discovery.getMcpMetadata(MCP_SERVER_URL, wwwAuthParams))
-				.thenReturn(mcpMetadata);
+			when(discovery.getMcpMetadata(MCP_SERVER_URL, wwwAuthParams)).thenReturn(mcpMetadata);
 			var registrationResponse = dcrResponse(dcrResponse);
-			when(DefaultMcpOAuth2ClientManagerTests.this.clientRegistrationService.register(any(), eq(ISSUER_URL)))
-				.thenReturn(registrationResponse);
+			when(clientRegistrationService.register(any(), eq(ISSUER_URL))).thenReturn(registrationResponse);
 		}
 
 	}
@@ -205,19 +204,17 @@ class DefaultMcpOAuth2ClientManagerTests {
 			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
 			var request = DynamicClientRegistrationRequest.builder().build();
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					WWW_AUTHENTICATE_HEADER, request);
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, request);
 
-			verifyNoInteractions(DefaultMcpOAuth2ClientManagerTests.this.discovery);
-			verifyNoInteractions(DefaultMcpOAuth2ClientManagerTests.this.clientRegistrationService);
+			verifyNoInteractions(discovery);
+			verifyNoInteractions(clientRegistrationService);
 		}
 
 		@Test
-		void parsesHeaderAndRegistersClient() {
+		void register() {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(null, prm);
-			when(DefaultMcpOAuth2ClientManagerTests.this.discovery.getMcpMetadata(eq(MCP_SERVER_URL), any()))
-				.thenReturn(mcpMetadata);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 			var registrationResponse = dcrResponse("""
 					{
 						"client_id": "dynamic-client-id",
@@ -230,13 +227,12 @@ class DefaultMcpOAuth2ClientManagerTests {
 						"scope": "openid profile"
 					}
 					""");
-			when(DefaultMcpOAuth2ClientManagerTests.this.clientRegistrationService.register(any(), eq(ISSUER_URL)))
-				.thenReturn(registrationResponse);
+			when(clientRegistrationService.register(any(), eq(ISSUER_URL))).thenReturn(registrationResponse);
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					WWW_AUTHENTICATE_HEADER, DynamicClientRegistrationRequest.builder().build());
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER,
+					DynamicClientRegistrationRequest.builder().build());
 
-			verify(DefaultMcpOAuth2ClientManagerTests.this.discovery, never()).getWwwAuthenticateParameters(any());
+			verify(discovery, never()).getWwwAuthenticateParameters(any());
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
 			assertThat(registration.getRegistrationId()).isEqualTo(REGISTRATION_ID);
@@ -255,49 +251,49 @@ class DefaultMcpOAuth2ClientManagerTests {
 	@Nested
 	class UpdateMcpClient {
 
+		@BeforeEach
+		void setUp() {
+			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
+		}
+
 		@Test
-		void returnsFalseWhenErrorIsNotInsufficientScope() {
-			boolean result = DefaultMcpOAuth2ClientManagerTests.this.manager.updateMcpClient(REGISTRATION_ID,
+		@DisplayName("Does not update scopes when the error is not insufficient_scope")
+		void noopErrorIsNotInsufficientScope() {
+			boolean result = manager.updateMcpClient(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"invalid_token\", scope=\"mcp:read\"");
 
 			assertThat(result).isFalse();
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
 		}
 
 		@Test
-		void returnsFalseWhenNoScope() {
-			boolean result = DefaultMcpOAuth2ClientManagerTests.this.manager.updateMcpClient(REGISTRATION_ID,
+		@DisplayName("Does not update scopes when not provided in header")
+		void noopNoScope() {
+			boolean result = manager.updateMcpClient(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\"");
 
 			assertThat(result).isFalse();
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
 		}
 
 		@Test
-		void returnsFalseWhenScopesAlreadyPresent() {
-			var existingRegistration = ClientRegistration.withRegistrationId(REGISTRATION_ID)
-				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-				.clientId("client-id")
-				.tokenUri(ISSUER_URL + "/oauth2/token")
-				.scope("mcp:read", "mcp:write")
-				.build();
-			repository.addClientRegistration(existingRegistration, RESOURCE_ID);
+		@DisplayName("Does not update scopes when scopes are already present")
+		void noopScopesAlreadyPresent() {
+			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read", "mcp:write"));
 
-			boolean result = DefaultMcpOAuth2ClientManagerTests.this.manager.updateMcpClient(REGISTRATION_ID,
+			boolean result = manager.updateMcpClient(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read\"");
 
 			assertThat(result).isFalse();
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
+				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 		@Test
-		void updatesScopesWhenInsufficientScopeError() {
-			var existingRegistration = ClientRegistration.withRegistrationId(REGISTRATION_ID)
-				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-				.clientId("client-id")
-				.tokenUri(ISSUER_URL + "/oauth2/token")
-				.scope("mcp:read")
-				.build();
-			repository.addClientRegistration(existingRegistration, RESOURCE_ID);
+		void updateScopes() {
+			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
 
-			boolean result = DefaultMcpOAuth2ClientManagerTests.this.manager.updateMcpClient(REGISTRATION_ID,
+			boolean result = manager.updateMcpClient(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();
@@ -309,7 +305,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 	}
 
 	@Nested
-	class ToClientRegistration {
+	class RegisterClientResponseHandling {
 
 		@Test
 		void usesResponseValuesOverRequestValues() {
@@ -331,7 +327,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 				.scope("request:scope")
 				.build();
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
 					request);
 
@@ -349,7 +345,6 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 		@Test
 		void fallsBackToRequestValuesWhenResponseValuesAreNull() {
-			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			configureMocks(DCR_RESPONSE);
 
 			var request = DynamicClientRegistrationRequest.builder()
@@ -360,7 +355,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 				.scope("request:scope")
 				.build();
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
 					request);
 
@@ -375,10 +370,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 		@Test
 		void defaultsToClientCredentialsWhenNoGrantTypes() {
-			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			configureMocks(DCR_RESPONSE);
 
-			DefaultMcpOAuth2ClientManagerTests.this.manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
 					DynamicClientRegistrationRequest.builder().build());
 
@@ -390,11 +384,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 		private void configureMocks(String dcrResponse) {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(null, prm);
-			when(DefaultMcpOAuth2ClientManagerTests.this.discovery.getMcpMetadata(eq(MCP_SERVER_URL), any()))
-				.thenReturn(mcpMetadata);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 			var registrationResponse = dcrResponse(dcrResponse);
-			when(DefaultMcpOAuth2ClientManagerTests.this.clientRegistrationService.register(any(), eq(ISSUER_URL)))
-				.thenReturn(registrationResponse);
+			when(clientRegistrationService.register(any(), eq(ISSUER_URL))).thenReturn(registrationResponse);
 		}
 
 	}
