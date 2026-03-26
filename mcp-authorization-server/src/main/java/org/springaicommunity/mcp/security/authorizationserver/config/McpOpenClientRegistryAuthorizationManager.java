@@ -42,8 +42,8 @@ class McpOpenClientRegistryAuthorizationManager implements AuthorizationManager<
 	}
 
 	@Override
-	@Nullable public AuthorizationResult authorize(@Nullable Supplier<? extends @Nullable Authentication> authentication,
-			HttpServletRequest request) {
+	public @Nullable AuthorizationResult authorize(
+			@Nullable Supplier<? extends @Nullable Authentication> authentication, HttpServletRequest request) {
 		if (requestMatcher.matches(request)) {
 			return new AuthorizationDecision(true);
 		}

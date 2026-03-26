@@ -69,7 +69,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 
 	private final Map<String, String> mcpRegistrations = new HashMap<>();
 
-	@Nullable private String baseUrl = null;
+	public @Nullable String baseUrl = null;
 
 	private final boolean canListenForWebServerInitialized;
 
@@ -277,7 +277,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	@Nullable private static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
+	public @Nullable static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
 		Map<String, T> beansMap = BeanFactoryUtils
 			.beansOfTypeIncludingAncestors(http.getSharedObject(ApplicationContext.class), type);
 		if (beansMap.size() > 1) {

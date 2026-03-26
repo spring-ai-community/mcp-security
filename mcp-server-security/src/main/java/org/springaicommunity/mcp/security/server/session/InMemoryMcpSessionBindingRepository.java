@@ -41,7 +41,7 @@ public class InMemoryMcpSessionBindingRepository implements McpSessionBindingRep
 	private Duration sessionTimeout = Duration.ofHours(48);
 
 	@Override
-	@Nullable public String findSessionBindingId(String sessionId) {
+	public @Nullable String findSessionBindingId(String sessionId) {
 		SessionBinding binding = this.bindings.get(sessionId);
 		if (binding == null) {
 			return null;

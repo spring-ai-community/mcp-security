@@ -98,7 +98,7 @@ public class McpSessionFilter extends OncePerRequestFilter {
 		this.sessionBindingIdResolver = sessionBindingIdResolver;
 	}
 
-	@Nullable private String defaultSessionBindingIdResolver(HttpServletRequest request) {
+	public @Nullable String defaultSessionBindingIdResolver(HttpServletRequest request) {
 		var authentication = SecurityContextHolder.getContext().getAuthentication();
 		return this.trustResolver.isAuthenticated(authentication) ? authentication.getName() : null;
 	}

@@ -48,9 +48,9 @@ import org.springframework.util.StringUtils;
  */
 public final class SessionBindingConfigurer extends AbstractHttpConfigurer<SessionBindingConfigurer, HttpSecurity> {
 
-	@Nullable private McpSessionBindingRepository sessionBindingRepository;
+	public @Nullable McpSessionBindingRepository sessionBindingRepository;
 
-	@Nullable private Function<HttpServletRequest, String> sessionBindingIdResolver;
+	public @Nullable Function<HttpServletRequest, String> sessionBindingIdResolver;
 
 	@Override
 	public void init(HttpSecurity http) {
@@ -104,7 +104,7 @@ public final class SessionBindingConfigurer extends AbstractHttpConfigurer<Sessi
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	@Nullable private static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
+	public @Nullable static <T> T getOptionalBean(HttpSecurity http, Class<T> type) {
 		Map<String, T> beansMap = BeanFactoryUtils
 			.beansOfTypeIncludingAncestors(http.getSharedObject(ApplicationContext.class), type);
 		if (beansMap.size() > 1) {

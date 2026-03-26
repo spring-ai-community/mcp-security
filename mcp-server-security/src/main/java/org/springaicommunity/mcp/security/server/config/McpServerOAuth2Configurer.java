@@ -37,11 +37,11 @@ import org.springframework.util.Assert;
  */
 public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerOAuth2Configurer, HttpSecurity> {
 
-	@Nullable private String issuerUri = null;
+	public @Nullable String issuerUri = null;
 
 	private String resourceName = "Spring MCP Resource Server";
 
-	@Nullable private Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer = null;
+	public @Nullable Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer = null;
 
 	private ResourceIdentifier resourceIdentifier = new ResourceIdentifier("/mcp");
 
@@ -50,9 +50,9 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	private Customizer<OAuth2ResourceServerConfigurer<HttpSecurity>> oauth2ResourceServerCustomizer = Customizer
 		.withDefaults();
 
-	@Nullable private JwtDecoder jwtDecoder;
+	public @Nullable JwtDecoder jwtDecoder;
 
-	@Nullable private SessionBindingConfigurer sessionBindingConfigurer;
+	public @Nullable SessionBindingConfigurer sessionBindingConfigurer;
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;

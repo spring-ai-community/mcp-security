@@ -68,7 +68,7 @@ public class McpMetadataDiscoveryService {
 	/**
 	 * Get metadata from the WWW-authenticate header on an unauthorized request.
 	 */
-	@Nullable public WwwAuthenticateParameters getWwwAuthenticateParameters(String serverUrl) {
+	public @Nullable WwwAuthenticateParameters getWwwAuthenticateParameters(String serverUrl) {
 		log.debug("Getting www-authenticate parameter");
 		try {
 			log.debug("Getting WWW-authenticate header for {}", serverUrl);
@@ -161,7 +161,7 @@ public class McpMetadataDiscoveryService {
 	 * @param resourceMetadataUrl The URL from which to fetch the document
 	 * @return The Protected Resource Metadata document
 	 */
-	@Nullable public ProtectedResourceMetadata getProtectedResourceMetadata(String resourceMetadataUrl) {
+	public @Nullable ProtectedResourceMetadata getProtectedResourceMetadata(String resourceMetadataUrl) {
 		try {
 			log.debug("Reading protected resource metadata [{}]", resourceMetadataUrl);
 			var prm = restClient.get().uri(resourceMetadataUrl).retrieve().body(ProtectedResourceMetadata.class);

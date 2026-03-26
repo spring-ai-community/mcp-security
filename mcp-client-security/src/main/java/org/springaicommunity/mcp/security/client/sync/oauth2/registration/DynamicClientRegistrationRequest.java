@@ -38,17 +38,17 @@ public class DynamicClientRegistrationRequest {
 
 	private final List<String> grantTypes;
 
-	@Nullable private final List<String> redirectUris;
+	public @Nullable final List<String> redirectUris;
 
-	@Nullable private final String tokenEndpointAuthMethod;
+	public @Nullable final String tokenEndpointAuthMethod;
 
-	@Nullable private final List<String> responseTypes;
+	public @Nullable final List<String> responseTypes;
 
-	@Nullable private final String clientName;
+	public @Nullable final String clientName;
 
-	@Nullable private final String clientUri;
+	public @Nullable final String clientUri;
 
-	@Nullable private final String scope;
+	public @Nullable final String scope;
 
 	private DynamicClientRegistrationRequest(List<AuthorizationGrantType> grantTypes,
 			@Nullable List<String> redirectUris, @Nullable ClientAuthenticationMethod tokenEndpointAuthMethod,
@@ -68,27 +68,27 @@ public class DynamicClientRegistrationRequest {
 		return this.grantTypes;
 	}
 
-	@Nullable public List<String> getRedirectUris() {
+	public @Nullable List<String> getRedirectUris() {
 		return this.redirectUris;
 	}
 
-	@Nullable public String getTokenEndpointAuthMethod() {
+	public @Nullable String getTokenEndpointAuthMethod() {
 		return this.tokenEndpointAuthMethod;
 	}
 
-	@Nullable public List<String> getResponseTypes() {
+	public @Nullable List<String> getResponseTypes() {
 		return this.responseTypes;
 	}
 
-	@Nullable public String getClientName() {
+	public @Nullable String getClientName() {
 		return this.clientName;
 	}
 
-	@Nullable public String getClientUri() {
+	public @Nullable String getClientUri() {
 		return this.clientUri;
 	}
 
-	@Nullable public String getScope() {
+	public @Nullable String getScope() {
 		return this.scope;
 	}
 
@@ -121,19 +121,19 @@ public class DynamicClientRegistrationRequest {
 
 	public static class Builder {
 
-		@Nullable private List<AuthorizationGrantType> grantTypes;
+		public @Nullable List<AuthorizationGrantType> grantTypes;
 
-		@Nullable private List<String> redirectUris;
+		public @Nullable List<String> redirectUris;
 
-		@Nullable private ClientAuthenticationMethod tokenEndpointAuthMethod;
+		public @Nullable ClientAuthenticationMethod tokenEndpointAuthMethod;
 
-		@Nullable private List<OAuth2AuthorizationResponseType> responseTypes;
+		public @Nullable List<OAuth2AuthorizationResponseType> responseTypes;
 
-		@Nullable private String clientName;
+		public @Nullable String clientName;
 
-		@Nullable private String clientUri;
+		public @Nullable String clientUri;
 
-		@Nullable private String scope;
+		public @Nullable String scope;
 
 		private Builder() {
 		}

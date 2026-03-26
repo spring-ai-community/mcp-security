@@ -30,7 +30,7 @@ public class ApiKeyEntityImpl implements ApiKeyEntity {
 
 	private final String id;
 
-	@Nullable private String secret;
+	public @Nullable String secret;
 
 	private final String name;
 
@@ -70,11 +70,11 @@ public class ApiKeyEntityImpl implements ApiKeyEntity {
 
 	public static final class Builder {
 
-		@Nullable private String id;
+		public @Nullable String id;
 
-		@Nullable private String secret;
+		public @Nullable String secret;
 
-		@Nullable private String name;
+		public @Nullable String name;
 
 		private PasswordEncoder passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
 

@@ -67,7 +67,7 @@ public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientAuthori
 
 	private final String mcpServerUrl;
 
-	@Nullable private final DynamicClientRegistrationRequest dynamicClientRegistrationRequest;
+	public @Nullable final DynamicClientRegistrationRequest dynamicClientRegistrationRequest;
 
 	private String fallbackBaseUrl = "http://localhost:8080";
 

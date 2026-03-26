@@ -44,7 +44,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 
 	private @Nullable AuthenticationConverter authenticationConverter;
 
-	@Nullable private SessionBindingConfigurer sessionBindingConfigurer;
+	public @Nullable SessionBindingConfigurer sessionBindingConfigurer;
 
 	@Override
 	public void init(HttpSecurity http) {

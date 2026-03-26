@@ -38,9 +38,8 @@ public class InMemoryApiKeyEntityRepository<T extends ApiKeyEntity> implements A
 		apiKeyEntities.forEach(entity -> this.apiKeys.put(entity.getId(), entity));
 	}
 
-	@Nullable
 	@Override
-	public T findByKeyId(String keyId) {
+	public @Nullable T findByKeyId(String keyId) {
 		var key = apiKeys.get(keyId);
 		return key != null ? key.copy() : null;
 	}

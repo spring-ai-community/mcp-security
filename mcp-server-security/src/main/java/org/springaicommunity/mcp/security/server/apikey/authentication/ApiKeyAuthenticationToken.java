@@ -34,9 +34,9 @@ import org.springframework.util.Assert;
 @Transient
 public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 
-	@Nullable private final ApiKeyEntity principal;
+	public @Nullable final ApiKeyEntity principal;
 
-	@Nullable private final ApiKey credentials;
+	public @Nullable final ApiKey credentials;
 
 	private ApiKeyAuthenticationToken(ApiKey apiKey) {
 		super(AuthorityUtils.NO_AUTHORITIES);
@@ -62,12 +62,12 @@ public class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 	}
 
 	@Override
-	@Nullable public ApiKey getCredentials() {
+	public @Nullable ApiKey getCredentials() {
 		return this.credentials;
 	}
 
 	@Override
-	@Nullable public ApiKeyEntity getPrincipal() {
+	public @Nullable ApiKeyEntity getPrincipal() {
 		return this.principal;
 	}
 
