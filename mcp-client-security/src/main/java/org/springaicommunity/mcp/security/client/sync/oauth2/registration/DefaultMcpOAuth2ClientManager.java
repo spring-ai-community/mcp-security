@@ -16,11 +16,6 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +30,6 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
-import static org.springframework.security.oauth2.core.OAuth2ErrorCodes.INSUFFICIENT_SCOPE;
 
 /**
  * Default implementation of {@link McpOAuth2ClientManager} that delegates storage to a
@@ -48,11 +42,9 @@ import static org.springframework.security.oauth2.core.OAuth2ErrorCodes.INSUFFIC
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
+public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientManager {
 
 	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2ClientManager.class);
-
-	private final McpClientRegistrationRepository repository;
 
 	private final DynamicClientRegistrationService clientRegistrationService;
 
@@ -60,10 +52,10 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 
 	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery) {
+		super(repository);
 		Assert.notNull(repository, "repository cannot be null");
 		Assert.notNull(clientRegistrationService, "clientRegistrationService cannot be null");
 		Assert.notNull(discovery, "discovery cannot be null");
-		this.repository = repository;
 		this.clientRegistrationService = clientRegistrationService;
 		this.discovery = discovery;
 	}
@@ -98,56 +90,6 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 				mcpServerUrl);
 		var wwwAuthenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
 		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
-	}
-
-	@Override
-	public boolean updateMcpClient(String registrationId, String wwwAuthenticateHeader) {
-		Assert.hasText(registrationId, "registrationId cannot be empty");
-		Assert.hasText(wwwAuthenticateHeader, "wwwAuthenticateHeader cannot be empty");
-		var authenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
-		if (authenticateParameters == null) {
-			log.debug("Could not parse WWW-Authenticate header [{}] for registration [{}]", wwwAuthenticateHeader,
-					registrationId);
-			return false;
-		}
-		if (!INSUFFICIENT_SCOPE.equals(authenticateParameters.getError())) {
-			log.debug("WWW-Authenticate error is [{}], not insufficient_scope, skipping update for registration [{}]",
-					authenticateParameters.getError(), registrationId);
-			return false;
-		}
-		if (!StringUtils.hasText(authenticateParameters.getScope())) {
-			log.debug("No scope in WWW-Authenticate header for registration [{}]", registrationId);
-			return false;
-		}
-		var scopes = authenticateParameters.getScope().split(" ");
-		if (scopes.length == 0) {
-			log.debug("No scope in WWW-Authenticate header for registration [{}]", registrationId);
-			return false;
-		}
-
-		log.debug("Attempting scope step-up for registration [{}] with scopes {}", registrationId,
-				Arrays.asList(scopes));
-		AtomicBoolean result = new AtomicBoolean(false);
-		this.repository.updateClientRegistration(registrationId, builder -> {
-			var existingClient = builder.build();
-			if (existingClient.getScopes() == null || !existingClient.getScopes().containsAll(Arrays.asList(scopes))) {
-				Set<String> merged = new LinkedHashSet<>();
-				if (existingClient.getScopes() != null) {
-					merged.addAll(existingClient.getScopes());
-				}
-				merged.addAll(Arrays.asList(scopes));
-				log.debug("Updating scopes for registration [{}]: {} -> {}", registrationId, existingClient.getScopes(),
-						merged);
-				builder.scope(merged.toArray(String[]::new));
-				result.set(true);
-			}
-			else {
-				log.debug("Scopes for registration [{}] already contain required scopes {}", registrationId,
-						Arrays.asList(scopes));
-			}
-		});
-
-		return result.get();
 	}
 
 	private void doRegisterMcpClient(String registrationId, String mcpServerUrl,
