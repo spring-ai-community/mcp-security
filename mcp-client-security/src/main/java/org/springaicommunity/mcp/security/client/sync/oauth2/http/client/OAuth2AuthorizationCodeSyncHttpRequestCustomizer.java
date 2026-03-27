@@ -71,6 +71,8 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 	private final ClientRegistrationRepository clientRegistrationRepository;
 
+	private boolean supportDynamicClientRegistration = true;
+
 	public OAuth2AuthorizationCodeSyncHttpRequestCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 			ClientRegistrationRepository clientRegistrationRepository, String clientRegistrationId) {
 		this.authorizedClientManager = authorizedClientManager;
@@ -98,10 +100,15 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		log.debug("Requesting access token for client [{}]", this.clientRegistrationId);
 
 		var registration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);
-		if (registration == null) {
+		if (registration == null && this.supportDynamicClientRegistration) {
 			log.debug("Client [{}] does not exist. It may be dynamically registered at a later point, skipping.",
 					this.clientRegistrationId);
 			return;
+		}
+		else if (registration == null) {
+			throw new IllegalArgumentException(
+					"Client registration [" + this.clientRegistrationId + "] does not exist");
+
 		}
 
 		OAuth2AuthorizedClient authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
@@ -127,6 +134,10 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 		log.debug("Adding token to header");
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
+	}
+
+	public void disableDynamicClientRegistration(boolean disableDynamicClientRegistration) {
+		this.supportDynamicClientRegistration = !disableDynamicClientRegistration;
 	}
 
 }
