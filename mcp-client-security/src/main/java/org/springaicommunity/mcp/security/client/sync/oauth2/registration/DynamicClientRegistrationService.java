@@ -17,6 +17,8 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,6 +40,8 @@ import org.springframework.web.client.RestClient;
  */
 public class DynamicClientRegistrationService {
 
+	private static final Logger log = LoggerFactory.getLogger(DynamicClientRegistrationService.class);
+
 	private final RestClient restClient;
 
 	public DynamicClientRegistrationService() {
@@ -56,6 +60,7 @@ public class DynamicClientRegistrationService {
 	public DynamicClientRegistrationResponse register(DynamicClientRegistrationRequest registrationRequest,
 			String authServerUrl) {
 		var registrationEndpoint = findRegistrationEndpoint(authServerUrl);
+		log.debug("Performing dynamic client registration at [{}]", registrationEndpoint);
 		var registrationResponse = restClient.post()
 			.uri(registrationEndpoint)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -65,16 +70,19 @@ public class DynamicClientRegistrationService {
 		if (registrationResponse == null) {
 			throw new IllegalStateException("Cannot register client");
 		}
+		log.debug("Dynamic client registration successful, client ID: [{}]", registrationResponse.clientId());
 		return registrationResponse;
 	}
 
 	private String findRegistrationEndpoint(String authServerUrl) {
+		log.debug("Discovering registration endpoint for auth server [{}]", authServerUrl);
 		var builder = ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
 		var registrationEndpoint = builder.getProviderDetails().getConfigurationMetadata().get("registration_endpoint");
 		if (registrationEndpoint == null) {
 			throw new IllegalStateException(
 					"No registration endpoint found for auth server [%s]".formatted(authServerUrl));
 		}
+		log.debug("Found registration endpoint [{}]", registrationEndpoint);
 		return registrationEndpoint.toString();
 	}
 

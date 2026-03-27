@@ -22,6 +22,8 @@ import java.util.function.Function;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -58,6 +60,8 @@ import org.springframework.util.ReflectionUtils;
  */
 public class OAuth2HttpClientTransportCustomizer
 		implements McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> {
+
+	private static final Logger log = LoggerFactory.getLogger(OAuth2HttpClientTransportCustomizer.class);
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
@@ -126,18 +130,23 @@ public class OAuth2HttpClientTransportCustomizer
 	public void customize(String name, HttpClientStreamableHttpTransport.Builder transportBuilder) {
 		String registrationId = this.registrationIdResolver.apply(name);
 		if (registrationId == null) {
+			log.debug("No registration ID resolved for transport [{}], skipping OAuth2 configuration", name);
 			return;
 		}
+		log.debug("Configuring OAuth2 for transport [{}] with registration ID [{}]", name, registrationId);
 		// This is a hack until the mcp server url is passed to the error handler.
 		String mcpServerUrl = extractMcpServerUrl(transportBuilder);
+		log.debug("Extracted MCP server URL [{}] for transport [{}]", mcpServerUrl, name);
 
 		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.authorizedClientManager,
 				this.clientRegistrationRepository, registrationId);
+		// TODO: make manager nullable...?
 		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(this.mcpOAuth2ClientManager, registrationId,
 				mcpServerUrl);
 
 		transportBuilder.httpRequestCustomizer(requestCustomizer)
 			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler));
+		log.debug("OAuth2 request customizer and authorization error handler configured for transport [{}]", name);
 	}
 
 	private static String extractMcpServerUrl(HttpClientStreamableHttpTransport.Builder builder) {
