@@ -82,6 +82,7 @@
             <artifactId>mcp</artifactId>
             <version>${mcp.java.sdk.version}</version>
         </dependency>
+        <!-- Required for security in WebClient-based transports -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webflux</artifactId>
@@ -92,11 +93,13 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- Used for DCR -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- Used for computing the {baseUrl} in redirect URIs after server startup -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-web-server</artifactId>
