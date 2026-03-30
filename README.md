@@ -322,12 +322,95 @@ Then you should be able to call your MCP server with a header `X-API-key: api01.
 ## MCP Client Security
 
 Provides OAuth 2 support
-for [Spring AI's MCP clients](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html),
-with both HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
+for [Spring AI's MCP clients](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-client-boot-starter-docs.html).
+This module supports `McpSyncClient`s only, with HttpClient-based clients (from `spring-ai-starter-mcp-client`) and
 WebClient-based clients (from `spring-ai-starter-mcp-client-webflux`).
-This module supports `McpSyncClient`s only.
 
-### Add to your project
+Key features:
+
+- OAuth2 `authorization_code`, `client_credentials`, and hybrid flows
+- Dynamic Client Registration (DCR) with automatic MCP server metadata discovery
+- Scope step-up: automatic re-authorization when the MCP server requires additional scopes
+- Spring Boot auto-configuration via `mcp-client-security-boot`
+
+### Quick start with `mcp-client-security-boot` (recommended)
+
+The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-configuration module.
+
+*Maven*
+
+```xml
+
+<dependencies>
+
+    <dependency>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-client-security-boot</artifactId>
+        <version>0.1.3</version>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-starter-mcp-client</artifactId>
+    </dependency>
+
+</dependencies>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-client-security-boot:0.1.3")
+implementation("org.springframework.ai:spring-ai-starter-mcp-client")
+```
+
+Configure your MCP client connections in `application.properties`:
+
+```properties
+spring.ai.mcp.client.type=SYNC
+spring.ai.mcp.client.initialized=false
+
+# MCP server connections (Spring AI auto-configures these)
+spring.ai.mcp.client.streamable-http.connections.my-mcp-server.url=http://localhost:8090
+
+# Enable Dynamic Client Registration (default: false)
+spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true
+```
+
+Then, configure a `SecurityFilterChain` with the provided `McpClientOAuth2Configurer`:
+
+```java
+
+@Configuration
+@EnableWebSecurity
+class SecurityConfiguration {
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .with(McpClientOAuth2Configurer.mcpClientOAuth2(), Customizer.withDefaults())
+                .csrf(CsrfConfigurer::disable)
+                .build();
+    }
+
+}
+```
+
+This is all you need. The auto-configuration module sets up the following beans:
+
+- `McpClientRegistrationRepository`: a `ClientRegistrationRepository` that also tracks the associated MCP resource
+  identifier
+- `McpOAuth2ClientManager`: manages Dynamic Client Registration (DCR) and scope step-up
+- `McpMetadataDiscoveryService` and `DynamicClientRegistrationService`: infrastructure for DCR
+- Various `McpClientConfigurer` to update MCP transports and MCP clients so a token is added on every request
+
+For a complete working example, see the
+[sample-mcp-client](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-client) module.
+
+### Manual setup with `mcp-client-security`
+
+If you prefer wiring beans yourself (e.g. for advanced or non-Boot use-cases), you can use the lower-level
+`mcp-client-security` module directly.
 
 *Maven*
 
@@ -348,13 +431,13 @@ implementation("org.springaicommunity:mcp-client-security:0.1.4")
 
 ### Authorization flows
 
-For our MCP clients, there are three flows available for obtaining tokens:
+For MCP clients, there are three flows available for obtaining tokens:
 
 - `authorization_code`-based flows. This is the flow that the MCP spec illustrates.
   A user is present, and the MCP client makes HTTP requests using a bearer token on behalf of that user.
 - `client_credentials`-based flows. This is not detailed in the spec, but compatible.
-  Client credentials is for machine-to-machine use-cases, where there is no human is in the loop.
-  The MCP clients makes HTTP request with a token for itself.
+  Client credentials is for machine-to-machine use-cases, where there is no human in the loop.
+  The MCP client makes HTTP requests with a token for itself.
 - Hybrid flows. In some use-cases, the user might not be present for some MCP client calls, such
   as `initialize` or `tools/list`.
   In that case, the MCP client makes calls with `client_credentials` tokens representing the client itself.
@@ -363,50 +446,41 @@ For our MCP clients, there are three flows available for obtaining tokens:
 
 🤔 Which flow should I use?
 
-- If there are user-level permission, AND you know every MCP request will be made within the context of a user request
-  (ensure there are no `tools/list` calls on app startup), then use the `authorization_code` flow, with either
-  `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` or `McpOAuth2AuthorizationCodeExchangeFilterFunction`.
+- If there are user-level permissions, AND you know every MCP request will be made within the context of a user request
+  (ensure there are no `tools/list` calls on app startup), then use the `authorization_code` flow.
 - If there are no user-level permissions, and you want to secure "client-to-server" communication with an access token,
-  use the `client_credentials` flow, with either `OAuth2ClientCredentialsSyncHttpRequestCustomizer` or
-  `McpOAuth2ClientCredentialsExchangeFilterFunction`.
-- If there are user-level permission, AND you configure your MCP clients using Spring Boot properties (such as
+  use the `client_credentials` flow.
+- If there are user-level permissions, AND you configure your MCP clients using Spring Boot properties (such as
   `spring.ai.mcp.client.streamable-http.connections.<server-name>.url=<server-url>`), then, on application startup,
   Spring AI will try to list the tools. And startup happens without a user present. In that specific case, use a hybrid
-  flow, with either `OAuth2HybridSyncHttpRequestCustomizer` or `McpOAuth2HybridExchangeFilterFunction`.
+  flow.
 
-### Setup for all use-cases
+### Dynamic Client Registration (DCR)
 
-In every case, you need to activate Spring Security's OAuth2 client support.
-Add the following properties to your `application.properties` file.
-Depending on the flow you chose (see above), you may need one or both client registrations:
+MCP Security supports
+[RFC 7591 Dynamic Client Registration](https://www.rfc-editor.org/rfc/rfc7591.html) as described in the
+[MCP Authorization spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization).
+When enabled, the flow works as follows:
 
-```properties
-# Ensure MCP clients are sync
-spring.ai.mcp.client.type=SYNC
-# Ensure that you do not initialize the clients on startup
-spring.ai.mcp.client.initialized=false
-#
-#
-# For obtaining tokens for calling the tool
-# When using the hybrid flow or authorization_code flow, this registers a client
-# called "authserver". If using client_credentials, do not include this:
-spring.security.oauth2.client.registration.authserver.client-id=<THE CLIENT ID>
-spring.security.oauth2.client.registration.authserver.client-secret=<THE CLIENT SECRET>
-spring.security.oauth2.client.registration.authserver.authorization-grant-type=authorization_code
-spring.security.oauth2.client.registration.authserver.provider=authserver
-#
-# When using the hybrid flow or client_credentials flow, this registers a client
-# called "authserver-client-credentials". If using authorization_code, do not include this:
-spring.security.oauth2.client.registration.authserver-client-credentials.client-id=<THE CLIENT ID>
-spring.security.oauth2.client.registration.authserver-client-credentials.client-secret=<THE CLIENT SECRET>
-spring.security.oauth2.client.registration.authserver-client-credentials.authorization-grant-type=client_credentials
-spring.security.oauth2.client.registration.authserver-client-credentials.provider=authserver
-#
-# Both clients above rely on the authorization server, specified by its issuer URI:
-spring.security.oauth2.client.provider.authserver.issuer-uri=<THE ISSUER URI OF YOUR AUTH SERVER>
-```
+1. The MCP client sends a request to the MCP server without a token.
+2. The server responds with HTTP 401 and a `WWW-Authenticate` header containing the resource metadata URL.
+3. The `OAuth2SyncAuthorizationErrorHandler` fetches the protected resource metadata and discovers the authorization
+   server.
+4. The handler performs dynamic client registration with the authorization server.
+5. If the server later responds with HTTP 403 and `insufficient_scope`, the handler requests the additional scopes
+   (scope step-up).
 
-Then, create a configuration class, activating the OAuth2 client capabilities with a `SecurityFilterChain`.
+DCR is disabled by default in the `mcp-client-security-boot` auto-configuration.
+To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
+When disabled, ensure you either have a single `ClientRegistration` registered under `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
+Scope step-up is still supported when DCR is disabled.
+
+### Use with `McpClientOAuth2Configurer`
+
+`McpClientOAuth2Configurer` is a Spring Security configurer that sets up OAuth2 client support for MCP,
+including authorization request and token request customization (e.g. adding the `resource=` parameter).
+
+You can also use it to pre-register OAuth2 clients for specific MCP servers:
 
 ```java
 
@@ -415,38 +489,76 @@ Then, create a configuration class, activating the OAuth2 client capabilities wi
 class SecurityConfiguration {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // in this example, the client app has no security on its endpoints
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                // turn on OAuth2 support
-                .oauth2Client(Customizer.withDefaults())
+                .with(McpClientOAuth2Configurer.mcpClientOAuth2(), mcpOAuth2 -> {
+                    // Pre-register an OAuth2 client for a specific MCP server
+                    mcpOAuth2.registerMcpOAuth2Client("my-mcp-server", "http://localhost:8090/mcp");
+                    // Optionally set the base URL for redirect URIs
+                    // mcpOAuth2.baseUrl("http://localhost:8080");
+                })
                 .build();
     }
 
 }
 ```
 
-If you already have a filter chain configured, ensure that `.oauth2Client(...)` is on.
+### Use with `spring-ai-starter-mcp-client` (HttpClient-based)
 
-### Use with `spring-ai-starter-mcp-client`
-
-When using `spring-ai-starter-mcp-client`, the underlying MCP client transport will be based on the JDK's
+When using `spring-ai-starter-mcp-client`, the underlying MCP client transport is based on the JDK's
 `HttpClient`.
-In that case, you can expose a bean of type `McpSyncHttpClientRequestCustomizer`.
-Depending on your [authorization flow](#authorization-flows) of choice, you may use one of the following
-implementations:
 
-- `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` (preferred)
+**With auto-configuration (`mcp-client-security-boot`):**
+The `OAuth2HttpClientTransportCustomizer` is auto-configured and applies OAuth2 support
+(request customization and authorization error handling) to each transport automatically. No extra beans are needed.
+
+**Manual configuration:**
+You can expose an `OAuth2HttpClientTransportCustomizer` bean, which configures both the request customizer
+and the authorization error handler on each transport:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    OAuth2HttpClientTransportCustomizer transportCustomizer(
+            OAuth2AuthorizedClientManager clientManager,
+            ClientRegistrationRepository clientRegistrationRepository,
+            McpOAuth2ClientManager mcpOAuth2ClientManager
+    ) {
+        return new OAuth2HttpClientTransportCustomizer(
+                clientManager,
+                clientRegistrationRepository,
+                mcpOAuth2ClientManager
+        );
+    }
+
+}
+```
+
+By default, the customizer maps each MCP connection name to an OAuth2 client registration with the same name.
+You can customize this mapping:
+
+```java
+// Use a single registration for all transports
+new OAuth2HttpClientTransportCustomizer(clientManager, repo, mcpManager, "my-registration-id");
+
+// Or use a custom resolver function
+new OAuth2HttpClientTransportCustomizer(clientManager, repo, mcpManager,
+        transportName -> "prefix-" + transportName);
+```
+
+Alternatively, if you do not need DCR or authorization error handling, you can use the lower-level
+request customizers directly:
+
+- `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` (user-level tokens)
 - `OAuth2ClientCredentialsSyncHttpRequestCustomizer` (machine-to-machine)
-- `OAuth2HybridSyncHttpRequestCustomizer` (last resort)
+- `OAuth2HybridSyncHttpRequestCustomizer` (both)
 
-All these request customizers rely on request and authentication data.
-That data is passed through
-`McpTransportContext` ([MCP docs](https://modelcontextprotocol.io/sdk/java/mcp-client#adding-context-information)).
-To make that information available, you also need to add an `AuthenticationMcpTransportContextProvider` to your MCP Sync
-Client.
-Tying it all together, taking `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` as an example:
+All request customizers rely on authentication data passed through `McpTransportContext`.
+When not using the Boot auto-configuration, you need to add an `AuthenticationMcpTransportContextProvider`:
 
 ```java
 
@@ -463,12 +575,12 @@ class McpConfiguration {
 
     @Bean
     McpSyncHttpClientRequestCustomizer requestCustomizer(
-            OAuth2AuthorizedClientManager clientManager
+            OAuth2AuthorizedClientManager clientManager,
+            ClientRegistrationRepository clientRegistrationRepository
     ) {
-        // The clientRegistration name, "authserver",
-        // must match the name in application.properties
         return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
                 clientManager,
+                clientRegistrationRepository,
                 "authserver"
         );
     }
@@ -489,12 +601,8 @@ implementations:
 - `McpOAuth2ClientCredentialsExchangeFilterFunction` (machine-to-machine)
 - `McpOAuth2HybridExchangeFilterFunction` (last resort)
 
-All these request customizers rely on request and authentication data.
-That data is passed through
-`McpTransportContext` ([MCP docs](https://modelcontextprotocol.io/sdk/java/mcp-client#adding-context-information)).
-To make that information available, you also need to add an `AuthenticationMcpTransportContextProvider` to your MCP Sync
-Client.
-Tying it all together, taking `McpOAuth2AuthorizationCodeExchangeFilterFunction` as an example:
+All these filter functions rely on authentication data passed through `McpTransportContext`.
+When not using the Boot auto-configuration, you need to add an `AuthenticationMcpTransportContextProvider`:
 
 ```java
 
@@ -511,7 +619,6 @@ class McpConfiguration {
 
     @Bean
     WebClient.Builder mcpWebClientBuilder(OAuth2AuthorizedClientManager clientManager) {
-        // The clientRegistration name, "authserver", must match the name in application.properties
         return WebClient.builder().filter(
                 new McpOAuth2AuthorizationCodeExchangeFilterFunction(
                         clientManager,
@@ -549,7 +656,7 @@ MCP Security's default client support integrates with Spring Security to add OAu
 token on behalf of the user, and modifies the HTTP request from the Client to the Server, adding that token in an
 Authorization header.
 
-If you'd like to modify HTTP requests beyond what MCP Security provide, you can create your own
+If you'd like to modify HTTP requests beyond what MCP Security provides, you can create your own
 `McpSyncHttpClientRequestCustomizer` or `ExchangeFilterFunction`.
 
 For HTTP clients:
@@ -658,7 +765,7 @@ class McpConfiguration {
 
 ### Programmatically configure MCP clients
 
-If you'd like to use Spring AI's autoconfiguration altogether, you can create the MCP clients programmatically.
+If you'd like to bypass Spring AI's autoconfiguration altogether, you can create the MCP clients programmatically.
 The easiest way is to draw some inspiration on the transport
 auto-configurations ([HttpClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-httpclient/src/main/java/org/springframework/ai/mcp/client/httpclient/autoconfigure/StreamableHttpHttpClientTransportAutoConfiguration.java), [WebClient](https://github.com/spring-projects/spring-ai/blob/main/auto-configurations/mcp/spring-ai-autoconfigure-mcp-client-webflux/src/main/java/org/springframework/ai/mcp/client/webflux/autoconfigure/StreamableHttpWebFluxTransportAutoConfiguration.java))
 as well as
@@ -726,7 +833,7 @@ var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
 ### Known limitations
 
 - Spring WebFlux servers are not supported.
-- Spring AI autoconfiguration initializes the MCP client app start.
+- Spring AI autoconfiguration initializes the MCP client on app start.
   Most MCP servers want calls to be authenticated with a token, so you
   need to turn initialization off with `spring.ai.mcp.client.initialized=false`.
 
