@@ -18,6 +18,7 @@
 
         <!-- Boot auto-configuration -->
         <module>mcp-client-security-boot</module>
+        <module>mcp-server-security-boot</module>
 
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>

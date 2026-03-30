@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2025 the original author or authors.
+ * Copyright 2025-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,35 +18,33 @@ package org.springaicommunity.mcp.security.sample.server.streamable;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 
-/**
- * @author Daniel Garnier-Moiroux
- */
-@Configuration
-class McpServerConfiguration {
+@Configuration(proxyBeanMethods = false)
+class SecurityConfiguration {
 
+	/**
+	 * This customizes default security so that we can access the MCP Server with the MCP
+	 * inspector.
+	 * @deprecated DO NOT do this in production.
+	 */
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http,
-			@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUrl) throws Exception {
-		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpServerOAuth2(), (mcpAuthorization) -> mcpAuthorization.authorizationServer(issuerUrl))
-			// MCP inspector
-			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-			.csrf(CsrfConfigurer::disable)
-			.build();
+	@Deprecated
+	Customizer<HttpSecurity> mcpInspectorCustomizations() {
+		return http -> {
+			http.csrf(CsrfConfigurer::disable);
+			http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
+		};
 	}
 
-	public CorsConfigurationSource corsConfigurationSource() {
+	public static CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOriginPatterns(List.of("*"));
 		configuration.setAllowedMethods(List.of("*"));
