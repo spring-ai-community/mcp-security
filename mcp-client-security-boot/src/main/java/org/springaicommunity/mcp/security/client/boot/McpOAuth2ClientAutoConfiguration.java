@@ -56,6 +56,6 @@ import org.springframework.context.annotation.Import;
 		McpOAuth2ClientConfigurations.McpClientConfiguration.class })
 @ConditionalOnProperty(prefix = McpClientCommonProperties.CONFIG_PREFIX, name = "type", havingValue = "SYNC",
 		matchIfMissing = true)
-class McpOAuth2ClientAutoconfiguration {
+class McpOAuth2ClientAutoConfiguration {
 
 }

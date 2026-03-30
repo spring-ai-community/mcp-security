@@ -37,14 +37,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 /**
- * Tests for {@link McpOAuth2ClientAutoconfiguration}.
+ * Tests for {@link McpOAuth2ClientAutoConfiguration}.
  *
  * @author Daniel Garnier-Moiroux
  */
-class McpOAuth2ClientAutoconfigurationTests {
+class McpOAuth2ClientAutoConfigurationTests {
 
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoconfiguration.class));
+		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class));
 
 	@Test
 	void autoConfigurationRegistersProperties() {
@@ -174,7 +174,7 @@ class McpOAuth2ClientAutoconfigurationTests {
 
 	@Test
 	void nonServlet() {
-		new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoconfiguration.class))
+		new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class))
 			.run(context -> {
 				assertThat(context).doesNotHaveBean(McpOAuth2ClientManager.class);
 				assertThat(context).doesNotHaveBean(McpOAuth2ClientProperties.class);

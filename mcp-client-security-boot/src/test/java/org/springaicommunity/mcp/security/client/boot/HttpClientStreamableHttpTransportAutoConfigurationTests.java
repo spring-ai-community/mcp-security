@@ -36,15 +36,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
- * Tests for {@link HttpClientStreamableHttpTransportAutoconfiguration}.
+ * Tests for {@link HttpClientStreamableHttpTransportAutoConfiguration}.
  *
  * @author Daniel Garnier-Moiroux
  */
-class HttpClientStreamableHttpTransportAutoconfigurationTests {
+class HttpClientStreamableHttpTransportAutoConfigurationTests {
 
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoconfiguration.class,
-				HttpClientStreamableHttpTransportAutoconfiguration.class));
+		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class,
+				HttpClientStreamableHttpTransportAutoConfiguration.class));
 
 	@Test
 	void defaults() {

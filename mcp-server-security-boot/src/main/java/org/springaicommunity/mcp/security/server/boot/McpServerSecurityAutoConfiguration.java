@@ -41,7 +41,7 @@ import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Co
 @EnableConfigurationProperties(OAuth2ResourceServerProperties.class)
 @ConditionalOnProperty(prefix = "spring.security.oauth2.resourceserver", name = "jwt.issuer-uri",
 		matchIfMissing = false)
-public class McpServerSecurityAutoConfiguration {
+class McpServerSecurityAutoConfiguration {
 
 	@Bean
 	SecurityFilterChain mcpServerSecurityFilterChain(HttpSecurity http, OAuth2ResourceServerProperties properties) {

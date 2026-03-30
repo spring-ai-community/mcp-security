@@ -51,13 +51,13 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  *
  * @author Daniel Garnier-Moiroux
  */
-@AutoConfiguration(after = { McpOAuth2ClientAutoconfiguration.class })
+@AutoConfiguration(after = { McpOAuth2ClientAutoConfiguration.class })
 @ConditionalOnClass(HttpClientStreamableHttpTransport.class)
 @ConditionalOnProperty(prefix = McpClientCommonProperties.CONFIG_PREFIX, name = "type", havingValue = "SYNC",
 		matchIfMissing = true)
-class HttpClientStreamableHttpTransportAutoconfiguration {
+class HttpClientStreamableHttpTransportAutoConfiguration {
 
-	private static final Logger log = LoggerFactory.getLogger(HttpClientStreamableHttpTransportAutoconfiguration.class);
+	private static final Logger log = LoggerFactory.getLogger(HttpClientStreamableHttpTransportAutoConfiguration.class);
 
 	@Bean
 	@ConditionalOnMissingBean
