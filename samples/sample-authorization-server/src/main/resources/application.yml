@@ -1,6 +1,15 @@
 spring:
   application:
     name: sample-authorization-server
+
+  # To disable dynamic client registration:
+  # ai:
+  #   mcp:
+  #     authorizationserver:
+  #       dynamic-client-registration:
+  #         enabled: true
+
+  # To use with a pre-existing client:
   security:
     oauth2:
       authorizationserver:

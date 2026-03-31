@@ -21,6 +21,7 @@ import java.util.Set;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.autoconfigure.web.servlet.ConditionalOnDefaultWebSecurity;
 import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterProperties;
@@ -58,14 +59,17 @@ import static org.springframework.security.config.Customizer.withDefaults;
  */
 @AutoConfiguration(before = OAuth2AuthorizationServerAutoConfiguration.class)
 @ConditionalOnDefaultWebSecurity
-@EnableConfigurationProperties(OAuth2AuthorizationServerProperties.class)
+@EnableConfigurationProperties({ OAuth2AuthorizationServerProperties.class,
+		McpOAuth2AuthorizationServerProperties.class })
 class McpAuthorizationServerAutoConfiguration {
 
 	@Bean
 	@Order(Ordered.HIGHEST_PRECEDENCE)
-	SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) {
+	SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
+			McpOAuth2AuthorizationServerProperties properties) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpAuthorizationServer(), mcp -> {
+				mcp.dynamicClientRegistration(properties.getDynamicClientRegistration().isEnabled());
 				mcp.authorizationServer(authzServer -> {
 					http.securityMatcher(new OrRequestMatcher(authzServer.getEndpointsMatcher(),
 							PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
@@ -85,7 +89,9 @@ class McpAuthorizationServerAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	RegisteredClientRepository registeredClientRepository(OAuth2AuthorizationServerProperties properties) {
+	@ConditionalOnProperty(prefix = McpOAuth2AuthorizationServerProperties.CONFIG_PREFIX,
+			name = "dynamic-client-registration.enabled", havingValue = "true", matchIfMissing = true)
+	RegisteredClientRepository dcrRegisteredClientRepository(OAuth2AuthorizationServerProperties properties) {
 		var clients = new OAuth2AuthorizationServerPropertiesMapper(properties).asRegisteredClients();
 		// default generated client: the repository cannot be empty, but we support DCR
 		// so we should be able to add clients after it's wired. This client cannot be
