@@ -17,9 +17,9 @@
         <module>mcp-authorization-server</module>
 
         <!-- Boot auto-configuration -->
-        <module>mcp-client-security-boot</module>
-        <module>mcp-server-security-boot</module>
-        <module>mcp-authorization-server-boot</module>
+        <module>mcp-client-security-spring-boot</module>
+        <module>mcp-server-security-spring-boot</module>
+        <module>mcp-authorization-server-spring-boot</module>
 
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>

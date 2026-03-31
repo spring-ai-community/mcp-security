@@ -27,7 +27,7 @@
         </dependency>
         <dependency>
             <groupId>org.springaicommunity</groupId>
-            <artifactId>mcp-client-security-boot</artifactId>
+            <artifactId>mcp-client-security-spring-boot</artifactId>
             <version>0.1.5-SNAPSHOT</version>
         </dependency>
     </dependencies>
