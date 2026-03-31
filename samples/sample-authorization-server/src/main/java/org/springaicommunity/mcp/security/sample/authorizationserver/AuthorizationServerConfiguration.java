@@ -19,14 +19,13 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
-import static org.springframework.security.config.Customizer.withDefaults;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -35,17 +34,21 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 class AuthorizationServerConfiguration {
 
+	/**
+	 * This customizes default security so that we can access the MCP Server with the MCP
+	 * inspector.
+	 * @deprecated DO NOT do this in production.
+	 */
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpAuthorizationServer(), withDefaults())
-			.formLogin(withDefaults())
-			// MCP inspector
-			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-			.build();
+	@Deprecated
+	Customizer<HttpSecurity> mcpInspectorCustomizations() {
+		return http -> {
+			http.csrf(CsrfConfigurer::disable);
+			http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
+		};
 	}
 
-	public CorsConfigurationSource corsConfigurationSource() {
+	static CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOriginPatterns(List.of("*"));
 		configuration.setAllowedMethods(List.of("*"));
