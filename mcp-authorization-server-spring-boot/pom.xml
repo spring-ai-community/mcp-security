@@ -9,12 +9,12 @@
         <version>0.1.5-SNAPSHOT</version>
     </parent>
 
-    <artifactId>mcp-server-security-boot</artifactId>
+    <artifactId>mcp-authorization-server-spring-boot</artifactId>
     <description>
-        Auto-configuration for MCP Server Security, providing
-        default OAuth2 resource server security filter chain.
+        Auto-configuration for MCP Authorization Server, providing
+        default security filter chain with MCP authorization server support.
     </description>
-    <name>Spring AI Community - MCP Server Security Boot</name>
+    <name>Spring AI Community - MCP Authorization Server Boot</name>
     <url>https://github.com/spring-ai-community/mcp-security</url>
 
     <scm>
@@ -55,7 +55,7 @@
     <dependencies>
         <dependency>
             <groupId>org.springaicommunity</groupId>
-            <artifactId>mcp-server-security</artifactId>
+            <artifactId>mcp-authorization-server</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -68,7 +68,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-security-oauth2-resource-server</artifactId>
+            <artifactId>spring-boot-security-oauth2-authorization-server</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -99,6 +99,16 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

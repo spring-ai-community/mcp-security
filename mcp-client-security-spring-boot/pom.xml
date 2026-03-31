@@ -9,12 +9,12 @@
         <version>0.1.5-SNAPSHOT</version>
     </parent>
 
-    <artifactId>mcp-authorization-server-boot</artifactId>
+    <artifactId>mcp-client-security-spring-boot</artifactId>
     <description>
-        Auto-configuration for MCP Authorization Server, providing
-        default security filter chain with MCP authorization server support.
+        Spring Boot auto-configuration for MCP Client Security,
+        providing OAuth2 client integration out of the box.
     </description>
-    <name>Spring AI Community - MCP Authorization Server Boot</name>
+    <name>Spring AI Community - MCP Client Security Boot</name>
     <url>https://github.com/spring-ai-community/mcp-security</url>
 
     <scm>
@@ -55,32 +55,32 @@
     <dependencies>
         <dependency>
             <groupId>org.springaicommunity</groupId>
-            <artifactId>mcp-authorization-server</artifactId>
+            <artifactId>mcp-client-security</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-autoconfigure</artifactId>
+            <artifactId>spring-boot-security-oauth2-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-security</artifactId>
         </dependency>
+        <!-- Client configurer -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-autoconfigure-mcp-client-common</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-security-oauth2-authorization-server</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <scope>provided</scope>
+            <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
 
-        <!-- Tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test-autoconfigure</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -92,23 +92,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-test-autoconfigure</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
