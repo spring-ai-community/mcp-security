@@ -42,7 +42,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  * clients, as well as the infrastructure to perform dynamic client registration (DCR).
  * <p>
  * DCR can be turned off via
- * {@code spring.ai.mcp.client.authorization.dynamic-client-registration=false}.
+ * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false}.
  * <p>
  * If client registrations are found under
  * {@code spring.security.oauth2.client.registration}, they are add to the
@@ -72,8 +72,8 @@ class McpOAuth2ClientConfigurations {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "dynamic-client-registration",
-			havingValue = "true", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+			name = "dynamic-client-registration.enabled", havingValue = "true")
 	static class DynamicClientRegistrationConfiguration {
 
 		@Bean

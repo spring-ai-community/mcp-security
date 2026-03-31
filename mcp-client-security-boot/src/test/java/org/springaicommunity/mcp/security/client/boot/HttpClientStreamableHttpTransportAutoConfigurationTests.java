@@ -16,6 +16,9 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
+import java.util.Arrays;
+import java.util.List;
+
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -24,11 +27,12 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2H
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.ResolvableType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -42,6 +46,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
  */
 class HttpClientStreamableHttpTransportAutoConfigurationTests {
 
+	private static final ResolvableType TRANSPORT_CUSTOMIZER_CLASS = ResolvableType
+		.forClassWithGenerics(McpClientCustomizer.class, HttpClientStreamableHttpTransport.Builder.class);
+
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class,
 				HttpClientStreamableHttpTransportAutoConfiguration.class));
@@ -50,54 +57,51 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 	void defaults() {
 		this.contextRunner.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
-				assertThat(context).hasSingleBean(OAuth2HttpClientTransportCustomizer.class);
-				assertThat(context).doesNotHaveBean("preRegisteredClientCustomizer");
+				var customizers = getTransportCustomizers(context);
+				assertThat(customizers).hasSize(1).first().isNotNull();
+				assertNoopCustomizer(customizers.get(0));
 			});
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
 	void preRegisteredCustomizer() {
 		this.contextRunner
-			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false",
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false",
 					"spring.security.oauth2.client.registration.test.client-id=test-client-id",
 					"spring.security.oauth2.client.registration.test.client-secret=test-client-secret",
 					"spring.security.oauth2.client.registration.test.authorization-grant-type=client_credentials",
 					"spring.security.oauth2.client.provider.test.token-uri=https://example.com/oauth2/token")
 			.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class)
-					.hasBean("preRegisteredClientCustomizer");
-				var customizer = (McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>) context
-					.getBean("preRegisteredClientCustomizer");
+				var customizers = getTransportCustomizers(context);
+				assertThat(customizers).hasSize(1);
+
 				var transportBuilder = mock(HttpClientStreamableHttpTransport.Builder.class);
-				customizer.customize("test", transportBuilder);
+				customizers.get(0).customize("test", transportBuilder);
 				verify(transportBuilder)
 					.httpRequestCustomizer(any(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class));
 			});
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
+
 	void dcrDisabledNoRegistrationNoopCustomizer() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false")
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
 			.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class);
 				assertThat(context).hasBean("preRegisteredClientCustomizer");
-				var customizer = (McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>) context
-					.getBean("preRegisteredClientCustomizer");
-				var transportBuilder = mock(HttpClientStreamableHttpTransport.Builder.class);
-				customizer.customize("test", transportBuilder);
-				verifyNoInteractions(transportBuilder);
+				var customizers = getTransportCustomizers(context);
+				assertThat(customizers).hasSize(1)
+					.first()
+					.satisfies(HttpClientStreamableHttpTransportAutoConfigurationTests::assertNoopCustomizer);
 			});
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
 	void multipleRegistrations() {
 		this.contextRunner
-			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false",
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false",
 					"spring.security.oauth2.client.registration.first.client-id=first-client-id",
 					"spring.security.oauth2.client.registration.first.client-secret=first-client-secret",
 					"spring.security.oauth2.client.registration.first.authorization-grant-type=client_credentials",
@@ -110,30 +114,22 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 			.run(context -> {
 				assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class)
 					.hasBean("preRegisteredClientCustomizer");
-				var customizer = (McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>) context
-					.getBean("preRegisteredClientCustomizer");
-				var transportBuilder = mock(HttpClientStreamableHttpTransport.Builder.class);
-				customizer.customize("test", transportBuilder);
-				verifyNoInteractions(transportBuilder);
+				var customizers = getTransportCustomizers(context);
+				assertThat(customizers).hasSize(1)
+					.first()
+					.satisfies(HttpClientStreamableHttpTransportAutoConfigurationTests::assertNoopCustomizer);
 			});
 	}
 
 	@Test
 	void dcrExplicitlyEnabled() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=true")
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true")
 			.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
 				assertThat(context).hasSingleBean(OAuth2HttpClientTransportCustomizer.class);
 				assertThat(context).doesNotHaveBean("preRegisteredClientCustomizer");
 			});
-	}
-
-	@Test
-	void noClientRegistrationRepository() {
-		this.contextRunner.withUserConfiguration(CustomClientRegistrationRepositoryConfiguration.class).run(context -> {
-			assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class);
-			assertThat(context).doesNotHaveBean("preRegisteredClientCustomizer");
-		});
 	}
 
 	@Test
@@ -147,22 +143,35 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
 	void backsOffPreRegisteredClientCustomizer() {
 		this.contextRunner
-			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false",
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false",
 					"spring.security.oauth2.client.registration.test.client-id=test-client-id",
 					"spring.security.oauth2.client.registration.test.client-secret=test-client-secret",
 					"spring.security.oauth2.client.registration.test.authorization-grant-type=client_credentials",
 					"spring.security.oauth2.client.provider.test.token-uri=https://example.com/oauth2/token")
 			.withUserConfiguration(CustomMcpClientCustomizerConfiguration.class)
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class);
-				var customizer = (McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>) context
-					.getBean("mcpClientCustomizer");
-				assertThat(customizer)
+				var customizers = getTransportCustomizers(context);
+				assertThat(customizers).hasSize(1)
+					.first()
 					.isSameAs(context.getBean(CustomMcpClientCustomizerConfiguration.class).customCustomizer);
 			});
+	}
+
+	private static void assertNoopCustomizer(
+			McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> customizer) {
+		var transportBuilder = mock(HttpClientStreamableHttpTransport.Builder.class);
+		customizer.customize("test", transportBuilder);
+		verifyNoInteractions(transportBuilder);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>> getTransportCustomizers(
+			ApplicationContext context) {
+		return Arrays.stream(context.getBeanNamesForType(TRANSPORT_CUSTOMIZER_CLASS))
+			.map(name -> (McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>) context.getBean(name))
+			.toList();
 	}
 
 	@Configuration
@@ -199,19 +208,6 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 		@Bean
 		McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> mcpClientCustomizer() {
 			return this.customCustomizer;
-		}
-
-	}
-
-	@Configuration
-	@Import(CustomOAuth2AuthorizedClientManagerConfiguration.class)
-	static class CustomClientRegistrationRepositoryConfiguration {
-
-		private final ClientRegistrationRepository customRepository = mock(ClientRegistrationRepository.class);
-
-		@Bean
-		ClientRegistrationRepository clientRegistrationRepository() {
-			return customRepository;
 		}
 
 	}
