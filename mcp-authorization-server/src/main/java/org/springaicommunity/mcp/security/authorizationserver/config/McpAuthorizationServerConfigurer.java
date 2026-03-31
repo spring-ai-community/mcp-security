@@ -51,6 +51,8 @@ public class McpAuthorizationServerConfigurer
 
 	private Customizer<OAuth2AuthorizationServerConfigurer> authServerCustomizer = Customizer.withDefaults();
 
+	private boolean supportDynamicClientRegistration = true;
+
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
 	}
@@ -70,6 +72,16 @@ public class McpAuthorizationServerConfigurer
 		return this;
 	}
 
+	/**
+	 * Enable or disable dynamic client registration (DCR).
+	 * @param enabled turn on DCR when true, off otherwise. Defaults to true.
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer dynamicClientRegistration(boolean enabled) {
+		this.supportDynamicClientRegistration = enabled;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
 		http.authorizeHttpRequests(
@@ -79,7 +91,9 @@ public class McpAuthorizationServerConfigurer
 				authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
 				OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
 				authServer.tokenGenerator(tokenGenerator);
-				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
+				if (this.supportDynamicClientRegistration) {
+					authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
+				}
 				this.authServerCustomizer.customize(authServer);
 			});
 

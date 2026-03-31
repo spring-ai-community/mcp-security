@@ -34,6 +34,9 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.web.SecurityFilterChain;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @author Daniel Garnier-Moiroux
+ */
 class McpAuthorizationServerAutoConfigurationTests {
 
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
@@ -86,13 +89,49 @@ class McpAuthorizationServerAutoConfigurationTests {
 	}
 
 	@Test
-	void useDefaultRegisteredClientRepository() {
+	void useDefaultDcrRegisteredClientRepository() {
 		this.contextRunner.withUserConfiguration(CustomRegisteredClientRepositoryConfiguration.class).run((context) -> {
 			assertThat(context).hasSingleBean(RegisteredClientRepository.class);
 			RegisteredClientRepository repository = context.getBean(RegisteredClientRepository.class);
 			assertThat(repository.findByClientId("custom-client")).isNotNull();
 			assertThat(repository.findByClientId("default")).isNull();
 		});
+	}
+
+	@Test
+	void dynamicClientRegistrationDisabled() {
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.authorizationserver.dynamic-client-registration.enabled=false")
+			.run((context) -> {
+				assertThat(context).hasFailed()
+					.getFailure()
+					.hasMessageContaining(
+							"No qualifying bean of type 'org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository'");
+			});
+	}
+
+	@Test
+	void dynamicClientRegistrationDisabledWithRegistrations() {
+		this.contextRunner.withPropertyValues(
+				"spring.ai.mcp.authorizationserver.dynamic-client-registration.enabled=false",
+				"spring.security.oauth2.authorizationserver.client.test-client.registration.client-id=my-client",
+				"spring.security.oauth2.authorizationserver.client.test-client.registration.client-secret={noop}secret",
+				"spring.security.oauth2.authorizationserver.client.test-client.registration.client-authentication-methods=client_secret_basic",
+				"spring.security.oauth2.authorizationserver.client.test-client.registration.authorization-grant-types=client_credentials")
+			.run((context) -> {
+				RegisteredClientRepository repository = context.getBean(RegisteredClientRepository.class);
+				assertThat(repository.findByClientId("my-client")).isNotNull();
+				assertThat(repository.findByClientId("default")).isNull();
+			});
+	}
+
+	@Test
+	void dynamicClientRegistrationDisabledWithCustomRepository() {
+		this.contextRunner.withUserConfiguration(CustomRegisteredClientRepositoryConfiguration.class)
+			.withPropertyValues("spring.ai.mcp.authorizationserver.dynamic-client-registration.enabled=false")
+			.run((context) -> {
+				assertThat(context).hasNotFailed();
+			});
 	}
 
 	@Configuration(proxyBeanMethods = false)
