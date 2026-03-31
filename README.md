@@ -38,7 +38,7 @@ for [Spring AI's MCP servers](https://docs.spring.io/spring-ai/reference/api/mcp
 It also provides basic support for API-key based servers.
 This module is compatible with Spring WebMVC-based servers only.
 
-### Quick start with `mcp-server-security-boot` (recommended)
+### Quick start with `mcp-server-security-spring-boot` (recommended)
 
 The easiest way to add OAuth2 security to your MCP server is with the Boot auto-configuration module.
 It provides a default `SecurityFilterChain` that secures all endpoints, with no additional configuration
@@ -52,8 +52,8 @@ required beyond setting the issuer URI.
 
     <dependency>
         <groupId>org.springaicommunity</groupId>
-        <artifactId>mcp-server-security-boot</artifactId>
-        <version>0.1.3</version>
+        <artifactId>mcp-server-security-spring-boot</artifactId>
+        <version>0.1.4</version>
     </dependency>
 
 </dependencies>
@@ -62,7 +62,7 @@ required beyond setting the issuer URI.
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-server-security-boot:0.1.3")
+implementation("org.springaicommunity:mcp-server-security-spring-boot:0.1.4")
 ```
 
 Then configure your `application.properties`:
@@ -377,9 +377,9 @@ Key features:
 - OAuth2 `authorization_code`, `client_credentials`, and hybrid flows
 - Dynamic Client Registration (DCR) with automatic MCP server metadata discovery
 - Scope step-up: automatic re-authorization when the MCP server requires additional scopes
-- Spring Boot auto-configuration via `mcp-client-security-boot`
+- Spring Boot auto-configuration via `mcp-client-security-spring-boot`
 
-### Quick start with `mcp-client-security-boot` (recommended)
+### Quick start with `mcp-client-security-spring-boot` (recommended)
 
 The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-configuration module.
 
@@ -391,8 +391,8 @@ The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-
 
     <dependency>
         <groupId>org.springaicommunity</groupId>
-        <artifactId>mcp-client-security-boot</artifactId>
-        <version>0.1.3</version>
+        <artifactId>mcp-client-security-spring-boot</artifactId>
+        <version>0.1.4</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.ai</groupId>
@@ -405,7 +405,7 @@ The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-client-security-boot:0.1.3")
+implementation("org.springaicommunity:mcp-client-security-spring-boot:0.1.4")
 implementation("org.springframework.ai:spring-ai-starter-mcp-client")
 ```
 
@@ -516,7 +516,7 @@ When enabled, the flow works as follows:
 5. If the server later responds with HTTP 403 and `insufficient_scope`, the handler requests the additional scopes
    (scope step-up).
 
-DCR is disabled by default in the `mcp-client-security-boot` auto-configuration.
+DCR is disabled by default in the `mcp-client-security-spring-boot` auto-configuration.
 To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
 When disabled, ensure you either have a single `ClientRegistration` registered under `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
 Scope step-up is still supported when DCR is disabled.
@@ -555,7 +555,7 @@ class SecurityConfiguration {
 When using `spring-ai-starter-mcp-client`, the underlying MCP client transport is based on the JDK's
 `HttpClient`.
 
-**With auto-configuration (`mcp-client-security-boot`):**
+**With auto-configuration (`mcp-client-security-spring-boot`):**
 The `OAuth2HttpClientTransportCustomizer` is auto-configured and applies OAuth2 support
 (request customization and authorization error handling) to each transport automatically. No extra beans are needed.
 
@@ -894,7 +894,7 @@ Security's [OAuth 2.0 Authorization Server support](https://docs.spring.io/sprin
 with the RFCs and features relevant to the MCP authorization spec, such as Dynamic Client Registration and Resource
 Indicators.
 
-### Quick start with `mcp-authorization-server-boot` (recommended)
+### Quick start with `mcp-authorization-server-spring-boot` (recommended)
 
 The easiest way to set up an MCP authorization server is with the Boot auto-configuration module.
 It provides default `SecurityFilterChain`s that secure all endpoints and configure an MCP authorization server, with no additional configuration required.
@@ -905,15 +905,15 @@ It provides default `SecurityFilterChain`s that secure all endpoints and configu
 
 <dependency>
     <groupId>org.springaicommunity</groupId>
-    <artifactId>mcp-authorization-server-boot</artifactId>
-    <version>0.1.3</version>
+    <artifactId>mcp-authorization-server-spring-boot</artifactId>
+    <version>0.1.4</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-authorization-server-boot:0.1.3")
+implementation("org.springaicommunity:mcp-authorization-server-spring-boot:0.1.4")
 ```
 
 
@@ -1004,7 +1004,7 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) {
 ### Dynamic Client Registration (DCR)
 
 By default, the authorization server supports Dynamic Client Registration (DCR).
-If you are using the Boot auto-configuration (`mcp-authorization-server-boot`), you can disable it with the following property:
+If you are using the Boot auto-configuration (`mcp-authorization-server-spring-boot`), you can disable it with the following property:
 
 ```properties
 spring.ai.mcp.authorizationserver.dynamic-client-registration.enabled=false
