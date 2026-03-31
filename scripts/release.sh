@@ -5,6 +5,8 @@ set -euo pipefail
 VERSION="$1"
 NEXT_VERSION="$2"
 
+git pull --ff-only
+
 if git tag | grep "${VERSION}"; then
   echo "Tag v${VERSION} already exists, bailing out"
   exit 1
