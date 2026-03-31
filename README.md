@@ -38,7 +38,53 @@ for [Spring AI's MCP servers](https://docs.spring.io/spring-ai/reference/api/mcp
 It also provides basic support for API-key based servers.
 This module is compatible with Spring WebMVC-based servers only.
 
-### Add to your project
+### Quick start with `mcp-server-security-boot` (recommended)
+
+The easiest way to add OAuth2 security to your MCP server is with the Boot auto-configuration module.
+It provides a default `SecurityFilterChain` that secures all endpoints, with no additional configuration
+required beyond setting the issuer URI.
+
+*Maven*
+
+```xml
+
+<dependencies>
+
+    <dependency>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-server-security-boot</artifactId>
+        <version>0.1.3</version>
+    </dependency>
+
+</dependencies>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-server-security-boot:0.1.3")
+```
+
+Then configure your `application.properties`:
+
+```properties
+spring.ai.mcp.server.name=my-cool-mcp-server
+spring.ai.mcp.server.protocol=STREAMABLE
+
+# The issuer URI of the authorization server
+spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:9000
+```
+
+That's it. When `spring.security.oauth2.resourceserver.jwt.issuer-uri` is set, the auto-configuration
+creates a `SecurityFilterChain` that secures all endpoints using the `McpServerOAuth2Configurer`.
+
+For a complete working example, see the
+[sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-server) module.
+
+### Manual setup with `mcp-server-security`
+
+If you prefer wiring beans yourself (e.g. for advanced customization, API key support, or non-Boot use-cases),
+you can use the lower-level `mcp-server-security` module directly.
 
 *Maven*
 
