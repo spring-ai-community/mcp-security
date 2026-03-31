@@ -38,11 +38,11 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  * {@link AutoConfiguration Auto-configuration} for MCP OAuth2 Client transport
  * customization when using {@link HttpClientStreamableHttpTransport}. Adds OAuth2
  * capabilities to the client transport, based on client
- * {@code spring.ai.mcp.client.authorization.dynamic-client-registration} as well as
- * existing Spring Security OAuth2 client registration.
+ * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled} as well
+ * as existing Spring Security OAuth2 client registration.
  * <p>
- * If {@code spring.ai.mcp.client.authorization.dynamic-client-registration=false} and
- * there is a single client registration,
+ * If {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false}
+ * and there is a single client registration,
  * {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer} uses that registration for all
  * OAuth2 enabled calls. In case there are multiple registrations, then no customizer is
  * registered, and users should register their own customizer manually.
@@ -62,8 +62,8 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnBean({ ClientRegistrationRepository.class, McpOAuth2ClientManager.class })
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "dynamic-client-registration",
-			havingValue = "true", matchIfMissing = true)
+	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+			name = "dynamic-client-registration.enabled", havingValue = "true")
 	OAuth2HttpClientTransportCustomizer dcrTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager) {
 		log.debug("Configuring OAuth2 transport customizer with dynamic client registration support");
@@ -74,8 +74,8 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnBean({ ClientRegistrationRepository.class })
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "dynamic-client-registration",
-			havingValue = "false", matchIfMissing = false)
+	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+			name = "dynamic-client-registration.enabled", havingValue = "false", matchIfMissing = true)
 	McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> preRegisteredClientCustomizer(
 			ClientRegistrationRepository clientRegistrationRepository,
 			OAuth2ClientProperties clientRegistrationProperties,

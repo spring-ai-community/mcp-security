@@ -56,14 +56,14 @@ class McpOAuth2ClientAutoConfigurationTests {
 	@Test
 	void defaults() {
 		this.contextRunner.run(context -> {
-			assertThat(context).hasSingleBean(McpMetadataDiscoveryService.class);
-			assertThat(context).hasSingleBean(DynamicClientRegistrationService.class);
+			assertThat(context).doesNotHaveBean(McpMetadataDiscoveryService.class);
+			assertThat(context).doesNotHaveBean(DynamicClientRegistrationService.class);
 			assertThat(context).hasSingleBean(ClientRegistrationRepository.class)
 				.getBean(ClientRegistrationRepository.class)
 				.isInstanceOf(InMemoryMcpClientRegistrationRepository.class);
 			assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
 				.getBean(McpOAuth2ClientManager.class)
-				.isInstanceOf(DefaultMcpOAuth2ClientManager.class);
+				.isInstanceOf(ScopeStepUpMcpOAuth2ClientManager.class);
 		});
 	}
 
@@ -79,7 +79,8 @@ class McpOAuth2ClientAutoConfigurationTests {
 
 	@Test
 	void dynamicClientRegistrationDisabled() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false")
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
 			.run(context -> {
 				assertThat(context).doesNotHaveBean(McpMetadataDiscoveryService.class);
 				assertThat(context).doesNotHaveBean(DynamicClientRegistrationService.class);
@@ -88,7 +89,8 @@ class McpOAuth2ClientAutoConfigurationTests {
 
 	@Test
 	void dynamicClientRegistrationDisabledScopeStepUp() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=false")
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
 			.run(context -> {
 				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
 					.getBean(McpOAuth2ClientManager.class)
@@ -98,7 +100,8 @@ class McpOAuth2ClientAutoConfigurationTests {
 
 	@Test
 	void dynamicClientRegistrationEnabledExplicitly() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration=true")
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true")
 			.run(context -> {
 				assertThat(context).hasSingleBean(McpMetadataDiscoveryService.class);
 				assertThat(context).hasSingleBean(DynamicClientRegistrationService.class);
