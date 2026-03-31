@@ -592,8 +592,7 @@ You can customize this mapping:
 new OAuth2HttpClientTransportCustomizer(clientManager, repo, mcpManager, "my-registration-id");
 
 // Or use a custom resolver function
-new OAuth2HttpClientTransportCustomizer(clientManager, repo, mcpManager,
-        transportName -> "prefix-" + transportName);
+new OAuth2HttpClientTransportCustomizer(clientManager, repo, mcpManager, transportName -> "prefix-" + transportName);
 ```
 
 Alternatively, if you do not need DCR or authorization error handling, you can use the lower-level
@@ -894,14 +893,37 @@ Enhances Spring
 Security's [OAuth 2.0 Authorization Server support](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/index.html)
 with the RFCs and features relevant to the MCP authorization spec, such as Dynamic Client Registration and Resource
 Indicators.
-It provides a simple configurer for an MCP server.
 
-### Add to your project
+### Quick start with `mcp-authorization-server-boot` (recommended)
+
+The easiest way to set up an MCP authorization server is with the Boot auto-configuration module.
+It provides default `SecurityFilterChain`s that secure all endpoints and configure an MCP authorization server, with no additional configuration required.
 
 *Maven*
 
 ```xml
 
+<dependency>
+    <groupId>org.springaicommunity</groupId>
+    <artifactId>mcp-authorization-server-boot</artifactId>
+    <version>0.1.3</version>
+</dependency>
+```
+
+*Gradle*
+
+```groovy
+implementation("org.springaicommunity:mcp-authorization-server-boot:0.1.3")
+```
+
+
+### Manual setup with `mcp-authorization-server`
+
+If you prefer wiring beans yourself (e.g. for advanced customization or non-Boot use-cases), you can use the lower-level `mcp-authorization-server` module directly.
+
+*Maven*
+
+```xml
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server</artifactId>
@@ -917,8 +939,7 @@ implementation("org.springaicommunity:mcp-authorization-server:0.1.4")
 
 ### Usage
 
-Then configure the authorization server (
-see [reference documentatio](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/getting-started.html#oauth2AuthorizationServer-developing-your-first-application)).
+Configure the authorization server properties (see [reference documentation](https://docs.spring.io/spring-security/reference/7.0/servlet/oauth2/authorization-server/getting-started.html#oauth2AuthorizationServer-developing-your-first-application)).
 Here is an example `application.yml` for registering a default client:
 
 ```yaml
@@ -963,11 +984,7 @@ server:
         name: MCP_AUTHORIZATION_SERVER_SESSIONID
 ```
 
-This is only an example, and you'll likely want to write your own configuration.
-With this configuration, there will be a single user registered (username: `user`, password: `password`).
-There will also be a single OAuth2 Client (`default-client-id` / `default-client-secret`).
-You can then activate all the authorization server capabilities with the usual Spring Security APIs,
-the security filter chain:
+When using the manual setup, you must configure the authorization server properties as shown above, and then activate the authorization server capabilities with the usual Spring Security APIs in your security filter chain:
 
 ```java
 
@@ -980,6 +997,29 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) {
             .with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), withDefaults())
             // enable form-based login, for user "user"/"password"
             .formLogin(withDefaults())
+            .build();
+}
+```
+
+### Dynamic Client Registration (DCR)
+
+By default, the authorization server supports Dynamic Client Registration (DCR).
+If you are using the Boot auto-configuration (`mcp-authorization-server-boot`), you can disable it with the following property:
+
+```properties
+spring.ai.mcp.authorizationserver.dynamic-client-registration.enabled=false
+```
+
+If you are configuring the server manually, you can disable it via the configurer:
+
+```java
+@Bean
+SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    return http
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), mcp -> {
+                mcp.dynamicClientRegistration(false);
+            })
             .build();
 }
 ```
