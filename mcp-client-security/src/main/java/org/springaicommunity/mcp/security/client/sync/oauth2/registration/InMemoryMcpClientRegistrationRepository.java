@@ -16,6 +16,7 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -34,7 +35,8 @@ import org.springframework.util.StringUtils;
  *
  * @author Daniel Garnier-Moiroux
  */
-public class InMemoryMcpClientRegistrationRepository implements McpClientRegistrationRepository {
+public class InMemoryMcpClientRegistrationRepository
+		implements McpClientRegistrationRepository, Iterable<ClientRegistration> {
 
 	private final Map<String, ClientRegistration> registrations = new ConcurrentHashMap<>();
 
@@ -68,6 +70,11 @@ public class InMemoryMcpClientRegistrationRepository implements McpClientRegistr
 	@Override
 	public @Nullable ClientRegistration findByRegistrationId(String registrationId) {
 		return this.registrations.get(registrationId);
+	}
+
+	@Override
+	public Iterator<ClientRegistration> iterator() {
+		return this.registrations.values().iterator();
 	}
 
 }
