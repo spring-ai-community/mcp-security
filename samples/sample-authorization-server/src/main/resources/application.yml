@@ -27,9 +27,14 @@ spring:
               authorization-grant-types:
                 - "authorization_code"
                 - "client_credentials"
+              scopes:
+                - openid
+                - profile
               redirect-uris:
                 - "http://127.0.0.1:8080/authorize/oauth2/code/authserver"
                 - "http://localhost:8080/authorize/oauth2/code/authserver"
+                - "http://localhost:8080/login/oauth2/code/authserver"
+                - "http://127.0.0.1:8080/login/oauth2/code/authserver"
                 - "http://127.0.0.1:8081/authorize/oauth2/code/authserver"
                 - "http://localhost:8081/authorize/oauth2/code/authserver"
                 - "http://localhost:6274/oauth/callback" # mcp-inspector
