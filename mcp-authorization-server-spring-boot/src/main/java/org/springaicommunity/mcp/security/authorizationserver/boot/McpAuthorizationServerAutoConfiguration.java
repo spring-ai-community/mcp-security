@@ -19,6 +19,7 @@ package org.springaicommunity.mcp.security.authorizationserver.boot;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,6 +32,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -43,6 +45,7 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -66,7 +69,8 @@ class McpAuthorizationServerAutoConfiguration {
 	@Bean
 	@Order(Ordered.HIGHEST_PRECEDENCE)
 	SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
-			McpOAuth2AuthorizationServerProperties properties) {
+			McpOAuth2AuthorizationServerProperties properties,
+			ObjectProvider<Customizer<McpAuthorizationServerConfigurer>> mcpCustomizers) {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpAuthorizationServer(), mcp -> {
 				mcp.dynamicClientRegistration(properties.getDynamicClientRegistration().isEnabled());
@@ -74,6 +78,7 @@ class McpAuthorizationServerAutoConfiguration {
 					http.securityMatcher(new OrRequestMatcher(authzServer.getEndpointsMatcher(),
 							PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
 				});
+				mcpCustomizers.orderedStream().forEach(customizer -> customizer.customize(mcp));
 			})
 			.exceptionHandling((exceptions) -> exceptions.defaultAuthenticationEntryPointFor(
 					new LoginUrlAuthenticationEntryPoint("/login"), createRequestMatcher()))

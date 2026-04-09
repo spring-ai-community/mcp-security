@@ -26,6 +26,7 @@ import org.springframework.boot.security.oauth2.server.authorization.autoconfigu
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
@@ -33,6 +34,10 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -132,6 +137,25 @@ class McpAuthorizationServerAutoConfigurationTests {
 			.run((context) -> {
 				assertThat(context).hasNotFailed();
 			});
+	}
+
+	@Test
+	void customizerIsApplied() {
+		this.contextRunner.withUserConfiguration(CustomizerConfiguration.class).run((context) -> {
+			Customizer<?> customizer = context.getBean(Customizer.class);
+			verify(customizer).customize(any());
+		});
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class CustomizerConfiguration {
+
+		@Bean
+		@SuppressWarnings("unchecked")
+		Customizer<McpAuthorizationServerConfigurer> mcpCustomizer() {
+			return mock(Customizer.class);
+		}
+
 	}
 
 	@Configuration(proxyBeanMethods = false)
