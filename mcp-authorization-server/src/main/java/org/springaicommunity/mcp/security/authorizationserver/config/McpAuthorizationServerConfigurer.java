@@ -84,18 +84,20 @@ public class McpAuthorizationServerConfigurer
 
 	@Override
 	public void init(HttpSecurity http) {
-		http.authorizeHttpRequests(
-				authz -> authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor()))
-			.oauth2AuthorizationServer(authServer -> {
-				authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
-				authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
-				OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
-				authServer.tokenGenerator(tokenGenerator);
-				if (this.supportDynamicClientRegistration) {
-					authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
-				}
-				this.authServerCustomizer.customize(authServer);
-			});
+		http.authorizeHttpRequests(authz -> {
+			if (this.supportDynamicClientRegistration) {
+				authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor());
+			}
+		}).oauth2AuthorizationServer(authServer -> {
+			authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
+			authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
+			OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
+			authServer.tokenGenerator(tokenGenerator);
+			if (this.supportDynamicClientRegistration) {
+				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
+			}
+			this.authServerCustomizer.customize(authServer);
+		});
 
 		// This makes Spring servers happy by ensuring that
 		// NimbusJwtDecoder.withIssuerLocation(...) does not blow up on an HTTP redirect
