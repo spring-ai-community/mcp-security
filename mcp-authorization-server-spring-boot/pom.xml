@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-security-parent</artifactId>
-        <version>0.1.7</version>
+        <version>0.1.8-SNAPSHOT</version>
     </parent>
 
     <artifactId>mcp-authorization-server-spring-boot</artifactId>
