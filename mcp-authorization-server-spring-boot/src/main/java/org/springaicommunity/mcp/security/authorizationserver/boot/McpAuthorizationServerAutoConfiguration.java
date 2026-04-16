@@ -74,11 +74,11 @@ class McpAuthorizationServerAutoConfiguration {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpAuthorizationServer(), mcp -> {
 				mcp.dynamicClientRegistration(properties.getDynamicClientRegistration().isEnabled());
+				mcpCustomizers.orderedStream().forEach(customizer -> customizer.customize(mcp));
 				mcp.authorizationServer(authzServer -> {
 					http.securityMatcher(new OrRequestMatcher(authzServer.getEndpointsMatcher(),
 							PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
 				});
-				mcpCustomizers.orderedStream().forEach(customizer -> customizer.customize(mcp));
 			})
 			.exceptionHandling((exceptions) -> exceptions.defaultAuthenticationEntryPointFor(
 					new LoginUrlAuthenticationEntryPoint("/login"), createRequestMatcher()))
