@@ -1,6 +1,7 @@
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -89,6 +90,13 @@ class McpAuthorizationServerConfigurerTest {
 		assertThat(resp.getResponse().getStatus()).isEqualTo(201);
 	}
 
+	@Test
+	void stackingAuthzServerCustomizers() {
+		var authzServerCustomizerCalled = wac.getBean("authzServerCustomizationCount", AtomicInteger.class);
+
+		assertThat(authzServerCustomizerCalled.get()).isEqualTo(2);
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
 	@EnableWebSecurity
@@ -98,15 +106,22 @@ class McpAuthorizationServerConfigurerTest {
 				"0558BC36-378D-4809-A551-E61F3B8894B9-8ECA8B16-D07E-4856-9564-50637494E51A".getBytes());
 
 		@Bean
-		SecurityFilterChain filterChain(HttpSecurity http) {
+		AtomicInteger authzServerCustomizationCount() {
+			return new AtomicInteger(0);
+		}
+
+		@Bean
+		SecurityFilterChain filterChain(HttpSecurity http, AtomicInteger authzServerCustomizationCount) {
 			http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
 				.formLogin(Customizer.withDefaults())
 				.with(mcpAuthorizationServer(), mcpAuthzServer -> {
 					mcpAuthzServer.dynamicClientRegistration(true);
+					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
 					mcpAuthzServer.authorizationServer(authzServer -> {
 						// usually provided as a Boot bean from properties
 						authzServer.authorizationServerSettings(AuthorizationServerSettings.builder().build());
 					});
+					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
 				});
 			return http.build();
 		}
