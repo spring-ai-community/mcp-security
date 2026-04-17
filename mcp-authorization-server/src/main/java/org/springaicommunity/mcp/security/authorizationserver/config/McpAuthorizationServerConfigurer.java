@@ -16,6 +16,8 @@
 
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -49,7 +51,7 @@ import org.springframework.util.StringUtils;
 public class McpAuthorizationServerConfigurer
 		extends AbstractHttpConfigurer<McpAuthorizationServerConfigurer, HttpSecurity> {
 
-	private Customizer<OAuth2AuthorizationServerConfigurer> authServerCustomizer = Customizer.withDefaults();
+	private final List<Customizer<OAuth2AuthorizationServerConfigurer>> authServerCustomizer = new ArrayList<>();
 
 	private boolean supportDynamicClientRegistration = true;
 
@@ -68,7 +70,7 @@ public class McpAuthorizationServerConfigurer
 			Customizer<OAuth2AuthorizationServerConfigurer> oauth2AuthorizationServerConfigurerCustomizer) {
 		Assert.notNull(oauth2AuthorizationServerConfigurerCustomizer,
 				"oauth2AuthorizationServerConfigurerCustomizer cannot be null");
-		this.authServerCustomizer = oauth2AuthorizationServerConfigurerCustomizer;
+		this.authServerCustomizer.add(oauth2AuthorizationServerConfigurerCustomizer);
 		return this;
 	}
 
@@ -96,7 +98,7 @@ public class McpAuthorizationServerConfigurer
 			if (this.supportDynamicClientRegistration) {
 				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
 			}
-			this.authServerCustomizer.customize(authServer);
+			this.authServerCustomizer.forEach(c -> c.customize(authServer));
 		});
 
 		// This makes Spring servers happy by ensuring that
