@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.experimental.boot.server.exec.CommonsExecWebServerFactoryBean;
 import org.springframework.experimental.boot.test.context.DynamicPortUrl;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import static org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration.ORDER;
 import static org.springframework.experimental.boot.server.exec.MavenClasspathEntry.springBootStarter;
@@ -31,6 +32,7 @@ public class AuthorizationServerConfiguration {
 				.classes(AuthorizationServer.class)
 				.classes(AllowAllCorsConfigurationSource.class)
 				.scan(McpAuthorizationServerConfigurer.class)
+				.scan(OAuth2AuthorizationServerConfigurer.class)
 				.classes(ResourceIdentifierAudienceTokenCustomizer.class));
 	}
 

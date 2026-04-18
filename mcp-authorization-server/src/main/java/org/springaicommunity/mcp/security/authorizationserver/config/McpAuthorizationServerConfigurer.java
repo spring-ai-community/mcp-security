@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -32,13 +33,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.McpDefaultJwtCustomizer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2RefreshTokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -116,7 +120,14 @@ public class McpAuthorizationServerConfigurer
 			if (tokenGenerator == null) {
 				JWKSource<SecurityContext> jwkSource = getJwkSource(http);
 				JwtGenerator jwtGenerator = new JwtGenerator(new NimbusJwtEncoder(jwkSource));
-				jwtGenerator.setJwtCustomizer(new ResourceIdentifierAudienceTokenCustomizer());
+				var audienceTokenCustomizer = new ResourceIdentifierAudienceTokenCustomizer();
+				var defaultCustomizers = McpDefaultJwtCustomizer.DEFAULT_JWT_CUSTOMIZER;
+				var userCustomizers = getJwtCustomizers(http);
+				jwtGenerator.setJwtCustomizer(context -> {
+					defaultCustomizers.customize(context);
+					audienceTokenCustomizer.customize(context);
+					userCustomizers.customize(context);
+				});
 				OAuth2RefreshTokenGenerator refreshTokenGenerator = new OAuth2RefreshTokenGenerator();
 				tokenGenerator = new DelegatingOAuth2TokenGenerator(jwtGenerator, refreshTokenGenerator);
 			}
@@ -124,6 +135,18 @@ public class McpAuthorizationServerConfigurer
 		}
 		http.setSharedObject(OAuth2TokenGenerator.class, tokenGenerator);
 		return tokenGenerator;
+	}
+
+	private OAuth2TokenCustomizer<JwtEncodingContext> getJwtCustomizers(HttpSecurity http) {
+		OAuth2TokenCustomizer<JwtEncodingContext> customizer = http.getSharedObject(OAuth2TokenCustomizer.class);
+		if (customizer == null) {
+			ResolvableType type = ResolvableType.forClassWithGenerics(OAuth2TokenCustomizer.class,
+					JwtEncodingContext.class);
+			List<OAuth2TokenCustomizer<JwtEncodingContext>> customizers = getBeans(http, type);
+			customizer = context -> customizers.forEach(c -> c.customize(context));
+			http.setSharedObject(OAuth2TokenCustomizer.class, customizer);
+		}
+		return customizer;
 	}
 
 	/**
@@ -168,6 +191,12 @@ public class McpAuthorizationServerConfigurer
 			throw new NoUniqueBeanDefinitionException(type, names);
 		}
 		return (names.length == 1) ? (T) context.getBean(names[0]) : null;
+	}
+
+	static <T> List<T> getBeans(HttpSecurity http, ResolvableType type) {
+		ApplicationContext context = http.getSharedObject(ApplicationContext.class);
+		String[] names = context.getBeanNamesForType(type);
+		return Arrays.stream(names).map(beanName -> (T) context.getBean(beanName)).toList();
 	}
 
 }

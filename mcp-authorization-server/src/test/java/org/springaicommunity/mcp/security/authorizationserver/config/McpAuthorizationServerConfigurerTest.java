@@ -1,14 +1,24 @@
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -18,18 +28,20 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.security.web.SecurityFilterChain;
@@ -41,7 +53,6 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration
@@ -84,7 +95,6 @@ class McpAuthorizationServerConfigurerTest {
 		var resp = this.mvc.post()
 			.uri("/oauth2/register")
 			.contentType(MediaType.APPLICATION_JSON)
-			.with(csrf())
 			.content(dcrRequest)
 			.exchange();
 		assertThat(resp.getResponse().getStatus()).isEqualTo(201);
@@ -95,6 +105,29 @@ class McpAuthorizationServerConfigurerTest {
 		var authzServerCustomizerCalled = wac.getBean("authzServerCustomizationCount", AtomicInteger.class);
 
 		assertThat(authzServerCustomizerCalled.get()).isEqualTo(2);
+	}
+
+	@Test
+	void tokenIsCustomized() {
+		var resp = this.mvc.post()
+			.uri("/oauth2/token")
+			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.content("grant_type=client_credentials")
+			.headers(h -> h.setBasicAuth("test-client", "test-secret"))
+			.exchange();
+
+		assertThat(resp).hasStatus(HttpStatus.OK);
+		var mapper = JsonMapper.builder().build();
+		var response = mapper.readValue(resp.getResponse().getContentAsByteArray(), Map.class);
+		var accessToken = response.get("access_token");
+		assertThat(accessToken).isNotNull();
+
+		var token = accessToken.toString();
+		var encodedPayload = token.split("\\.")[1];
+		var decoded = Base64.getUrlDecoder().decode(encodedPayload);
+		var thingy = mapper.readValue(decoded, Map.class);
+
+		assertThat(thingy).containsEntry("one", "one").containsEntry("two", "two");
 	}
 
 	@Configuration(proxyBeanMethods = false)
@@ -114,6 +147,7 @@ class McpAuthorizationServerConfigurerTest {
 		SecurityFilterChain filterChain(HttpSecurity http, AtomicInteger authzServerCustomizationCount) {
 			http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
 				.formLogin(Customizer.withDefaults())
+				.csrf(CsrfConfigurer::disable)
 				.with(mcpAuthorizationServer(), mcpAuthzServer -> {
 					mcpAuthzServer.dynamicClientRegistration(true);
 					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
@@ -148,15 +182,45 @@ class McpAuthorizationServerConfigurerTest {
 			return new InMemoryRegisteredClientRepository(registeredClient);
 		}
 
-		// bypass the need for an RSA asymmetric key in tests
 		@Bean
-		JWKSource<SecurityContext> jwkSource() {
-			return new ImmutableSecret<>(SECRET.getSecretKey());
+		public JWKSource<SecurityContext> jwkSource() {
+			KeyPair keyPair = generateRsaKey();
+			RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+			RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+			RSAKey rsaKey = new RSAKey.Builder(publicKey).privateKey(privateKey)
+				.keyID(UUID.randomUUID().toString())
+				.build();
+			JWKSet jwkSet = new JWKSet(rsaKey);
+			return new ImmutableJWKSet<>(jwkSet);
 		}
 
 		@Bean
-		public JwtDecoder jwtDecoder() {
-			return NimbusJwtDecoder.withSecretKey(SECRET.getSecretKey()).macAlgorithm(MacAlgorithm.HS512).build();
+		public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
+			return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
+		}
+
+		private static KeyPair generateRsaKey() {
+			KeyPair keyPair;
+			try {
+				KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+				keyPairGenerator.initialize(2048);
+				keyPair = keyPairGenerator.generateKeyPair();
+			}
+			catch (Exception ex) {
+				throw new IllegalStateException(ex);
+			}
+			return keyPair;
+		}
+
+		@Bean
+		OAuth2TokenCustomizer<JwtEncodingContext> firstCustomizer() {
+			return jwt -> jwt.getClaims().claim("one", "one");
+		}
+
+		@Bean
+		OAuth2TokenCustomizer<JwtEncodingContext> secondCustomizer() {
+			return jwt -> jwt.getClaims().claim("two", "two");
+
 		}
 
 	}
