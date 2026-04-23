@@ -23,12 +23,14 @@ import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAut
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -50,6 +52,7 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
 		http.authenticationProvider(postProcess(new ApiKeyAuthenticationProvider<>(this.apiKeyEntityRepository)));
+		http.exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
 		registerCsrfOverride(http);
 		if (this.sessionBindingConfigurer != null) {
 			this.sessionBindingConfigurer.init(http);

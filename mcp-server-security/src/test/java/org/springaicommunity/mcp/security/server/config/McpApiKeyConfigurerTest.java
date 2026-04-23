@@ -21,12 +21,14 @@ import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthentication
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ContextConfiguration;
@@ -39,7 +41,9 @@ import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.springaicommunity.mcp.security.server.config.McpApiKeyConfigurer.mcpServerApiKey;
+import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
@@ -77,10 +81,10 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
-	void noApiKeyForbidden() {
+	void noApiKeyReturns401() {
 		var resp = this.mvc.get().uri("/default");
 
-		assertThat(resp).hasStatus(HttpStatus.FORBIDDEN);
+		assertThat(resp).hasStatus(HttpStatus.UNAUTHORIZED);
 	}
 
 	@Test
@@ -126,6 +130,13 @@ class McpApiKeyConfigurerTest {
 		var resp = this.mvc.get().uri("/converter").queryParam("apiKey", "invalid.invalid");
 
 		assertThat(resp).hasStatus(HttpStatus.UNAUTHORIZED);
+	}
+
+	@Test
+	void noCredentialsWithOAuth2AlsoConfiguredThenWwwAuthenticate() {
+		assertThat(this.mvc.get().uri("/combined")).hasStatus(HttpStatus.UNAUTHORIZED)
+			.headers()
+			.containsHeader(HttpHeaders.WWW_AUTHENTICATE);
 	}
 
 	@Test
@@ -198,6 +209,17 @@ class McpApiKeyConfigurerTest {
 					}
 					return ApiKeyAuthenticationToken.unauthenticated(ApiKeyImpl.from(extractedKey));
 				}))
+				.build();
+		}
+
+		@Bean
+		SecurityFilterChain combinedApiKeyAndOAuth2SecurityFilterChain(HttpSecurity http) throws Exception {
+			return http.securityMatcher("/combined/**")
+				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+				.with(mcpServerApiKey(), apiKey -> apiKey.apiKeyRepository(repo()))
+				.with(mcpServerOAuth2(),
+						oauth2 -> oauth2.authorizationServer("https://test-issuer.example.com")
+							.jwtDecoder(mock(JwtDecoder.class)))
 				.build();
 		}
 
