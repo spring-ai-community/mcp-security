@@ -77,10 +77,10 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
-	void noApiKeyForbidden() {
+	void noApiKeyReturns401() {
 		var resp = this.mvc.get().uri("/default");
 
-		assertThat(resp).hasStatus(HttpStatus.FORBIDDEN);
+		assertThat(resp).hasStatus(HttpStatus.UNAUTHORIZED);
 	}
 
 	@Test
