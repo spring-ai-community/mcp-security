@@ -119,6 +119,7 @@ class LlmTests {
 		.stopReason(StopReason.TOOL_USE)
 		.stopSequence("")
 		.usage(mock(Usage.class))
+		.stopDetails(Optional.empty())
 		.build();
 
 	// LLM mock: First response, ask to call the "greeter" tool
@@ -255,7 +256,7 @@ class LlmTests {
 		public AnthropicChatModel anthropicChatModel(AnthropicChatProperties chatProperties,
 				ToolCallingManager toolCallingManager, AnthropicClient anthropicClient,
 				AnthropicClientAsync anthropicClientAsync) {
-			AnthropicChatOptions options = chatProperties.getOptions();
+			AnthropicChatOptions options = chatProperties.toOptions();
 
 			return AnthropicChatModel.builder()
 				.options(options)
@@ -379,6 +380,7 @@ class LlmTests {
 			.delta(RawMessageDeltaEvent.Delta.builder()
 				.stopReason(stopReason)
 				.stopSequence(stopSequence)
+				.stopDetails(Optional.empty())
 				.container((Container) null)
 				.build())
 			.usage(mock(MessageDeltaUsage.class))
