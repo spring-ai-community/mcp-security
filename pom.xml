@@ -12,6 +12,7 @@
     <url>https://github.com/spring-ai-community/mcp-security</url>
     <modules>
         <!-- Library -->
+        <module>mcp-security-common</module>
         <module>mcp-server-security</module>
         <module>mcp-client-security</module>
         <module>mcp-authorization-server</module>

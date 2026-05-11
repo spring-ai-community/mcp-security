@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springaicommunity</groupId>
+        <artifactId>mcp-security-parent</artifactId>
+        <version>0.1.9-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>mcp-security-common</artifactId>
+    <description>
+        Common code for Spring MCP Security, including utilities.
+    </description>
+    <name>Spring AI Community - MCP Security Common</name>
+    <url>https://github.com/spring-ai-community/mcp-security</url>
+
+    <scm>
+        <url>https://github.com/spring-ai-community/mcp-security</url>
+        <connection>git://github.com/spring-ai-community/mcp-security.git</connection>
+        <developerConnection>git@github.com/spring-ai-community/mcp-security.git</developerConnection>
+    </scm>
+
+    <organization>
+        <name>Spring AI Community</name>
+        <url>https://github.com/spring-ai-community</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>Apache License</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Daniel Garnier-Moiroux</name>
+            <email>git@garnier.wf</email>
+            <id>kehrlann</id>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>Github Issues</system>
+        <url>https://github.com/spring-ai-community/mcp-security/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>Github Actions</system>
+        <url>https://github.com/spring-ai-community/mcp-security/actions</url>
+    </ciManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+</project>
