@@ -21,6 +21,7 @@ import java.net.http.HttpRequest;
 
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +62,7 @@ public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSync
 	}
 
 	@Override
-	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
+	public void customize(HttpRequest.Builder builder, String method, URI endpoint, @Nullable String body,
 			McpTransportContext context) {
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.clientRegistrationId)

@@ -25,6 +25,7 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
@@ -81,7 +82,7 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 	}
 
 	@Override
-	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
+	public void customize(HttpRequest.Builder builder, String method, URI endpoint, @Nullable String body,
 			McpTransportContext context) {
 		if (!(context
 			.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY) instanceof Authentication authentication)
@@ -91,12 +92,14 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 			return;
 		}
 
-		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
+		OAuth2AuthorizeRequest.Builder authorizeRequestBuilder = OAuth2AuthorizeRequest
 			.withClientRegistrationId(this.clientRegistrationId)
 			.principal(authentication)
-			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest())
-			.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse())
-			.build();
+			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest());
+		if (requestAttributes.getResponse() != null) {
+			authorizeRequestBuilder.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse());
+		}
+		OAuth2AuthorizeRequest authorizeRequest = authorizeRequestBuilder.build();
 		log.debug("Requesting access token for client [{}]", this.clientRegistrationId);
 
 		var registration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);

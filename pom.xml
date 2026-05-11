@@ -80,7 +80,7 @@
 
         <mcp.java.sdk.version>2.0.0-M2</mcp.java.sdk.version>
         <spring-ai.version>2.0.0-M6</spring-ai.version>
-        <spring-boot.version>4.0.2</spring-boot.version>
+        <spring-boot.version>4.1.0-RC1</spring-boot.version>
         <spring-boot-testjars.version>0.4.0.0</spring-boot-testjars.version>
 
         <!-- plugin versions -->

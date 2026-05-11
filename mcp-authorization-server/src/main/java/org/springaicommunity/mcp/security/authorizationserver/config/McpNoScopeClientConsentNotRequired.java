@@ -1,5 +1,7 @@
 package org.springaicommunity.mcp.security.authorizationserver.config;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import org.springframework.security.config.ObjectPostProcessor;
@@ -25,18 +27,18 @@ class McpNoScopeClientConsentNotRequired implements Predicate<OAuth2Authorizatio
 		if (!authenticationContext.getRegisteredClient().getClientSettings().isRequireAuthorizationConsent()) {
 			return false;
 		}
-		if (authenticationContext.getAuthorizationRequest().getScopes().isEmpty()) {
+		Set<String> scopes = authenticationContext.getAuthorizationRequest() != null
+				? authenticationContext.getAuthorizationRequest().getScopes() : Collections.emptySet();
+		if (scopes.isEmpty()) {
 			return false;
 		}
 		// 'openid' scope does not require consent
-		if (authenticationContext.getAuthorizationRequest().getScopes().contains(OidcScopes.OPENID)
-				&& authenticationContext.getAuthorizationRequest().getScopes().size() == 1) {
+		if (scopes.contains(OidcScopes.OPENID) && scopes.size() == 1) {
 			return false;
 		}
 
-		if (authenticationContext.getAuthorizationConsent() != null && authenticationContext.getAuthorizationConsent()
-			.getScopes()
-			.containsAll(authenticationContext.getAuthorizationRequest().getScopes())) {
+		if (authenticationContext.getAuthorizationConsent() != null
+				&& authenticationContext.getAuthorizationConsent().getScopes().containsAll(scopes)) {
 			return false;
 		}
 
