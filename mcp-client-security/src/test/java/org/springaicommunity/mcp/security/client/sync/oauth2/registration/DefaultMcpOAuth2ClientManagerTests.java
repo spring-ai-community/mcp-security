@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 import java.util.List;
+import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -30,6 +31,8 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadat
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.ProtectedResourceMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -38,8 +41,10 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -77,8 +82,10 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 	private final McpMetadataDiscoveryService discovery = mock(McpMetadataDiscoveryService.class);
 
+	private final UrlValidator urlValidator = mock(UrlValidator.class);
+
 	private final DefaultMcpOAuth2ClientManager manager = new DefaultMcpOAuth2ClientManager(this.repository,
-			this.clientRegistrationService, this.discovery);
+			this.clientRegistrationService, this.discovery, this.urlValidator);
 
 	@BeforeAll
 	static void beforeAll() {
@@ -88,7 +95,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 				.clientId("placeholder")
 				.tokenUri(ISSUER_URL + "/oauth2/token")
-				.authorizationUri(ISSUER_URL + "/oauth2/authorize"));
+				.authorizationUri(ISSUER_URL + "/oauth2/authorize")
+				.providerConfigurationMetadata(Map.of("token_endpoint", ISSUER_URL + "/oauth2/token",
+						"authorization_endpoint", ISSUER_URL + "/oauth2/authorize")));
 
 	}
 
@@ -181,6 +190,22 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration.getScopes()).containsExactly("mcp:custom");
+		}
+
+		@Test
+		@DisplayName("Throws when configuration metadata contains invalid URL")
+		void throwsWhenConfigurationMetadataContainsInvalidUrl() throws InvalidUrlException {
+			var wwwAuthParams = WwwAuthenticateParameters
+				.parse("Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"");
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
+			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
+			var tokenUrl = ISSUER_URL + "/oauth2/token";
+			doThrow(new InvalidUrlException("Invalid test url", tokenUrl)).when(urlValidator).validateUrl(tokenUrl);
+
+			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
+					DynamicClientRegistrationRequest.builder().build()))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("Invalid token_endpoint [value=%s]: Invalid test url".formatted(tokenUrl));
 		}
 
 		private void configureMocks(@Nullable WwwAuthenticateParameters wwwAuthParams,

@@ -31,6 +31,8 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.Dynami
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
@@ -72,6 +74,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	public @Nullable String baseUrl = null;
 
 	private final boolean canListenForWebServerInitialized;
+
+	private @Nullable UrlValidator urlValidator = null;
 
 	public McpClientOAuth2Configurer() {
 		this.canListenForWebServerInitialized = ClassUtils.isPresent(
@@ -153,6 +157,17 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 */
 	public McpClientOAuth2Configurer baseUrl(String baseUrl) {
 		this.baseUrl = baseUrl;
+		return this;
+	}
+
+	/**
+	 * Sets the URL validator for MCP servers and auth servers.
+	 * @param urlValidator the URL validator.
+	 * @return The {@link McpClientOAuth2Configurer} for further configuration
+	 */
+	public McpClientOAuth2Configurer urlValidator(UrlValidator urlValidator) {
+		Assert.notNull(urlValidator, "urlValidator cannot be null");
+		this.urlValidator = urlValidator;
 		return this;
 	}
 
@@ -240,7 +255,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 		if (clientRegistrationRepository instanceof McpClientRegistrationRepository mcpRepo) {
 			return new DefaultMcpOAuth2ClientManager(mcpRepo, getDynamicClientRegistrationService(http),
-					getMcpMetadataDiscovery(http));
+					getMcpMetadataDiscovery(http), getUrlValidator(http));
 		}
 		throw new IllegalStateException(
 				"Cannot create a DefaultMcpOAuth2ClientManager: the ClientRegistrationRepository is not an McpClientRegistrationRepository. "
@@ -253,7 +268,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		if (discovery == null) {
 			discovery = getOptionalBean(http, McpMetadataDiscoveryService.class);
 			if (discovery == null) {
-				discovery = new McpMetadataDiscoveryService();
+				discovery = new McpMetadataDiscoveryService(getUrlValidator(http));
 			}
 			http.setSharedObject(McpMetadataDiscoveryService.class, discovery);
 		}
@@ -266,11 +281,29 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		if (clientRegistrationService == null) {
 			clientRegistrationService = getOptionalBean(http, DynamicClientRegistrationService.class);
 			if (clientRegistrationService == null) {
-				clientRegistrationService = new DynamicClientRegistrationService();
+				clientRegistrationService = new DynamicClientRegistrationService(getUrlValidator(http));
 			}
 			http.setSharedObject(DynamicClientRegistrationService.class, clientRegistrationService);
 		}
 		return clientRegistrationService;
+	}
+
+	private UrlValidator getUrlValidator(HttpSecurity http) {
+		var urlValidator = this.urlValidator;
+		var sharedUrlValidator = http.getSharedObject(UrlValidator.class);
+		if (urlValidator != null && sharedUrlValidator == null) {
+			http.setSharedObject(UrlValidator.class, urlValidator);
+		}
+		urlValidator = urlValidator != null ? urlValidator : sharedUrlValidator;
+		if (urlValidator == null) {
+			urlValidator = getOptionalBean(http, UrlValidator.class);
+			if (urlValidator == null) {
+				urlValidator = new DefaultUrlValidator();
+			}
+			http.setSharedObject(UrlValidator.class, new DefaultUrlValidator());
+
+		}
+		return urlValidator;
 	}
 
 	/**

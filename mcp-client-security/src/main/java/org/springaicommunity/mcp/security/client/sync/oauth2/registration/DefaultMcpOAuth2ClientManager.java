@@ -16,12 +16,16 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
@@ -50,14 +54,19 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 
 	private final McpMetadataDiscoveryService discovery;
 
+	private final UrlValidator urlValidator;
+
 	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
-			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery) {
+			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
+			UrlValidator urlValidator) {
 		super(repository);
 		Assert.notNull(repository, "repository cannot be null");
 		Assert.notNull(clientRegistrationService, "clientRegistrationService cannot be null");
 		Assert.notNull(discovery, "discovery cannot be null");
+		Assert.notNull(urlValidator, "urlValidator cannot be null");
 		this.clientRegistrationService = clientRegistrationService;
 		this.discovery = discovery;
+		this.urlValidator = urlValidator;
 	}
 
 	@Override
@@ -107,6 +116,7 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 				registrationResponse.clientId());
 		var clientRegistration = toClientRegistration(registrationId, issuerUrl, finalRegistrationRequest,
 				registrationResponse);
+		validateClientRegistration(clientRegistration);
 		this.repository.addClientRegistration(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
 	}
 
@@ -185,6 +195,26 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 		}
 
 		return registrationBuilder.build();
+	}
+
+	private void validateClientRegistration(ClientRegistration clientRegistration) {
+		var configuration = clientRegistration.getProviderDetails().getConfigurationMetadata();
+		if (configuration == null) {
+			return;
+		}
+		var uris = List.of("authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri");
+		for (var uri : uris) {
+			var url = configuration.get(uri);
+			if (url != null) {
+				try {
+					urlValidator.validateUrl(url.toString());
+				}
+				catch (InvalidUrlException e) {
+					throw new IllegalStateException(String.format("Invalid %s [value=%s]: " + e.getMessage(), uri, url),
+							e);
+				}
+			}
+		}
 	}
 
 }
