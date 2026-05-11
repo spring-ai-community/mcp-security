@@ -25,6 +25,8 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemo
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -78,14 +80,20 @@ class McpOAuth2ClientConfigurations {
 
 		@Bean
 		@ConditionalOnMissingBean
-		McpMetadataDiscoveryService mcpMetadataDiscoveryService() {
-			return new McpMetadataDiscoveryService();
+		UrlValidator urlValidator(McpOAuth2ClientProperties properties) {
+			return new DefaultUrlValidator(properties.getDynamicClientRegistration().isAllowLoopbackAddresses());
 		}
 
 		@Bean
 		@ConditionalOnMissingBean
-		DynamicClientRegistrationService dynamicClientRegistrationService() {
-			return new DynamicClientRegistrationService();
+		McpMetadataDiscoveryService mcpMetadataDiscoveryService(UrlValidator urlValidator) {
+			return new McpMetadataDiscoveryService(urlValidator);
+		}
+
+		@Bean
+		@ConditionalOnMissingBean
+		DynamicClientRegistrationService dynamicClientRegistrationService(UrlValidator urlValidator) {
+			return new DynamicClientRegistrationService(urlValidator);
 		}
 
 	}

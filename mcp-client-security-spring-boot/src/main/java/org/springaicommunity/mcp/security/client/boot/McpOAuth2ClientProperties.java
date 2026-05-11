@@ -52,6 +52,22 @@ public class McpOAuth2ClientProperties {
 		 */
 		private boolean enabled = false;
 
+		/**
+		 * Allow communicating with MCP Servers and Authorization Servers on loopback
+		 * interfaces, including localhost, 127.0.0.1 and [::1].
+		 * <p>
+		 * For development use only.
+		 */
+		private boolean allowLoopbackAddresses = false;
+
+		public boolean isAllowLoopbackAddresses() {
+			return allowLoopbackAddresses;
+		}
+
+		public void setAllowLoopbackAddresses(boolean allowLoopbackAddresses) {
+			this.allowLoopbackAddresses = allowLoopbackAddresses;
+		}
+
 		public boolean isEnabled() {
 			return enabled;
 		}
