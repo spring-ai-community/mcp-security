@@ -165,6 +165,7 @@
                     <compilerArgs>
                         <compilerArg>-parameters</compilerArg>
                         <compilerArg>-XDcompilePolicy=simple</compilerArg>
+                        <compilerArg>--should-stop=ifError=FLOW</compilerArg>
                         <compilerArg>
                             -Xplugin:ErrorProne
                             -Xep:NullAway:ERROR
@@ -179,7 +180,7 @@
                         <path>
                             <groupId>com.google.errorprone</groupId>
                             <artifactId>error_prone_core</artifactId>
-                            <version>2.23.0</version>
+                            <version>2.39.0</version>
                         </path>
                         <path>
                             <groupId>com.uber.nullaway</groupId>
