@@ -420,6 +420,8 @@ spring.ai.mcp.client.streamable-http.connections.my-mcp-server.url=http://localh
 
 # Enable Dynamic Client Registration (default: false)
 spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true
+# For development purposes, allow loopback addresses for MCP Servers and Auth Servers (default: false)
+spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
 ```
 
 Then, configure a `SecurityFilterChain` with the provided `McpClientOAuth2Configurer`:
@@ -447,7 +449,7 @@ This is all you need. The auto-configuration module sets up the following beans:
 - `McpClientRegistrationRepository`: a `ClientRegistrationRepository` that also tracks the associated MCP resource
   identifier
 - `McpOAuth2ClientManager`: manages Dynamic Client Registration (DCR) and scope step-up
-- `McpMetadataDiscoveryService` and `DynamicClientRegistrationService`: infrastructure for DCR
+- `UrlValidator`, `McpMetadataDiscoveryService` and `DynamicClientRegistrationService`: infrastructure for DCR
 - Various `McpClientConfigurer` to update MCP transports and MCP clients so a token is added on every request
 
 For a complete working example, see the
@@ -518,8 +520,25 @@ When enabled, the flow works as follows:
 
 DCR is disabled by default in the `mcp-client-security-spring-boot` auto-configuration.
 To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
-When disabled, ensure you either have a single `ClientRegistration` registered under `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
+When disabled, ensure you either have a single `ClientRegistration` registered under
+`spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
 Scope step-up is still supported when DCR is disabled.
+
+#### URL Validation
+
+As a security measure to prevent Server-Side Request Forgery (SSRF), MCP Security enforces HTTPS for all URLs involved
+in the Dynamic Client Registration flow, including the resource metadata URL and the authorization server endpoints.
+This validation is provided by the `UrlValidator` interface and its implementation.
+For production use-cases, tailor the SSRF checks to your specific network setup with a custom implementation of
+`UrlValidator`.
+
+When using `mcp-client-security-spring-boot`, when running in development mode, you may need to allow HTTP urls. You can
+explicitly allow HTTP for loopback addresses (like `localhost`, `127.0.0.1`, and `[::1]`) by setting the following
+property:
+
+```properties
+spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
+```
 
 ### Use with `McpClientOAuth2Configurer`
 
