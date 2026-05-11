@@ -22,6 +22,7 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.Dynami
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
 import org.springaicommunity.mcp.security.tests.common.configuration.AuthorizationServerConfiguration;
@@ -188,8 +189,10 @@ class DynamicClientRegistrationTests {
 
 		@Bean
 		McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+			var validator = new DefaultUrlValidator(true);
 			return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
-					new DynamicClientRegistrationService(), new McpMetadataDiscoveryService());
+					new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator),
+					validator);
 		}
 
 		@Bean

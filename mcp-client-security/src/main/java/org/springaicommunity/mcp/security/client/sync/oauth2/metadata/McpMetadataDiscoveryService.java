@@ -22,6 +22,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
+import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -50,19 +53,26 @@ public class McpMetadataDiscoveryService {
 
 	private final RestClient restClient;
 
+	private final UrlValidator urlValidator;
+
 	private static final String WELL_KNOWN_PATH_SEGMENT = "/.well-known/oauth-protected-resource";
 
 	public McpMetadataDiscoveryService() {
-		this.restClient = RestClient.builder()
+		this(new DefaultUrlValidator());
+	}
+
+	public McpMetadataDiscoveryService(UrlValidator urlValidator) {
+		this(RestClient.builder()
 			.configureMessageConverters((converters) -> converters.registerDefaults()
 				.withJsonConverter(new JacksonJsonHttpMessageConverter(JsonMapper.builder()
 					.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
 					.changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL)))))
-			.build();
+			.build(), urlValidator);
 	}
 
-	public McpMetadataDiscoveryService(RestClient restClient) {
+	public McpMetadataDiscoveryService(RestClient restClient, UrlValidator urlValidator) {
 		this.restClient = restClient;
+		this.urlValidator = urlValidator;
 	}
 
 	/**
@@ -162,6 +172,12 @@ public class McpMetadataDiscoveryService {
 	 * @return The Protected Resource Metadata document
 	 */
 	public @Nullable ProtectedResourceMetadata getProtectedResourceMetadata(String resourceMetadataUrl) {
+		try {
+			urlValidator.validateUrl(resourceMetadataUrl);
+		}
+		catch (InvalidUrlException e) {
+			throw new IllegalStateException("Invalid MCP resource metadata url: " + e.getMessage(), e);
+		}
 		try {
 			log.debug("Reading protected resource metadata [{}]", resourceMetadataUrl);
 			var prm = restClient.get().uri(resourceMetadataUrl).retrieve().body(ProtectedResourceMetadata.class);

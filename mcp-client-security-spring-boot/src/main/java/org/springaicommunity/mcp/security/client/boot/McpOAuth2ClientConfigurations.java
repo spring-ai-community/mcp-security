@@ -96,13 +96,14 @@ class McpOAuth2ClientConfigurations {
 	static class OAuth2ClientManagerConfiguration {
 
 		@Bean
-		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class, })
+		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class,
+				UrlValidator.class })
 		DefaultMcpOAuth2ClientManager mcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository,
 				DynamicClientRegistrationService dynamicClientRegistrationService,
-				McpMetadataDiscoveryService mcpMetadataDiscoveryService) {
+				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
 			return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository, dynamicClientRegistrationService,
-					mcpMetadataDiscoveryService);
+					mcpMetadataDiscoveryService, urlValidator);
 		}
 
 		@Bean

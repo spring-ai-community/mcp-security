@@ -19,6 +19,9 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
+import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
+import org.springaicommunity.mcp.security.common.url.UrlValidator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -44,22 +47,35 @@ public class DynamicClientRegistrationService {
 
 	private final RestClient restClient;
 
+	private final UrlValidator urlValidator;
+
 	public DynamicClientRegistrationService() {
-		this.restClient = RestClient.builder()
+		this(new DefaultUrlValidator());
+	}
+
+	public DynamicClientRegistrationService(UrlValidator validator) {
+		this(RestClient.builder()
 			.configureMessageConverters((converters) -> converters.registerDefaults()
 				.withJsonConverter(new JacksonJsonHttpMessageConverter(JsonMapper.builder()
 					.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
 					.changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL)))))
-			.build();
+			.build(), validator);
 	}
 
-	public DynamicClientRegistrationService(RestClient restClient) {
+	public DynamicClientRegistrationService(RestClient restClient, UrlValidator urlValidator) {
 		this.restClient = restClient;
+		this.urlValidator = urlValidator;
 	}
 
 	public DynamicClientRegistrationResponse register(DynamicClientRegistrationRequest registrationRequest,
 			String authServerUrl) {
 		var registrationEndpoint = findRegistrationEndpoint(authServerUrl);
+		try {
+			urlValidator.validateUrl(registrationEndpoint);
+		}
+		catch (InvalidUrlException e) {
+			throw new IllegalStateException("Invalid registration_endpoint URL: " + e.getMessage(), e);
+		}
 		log.debug("Performing dynamic client registration at [{}]", registrationEndpoint);
 		var registrationResponse = restClient.post()
 			.uri(registrationEndpoint)
@@ -75,6 +91,12 @@ public class DynamicClientRegistrationService {
 	}
 
 	private String findRegistrationEndpoint(String authServerUrl) {
+		try {
+			urlValidator.validateUrl(authServerUrl);
+		}
+		catch (InvalidUrlException e) {
+			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
+		}
 		log.debug("Discovering registration endpoint for auth server [{}]", authServerUrl);
 		var builder = ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
 		var registrationEndpoint = builder.getProviderDetails().getConfigurationMetadata().get("registration_endpoint");
