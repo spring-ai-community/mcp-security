@@ -53,7 +53,7 @@ required beyond setting the issuer URI.
     <dependency>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-server-security-spring-boot</artifactId>
-        <version>0.1.9</version>
+        <version>0.1.10</version>
     </dependency>
 
 </dependencies>
@@ -62,7 +62,7 @@ required beyond setting the issuer URI.
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-server-security-spring-boot:0.1.9")
+implementation("org.springaicommunity:mcp-server-security-spring-boot:0.1.10")
 ```
 
 Then configure your `application.properties`:
@@ -95,7 +95,7 @@ you can use the lower-level `mcp-server-security` module directly.
     <dependency>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-server-security</artifactId>
-        <version>0.1.9</version>
+        <version>0.1.10</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.boot</groupId>
@@ -115,7 +115,7 @@ you can use the lower-level `mcp-server-security` module directly.
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-server-security:0.1.9")
+implementation("org.springaicommunity:mcp-server-security:0.1.10")
 implementation("org.springframework.boot:spring-boot-starter-security")
 
 // OPTIONAL
@@ -392,7 +392,7 @@ The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-
     <dependency>
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-client-security-spring-boot</artifactId>
-        <version>0.1.9</version>
+        <version>0.1.10</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.ai</groupId>
@@ -405,7 +405,7 @@ The easiest way to add OAuth2 support to your MCP clients is with the Boot auto-
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-client-security-spring-boot:0.1.9")
+implementation("org.springaicommunity:mcp-client-security-spring-boot:0.1.10")
 implementation("org.springframework.ai:spring-ai-starter-mcp-client")
 ```
 
@@ -467,14 +467,14 @@ If you prefer wiring beans yourself (e.g. for advanced or non-Boot use-cases), y
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-client-security</artifactId>
-    <version>0.1.9</version>
+    <version>0.1.10</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-client-security:0.1.9")
+implementation("org.springaicommunity:mcp-client-security:0.1.10")
 ```
 
 ### Authorization flows
@@ -925,14 +925,14 @@ It provides default `SecurityFilterChain`s that secure all endpoints and configu
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server-spring-boot</artifactId>
-    <version>0.1.9</version>
+    <version>0.1.10</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-authorization-server-spring-boot:0.1.9")
+implementation("org.springaicommunity:mcp-authorization-server-spring-boot:0.1.10")
 ```
 
 
@@ -946,14 +946,14 @@ If you prefer wiring beans yourself (e.g. for advanced customization or non-Boot
 <dependency>
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-authorization-server</artifactId>
-    <version>0.1.9</version>
+    <version>0.1.10</version>
 </dependency>
 ```
 
 *Gradle*
 
 ```groovy
-implementation("org.springaicommunity:mcp-authorization-server:0.1.9")
+implementation("org.springaicommunity:mcp-authorization-server:0.1.10")
 ```
 
 ### Usage
