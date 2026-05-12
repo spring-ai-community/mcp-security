@@ -98,12 +98,6 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- Used for DCR -->
-        <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>provided</scope>
-        </dependency>
         <!-- Used for computing the {baseUrl} in redirect URIs after server startup -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
