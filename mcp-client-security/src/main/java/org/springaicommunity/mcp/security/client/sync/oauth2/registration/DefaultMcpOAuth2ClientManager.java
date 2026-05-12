@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
@@ -55,6 +56,18 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 	private final McpMetadataDiscoveryService discovery;
 
 	private final UrlValidator urlValidator;
+
+	/**
+	 * @deprecated use
+	 * {@link DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository,
+	 * DynamicClientRegistrationService, McpMetadataDiscoveryService, UrlValidator)}
+	 * instead.
+	 */
+	@Deprecated
+	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
+			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery) {
+		this(repository, clientRegistrationService, discovery, new DefaultUrlValidator());
+	}
 
 	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
