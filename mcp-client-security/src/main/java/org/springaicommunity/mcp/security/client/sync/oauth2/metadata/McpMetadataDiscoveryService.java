@@ -17,18 +17,19 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.metadata;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.json.JsonMapper;
 
-import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.convert.TypeDescriptor;
+import org.springframework.security.oauth2.core.converter.ClaimConversionService;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -37,8 +38,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  * Service to obtain metadata from an MCP server, from WWW-Authenticate headers on
  * unauthorized calls and from OAuth2 Protected Resource Metadata endpoint.
  * <p>
- * Uses a RestClient internally to perform HTTP requests. By default, uses a new rest
- * client with a Jackson JSON mapper.
+ * Uses a RestClient internally to perform HTTP requests, and extracts the result as a
+ * {@link Map}.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc9728">RFC9728 - Protected
@@ -57,17 +58,17 @@ public class McpMetadataDiscoveryService {
 
 	private static final String WELL_KNOWN_PATH_SEGMENT = "/.well-known/oauth-protected-resource";
 
+	private final TypeDescriptor LIST_STRING_TYPE = TypeDescriptor.collection(List.class,
+			TypeDescriptor.valueOf(String.class));
+
+	private final ClaimConversionService claimConversionService = ClaimConversionService.getSharedInstance();
+
 	public McpMetadataDiscoveryService() {
 		this(new DefaultUrlValidator());
 	}
 
 	public McpMetadataDiscoveryService(UrlValidator urlValidator) {
-		this(RestClient.builder()
-			.configureMessageConverters((converters) -> converters.registerDefaults()
-				.withJsonConverter(new JacksonJsonHttpMessageConverter(JsonMapper.builder()
-					.propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
-					.changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_NULL)))))
-			.build(), urlValidator);
+		this(RestClient.create(), urlValidator);
 	}
 
 	public McpMetadataDiscoveryService(RestClient restClient, UrlValidator urlValidator) {
@@ -180,13 +181,26 @@ public class McpMetadataDiscoveryService {
 		}
 		try {
 			log.debug("Reading protected resource metadata [{}]", resourceMetadataUrl);
-			var prm = restClient.get().uri(resourceMetadataUrl).retrieve().body(ProtectedResourceMetadata.class);
-			if (prm == null) {
+			var typeRef = new ParameterizedTypeReference<Map<String, Object>>() {
+			};
+			var response = restClient.get().uri(resourceMetadataUrl).retrieve().body(typeRef);
+			if (response == null) {
 				log.debug("Protected resource metadata body is null for [{}]", resourceMetadataUrl);
 				return null;
 			}
-			log.debug("Got Protected Resource Metadata: {}", prm);
-			return prm;
+			log.debug("Got Protected Resource Metadata: {}", response);
+			if (response.get("resource") == null) {
+				throw new IllegalStateException("Resource claim in Protected Resource Metadata should not be null");
+			}
+			String resource = response.get("resource").toString();
+			var scopesSupported = response.get("scopes_supported") != null
+					? (List<String>) claimConversionService.convert(response.get("scopes_supported"), LIST_STRING_TYPE)
+					: null;
+			var authorizationServers = response.get("authorization_servers") != null
+					? (List<String>) claimConversionService.convert(response.get("authorization_servers"),
+							LIST_STRING_TYPE)
+					: null;
+			return new ProtectedResourceMetadata(resource, authorizationServers, scopesSupported);
 		}
 		catch (HttpClientErrorException.NotFound | HttpClientErrorException.Unauthorized e) {
 			log.debug("Could not get protected resource metadata from [{}]: {}", resourceMetadataUrl, e.getMessage());

@@ -18,8 +18,13 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.metadata;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
-import org.springframework.web.client.RestClient;
 
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.match.MockRestRequestMatchers;
+import org.springframework.test.web.client.response.MockRestResponseCreators;
+import org.springframework.web.client.RestClient;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -32,7 +37,7 @@ import static org.mockito.Mockito.verify;
 class McpMetadataDiscoveryServiceTests {
 
 	@Test
-	void getProtectedResourceMetadataValidatesUrl() throws InvalidUrlException {
+	void validateUrl() throws InvalidUrlException {
 		UrlValidator urlValidator = mock(UrlValidator.class);
 		doThrow(new InvalidUrlException("Invalid URL", "http://bad")).when(urlValidator).validateUrl(anyString());
 
@@ -44,6 +49,40 @@ class McpMetadataDiscoveryServiceTests {
 			.hasMessage("Invalid MCP resource metadata url: Invalid URL");
 
 		verify(urlValidator).validateUrl("http://bad");
+	}
+
+	@Test
+	void convertHttpResponse() {
+		var rcBuilder = RestClient.builder();
+		var mockServer = MockRestServiceServer.bindTo(rcBuilder).build();
+		var client = rcBuilder.build();
+		var sampleResponse = """
+				{
+					"resource": "https://resource.example.com/mcp",
+					"authorization_servers": ["https://as1.example.com",  "https://as2.example.net"],
+					"bearer_methods_supported": ["header", "body"],
+					"scopes_supported": ["profile", "email", "phone"],
+					"resource_documentation": "https://resource.example.com/resource_documentation.html"
+				}
+				""";
+
+		mockServer.expect(MockRestRequestMatchers.requestTo("https://resource.example.com/mcp"))
+			.andRespond(MockRestResponseCreators.withUnauthorizedRequest()
+				.header("WWW-Authenticate",
+						"Bearer resource=https://resource.example.com/.well-known/oauth-protected-resource/mcp"));
+		mockServer
+			.expect(MockRestRequestMatchers
+				.requestTo("https://resource.example.com/.well-known/oauth-protected-resource/mcp"))
+			.andRespond(MockRestResponseCreators.withSuccess(sampleResponse, MediaType.APPLICATION_JSON));
+
+		var service = new McpMetadataDiscoveryService(client, url -> {
+		});
+		var response = service.getMcpMetadata("https://resource.example.com/mcp");
+
+		assertThat(response.protectedResourceMetadata().resource()).isEqualTo("https://resource.example.com/mcp");
+		assertThat(response.protectedResourceMetadata().authorizationServers())
+			.containsExactly("https://as1.example.com", "https://as2.example.net");
+		assertThat(response.protectedResourceMetadata().scopesSupported()).containsExactly("profile", "email", "phone");
 	}
 
 }
