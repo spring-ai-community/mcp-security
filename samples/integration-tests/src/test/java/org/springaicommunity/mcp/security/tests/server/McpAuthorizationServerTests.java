@@ -136,7 +136,6 @@ class McpAuthorizationServerTests {
 					],
 					"client_name": "Dynamically Registered Client",
 					"token_endpoint_auth_method": "client_secret_basic",
-					"scope": "test.read,test.write",
 					"resource": "http://localhost:8080/"
 				}
 				""").exchange();
@@ -159,10 +158,9 @@ class McpAuthorizationServerTests {
 						"grant_types": [
 							"client_credentials"
 						],
-						"client_name": "Client Credentials-based dynamic client",
-						"token_endpoint_auth_method": "client_secret_basic",
-						"scope": "test.read test.write",
-						"resource": "http://localhost:8080/"
+					"client_name": "Client Credentials-based dynamic client",
+					"token_endpoint_auth_method": "client_secret_basic",
+					"resource": "http://localhost:8080/"
 					}
 					""")
 			.exchange();
@@ -176,7 +174,7 @@ class McpAuthorizationServerTests {
 		var clientResponse = client.post()
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=client_credentials&resource=http://localhost:8080/&scope=test.write")
+			.body("grant_type=client_credentials&resource=http://localhost:8080/")
 			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
 			.exchange();
 
@@ -268,7 +266,7 @@ class McpAuthorizationServerTests {
 		var clientResponse = client.post()
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=authorization_code&scope=test.write&code_verifier=" + codeVerifier + "&code=" + code)
+			.body("grant_type=authorization_code&code_verifier=" + codeVerifier + "&code=" + code)
 			.headers(h -> h.setBasicAuth(registeredClient.clientId(), registeredClient.clientSecret()))
 			.exchange();
 
@@ -332,8 +330,8 @@ class McpAuthorizationServerTests {
 		var clientResponse = client.post()
 			.uri("/oauth2/token")
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-			.body("grant_type=authorization_code" + "&scope=test.write" + "&resource=https://example.com"
-					+ "&code_verifier=" + codeVerifier + "&code=" + code)
+			.body("grant_type=authorization_code" + "&resource=https://example.com" + "&code_verifier=" + codeVerifier
+					+ "&code=" + code)
 			.headers(h -> h.setBasicAuth(clientId, clientSecret))
 			.exchange();
 
@@ -356,7 +354,6 @@ class McpAuthorizationServerTests {
 						],
 						"client_name": "auth-code-test-client",
 						"token_endpoint_auth_method": "client_secret_basic",
-						"scope": "test.read test.write",
 						"resource": "http://localhost:8080/"
 					}
 					""")

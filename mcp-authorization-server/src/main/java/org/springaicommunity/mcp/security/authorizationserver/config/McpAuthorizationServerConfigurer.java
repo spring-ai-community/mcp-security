@@ -153,7 +153,7 @@ public class McpAuthorizationServerConfigurer
 	 * Lifted from
 	 * {@code org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2ConfigurerUtils}.
 	 */
-	@Nullable static JWKSource<SecurityContext> getJwkSource(HttpSecurity http) {
+	static JWKSource<SecurityContext> getJwkSource(HttpSecurity http) {
 		JWKSource<SecurityContext> jwkSource = http.getSharedObject(JWKSource.class);
 		if (jwkSource == null) {
 			ResolvableType type = ResolvableType.forClassWithGenerics(JWKSource.class, SecurityContext.class);
@@ -161,6 +161,9 @@ public class McpAuthorizationServerConfigurer
 			if (jwkSource != null) {
 				http.setSharedObject(JWKSource.class, jwkSource);
 			}
+		}
+		if (jwkSource == null) {
+			throw new IllegalStateException("Missing JWKSource bean.");
 		}
 		return jwkSource;
 	}

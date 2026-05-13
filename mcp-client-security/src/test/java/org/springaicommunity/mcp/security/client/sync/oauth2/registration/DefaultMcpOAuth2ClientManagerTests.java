@@ -139,6 +139,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 					DynamicClientRegistrationRequest.builder().build());
 
 			var savedRegistration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(savedRegistration).isNotNull();
 			assertThat(savedRegistration.getRegistrationId()).isEqualTo(REGISTRATION_ID);
 			assertThat(savedRegistration.getClientId()).isEqualTo("client-id-123");
 			assertThat(savedRegistration.getClientSecret()).isEqualTo("client-secret");
@@ -158,6 +159,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 					DynamicClientRegistrationRequest.builder().build());
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:read", "mcp:write");
 		}
 
@@ -174,6 +176,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 					DynamicClientRegistrationRequest.builder().build());
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:tools", "mcp:prompts");
 		}
 
@@ -189,6 +192,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:custom");
 		}
 
@@ -288,7 +292,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"invalid_token\", scope=\"mcp:read\"");
 
 			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).isNullOrEmpty();
 		}
 
 		@Test
@@ -298,7 +304,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\"");
 
 			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).isNullOrEmpty();
 		}
 
 		@Test
@@ -310,8 +318,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read\"");
 
 			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 		@Test
@@ -322,8 +331,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 		@Test
@@ -335,8 +345,9 @@ class DefaultMcpOAuth2ClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:write\"");
 
 			assertThat(result).isTrue();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 	}
