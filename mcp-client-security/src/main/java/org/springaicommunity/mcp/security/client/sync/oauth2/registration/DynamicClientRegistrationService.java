@@ -56,24 +56,6 @@ public class DynamicClientRegistrationService {
 
 	private final ClaimConversionService claimConversionService = ClaimConversionService.getSharedInstance();
 
-	private static final String GRANT_TYPES = "grant_types";
-
-	private static final String REDIRECT_URIS = "redirect_uris";
-
-	private static final String TOKEN_ENDPOINT_AUTH_METHOD = "token_endpoint_auth_method";
-
-	private static final String RESPONSE_TYPES = "response_types";
-
-	private static final String CLIENT_NAME = "client_name";
-
-	private static final String JWKS_URI = "jwks_uri";
-
-	private static final String CLIENT_URI = "client_uri";
-
-	private static final String CLIENT_ID_ISSUED_AT = "client_id_issued_at";
-
-	private static final String CLIENT_SECRET_EXPIRES_AT = "client_secret_expires_at";
-
 	public DynamicClientRegistrationService() {
 		this(new DefaultUrlValidator());
 	}
@@ -117,15 +99,15 @@ public class DynamicClientRegistrationService {
 		var registrationResponse = new DynamicClientRegistrationResponse(
 				clientId,
 				extract(response, OAuth2ParameterNames.CLIENT_SECRET, String.class),
-				extract(response, CLIENT_ID_ISSUED_AT, Instant.class),
-				extract(response, CLIENT_SECRET_EXPIRES_AT, Instant.class),
-				extract(response, REDIRECT_URIS, List.class),
-				extract(response, TOKEN_ENDPOINT_AUTH_METHOD, String.class),
-				extract(response, GRANT_TYPES, List.class),
-				extract(response, RESPONSE_TYPES, List.class),
-				extract(response, CLIENT_NAME, String.class),
+				extract(response, DynamicClientRegistrationParameterNames.CLIENT_ID_ISSUED_AT, Instant.class),
+				extract(response, DynamicClientRegistrationParameterNames.CLIENT_SECRET_EXPIRES_AT, Instant.class),
+				extract(response, DynamicClientRegistrationParameterNames.REDIRECT_URIS, List.class),
+				extract(response, DynamicClientRegistrationParameterNames.TOKEN_ENDPOINT_AUTH_METHOD, String.class),
+				extract(response, DynamicClientRegistrationParameterNames.GRANT_TYPES, List.class),
+				extract(response, DynamicClientRegistrationParameterNames.RESPONSE_TYPES, List.class),
+				extract(response, DynamicClientRegistrationParameterNames.CLIENT_NAME, String.class),
 				extract(response, OAuth2ParameterNames.SCOPE, String.class),
-				extract(response, JWKS_URI, String.class)
+				extract(response, DynamicClientRegistrationParameterNames.JWKS_URI, String.class)
 		);
 		//@formatter:on
 
@@ -141,22 +123,23 @@ public class DynamicClientRegistrationService {
 	private Map<String, Object> createRegistrationRequest(DynamicClientRegistrationRequest request) {
 		Map<String, Object> parameters = new HashMap<>();
 		if (request.getGrantTypes() != null) {
-			parameters.put(GRANT_TYPES, request.getGrantTypes());
+			parameters.put(DynamicClientRegistrationParameterNames.GRANT_TYPES, request.getGrantTypes());
 		}
 		if (request.getRedirectUris() != null) {
-			parameters.put(REDIRECT_URIS, request.getRedirectUris());
+			parameters.put(DynamicClientRegistrationParameterNames.REDIRECT_URIS, request.getRedirectUris());
 		}
 		if (request.getTokenEndpointAuthMethod() != null) {
-			parameters.put(TOKEN_ENDPOINT_AUTH_METHOD, request.getTokenEndpointAuthMethod());
+			parameters.put(DynamicClientRegistrationParameterNames.TOKEN_ENDPOINT_AUTH_METHOD,
+					request.getTokenEndpointAuthMethod());
 		}
 		if (request.getResponseTypes() != null) {
-			parameters.put(RESPONSE_TYPES, request.getResponseTypes());
+			parameters.put(DynamicClientRegistrationParameterNames.RESPONSE_TYPES, request.getResponseTypes());
 		}
 		if (request.getClientName() != null) {
-			parameters.put(CLIENT_NAME, request.getClientName());
+			parameters.put(DynamicClientRegistrationParameterNames.CLIENT_NAME, request.getClientName());
 		}
 		if (request.getClientUri() != null) {
-			parameters.put(CLIENT_URI, request.getClientUri());
+			parameters.put(DynamicClientRegistrationParameterNames.CLIENT_URI, request.getClientUri());
 		}
 		if (request.getScope() != null) {
 			parameters.put(OAuth2ParameterNames.SCOPE, request.getScope());
