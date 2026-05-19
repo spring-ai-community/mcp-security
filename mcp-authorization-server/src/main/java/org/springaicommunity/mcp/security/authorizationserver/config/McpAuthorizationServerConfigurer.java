@@ -59,6 +59,8 @@ public class McpAuthorizationServerConfigurer
 
 	private boolean supportDynamicClientRegistration = true;
 
+	private boolean supportClientIdMetadataDocument = false;
+
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
 	}
@@ -88,6 +90,16 @@ public class McpAuthorizationServerConfigurer
 		return this;
 	}
 
+	/**
+	 * Enable or disable support for Client ID Metadata Document.
+	 * @param enabled turn on CIMD when true, off otherwise. Defaults to false.
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer cimd(boolean enabled) {
+		this.supportClientIdMetadataDocument = enabled;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
 		http.authorizeHttpRequests(authz -> {
@@ -96,7 +108,12 @@ public class McpAuthorizationServerConfigurer
 			}
 		}).oauth2AuthorizationServer(authServer -> {
 			authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
-			authServer.authorizationServerMetadataEndpoint(Customizer.withDefaults());
+			authServer.authorizationServerMetadataEndpoint(metadataEndpoint -> {
+				if (this.supportClientIdMetadataDocument) {
+					metadataEndpoint.authorizationServerMetadataCustomizer(
+							metadata -> metadata.claim("client_id_metadata_document_supported", true));
+				}
+			});
 			OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
 			authServer.tokenGenerator(tokenGenerator);
 			if (this.supportDynamicClientRegistration) {

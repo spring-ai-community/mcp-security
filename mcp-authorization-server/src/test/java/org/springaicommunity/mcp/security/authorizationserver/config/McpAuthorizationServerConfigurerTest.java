@@ -87,6 +87,18 @@ class McpAuthorizationServerConfigurerTest {
 	}
 
 	@Test
+	void metadataHasRegistrationAndCimd() {
+		var resp = this.mvc.get()
+			.uri("/.well-known/oauth-authorization-server")
+			.contentType(MediaType.APPLICATION_JSON)
+			.exchange();
+		assertThat(resp).bodyJson()
+			.hasPathSatisfying("$.registration_endpoint",
+					v -> assertThat(v).isEqualTo("http://localhost/oauth2/register"))
+			.hasPathSatisfying("$.client_id_metadata_document_supported", v -> assertThat(v).asBoolean().isTrue());
+	}
+
+	@Test
 	void dcrEndpointIsOpen() {
 		var dcrRequest = """
 				{
@@ -156,6 +168,7 @@ class McpAuthorizationServerConfigurerTest {
 						authzServer.authorizationServerSettings(AuthorizationServerSettings.builder().build());
 					});
 					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
+					mcpAuthzServer.cimd(true);
 				});
 			return http.build();
 		}
