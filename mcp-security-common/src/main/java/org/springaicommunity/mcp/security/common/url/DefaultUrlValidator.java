@@ -30,7 +30,7 @@ import java.net.URI;
  */
 public class DefaultUrlValidator implements UrlValidator {
 
-	public final boolean allowLoopback;
+	protected final boolean allowLoopback;
 
 	public DefaultUrlValidator() {
 		this(false);
@@ -42,6 +42,12 @@ public class DefaultUrlValidator implements UrlValidator {
 
 	@Override
 	public void validateUrl(URI uri) throws InvalidUrlException {
+		if (uri.getPath() != null && (uri.getPath().contains("..") || uri.getPath().contains("%2e%2e")
+				|| uri.getPath().contains("%2E%2E"))) {
+			throw new InvalidUrlException("URL %s must not contain path-traversal segments".formatted(uri),
+					uri.toString());
+		}
+
 		if ("https".equalsIgnoreCase(uri.getScheme())) {
 			return;
 		}

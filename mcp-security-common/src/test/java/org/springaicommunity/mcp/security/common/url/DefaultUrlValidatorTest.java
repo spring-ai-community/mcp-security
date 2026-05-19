@@ -69,4 +69,13 @@ class DefaultUrlValidatorTest {
 			.hasMessageContaining("must have HTTPS scheme");
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = { "https://example.com/../etc/passwd", "https://example.com/api/v1/../../etc/passwd",
+			"https://example.com/%2e%2e/%2e%2e/etc/passwd" })
+	void pathTraversal(String url) {
+		DefaultUrlValidator validator = new DefaultUrlValidator();
+		assertThatThrownBy(() -> validator.validateUrl(url)).isInstanceOf(InvalidUrlException.class)
+			.hasMessageContaining("URL %s must not contain path-traversal segments".formatted(url));
+	}
+
 }
