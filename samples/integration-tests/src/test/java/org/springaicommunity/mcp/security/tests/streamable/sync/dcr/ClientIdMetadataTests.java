@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -16,8 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2CimdSyncAuthorizationErrorHandler;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2CimdHttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
@@ -83,13 +81,7 @@ class ClientIdMetadataTests {
 	private McpClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
-	private OAuth2AuthorizedClientManager authorizedClientManager;
-
-	@Autowired
-	private McpClientRegistrationRepository mcpClientRegistrationRepository;
-
-	@Autowired
-	private McpOAuth2CimdClientManager mcpOAuth2CimdClientManager;
+	private OAuth2CimdHttpClientTransportCustomizer transportCustomizer;
 
 	@BeforeEach
 	void setUp() {
@@ -106,13 +98,8 @@ class ClientIdMetadataTests {
 
 		var builder = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
-			.httpRequestCustomizer(new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(authorizedClientManager,
-					mcpClientRegistrationRepository, oauth2ClientRegistrationName))
-			.authorizationErrorHandler(
-					McpHttpClientAuthorizationErrorHandler.fromSync(new OAuth2CimdSyncAuthorizationErrorHandler(
-							mcpOAuth2CimdClientManager, oauth2ClientRegistrationName, mcpServerBaseUrl + "/mcp")));
-
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
+		transportCustomizer.customize(oauth2ClientRegistrationName, builder);
 		var transport = builder.build();
 
 		var client = McpClient.sync(transport)
@@ -175,6 +162,15 @@ class ClientIdMetadataTests {
 				OAuth2AuthorizedClientRepository oAuth2AuthorizedClientRepository) {
 			return new DefaultOAuth2AuthorizedClientManager(mcpClientRegistrationRepository,
 					oAuth2AuthorizedClientRepository);
+		}
+
+		@Bean
+		OAuth2CimdHttpClientTransportCustomizer transportCustomizer(
+				OAuth2AuthorizedClientManager authorizedClientManager,
+				McpClientRegistrationRepository mcpClientRegistrationRepository,
+				McpOAuth2CimdClientManager mcpOAuth2CimdClientManager) {
+			return new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager, mcpClientRegistrationRepository,
+					mcpOAuth2CimdClientManager);
 		}
 
 	}
