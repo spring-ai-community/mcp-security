@@ -24,7 +24,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -37,62 +37,63 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class DelegatingRegisteredClientRepositoryTests {
 
 	@Test
-	void saveDelegatesToPrimaryRepository() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+	void saveDelegatesToSaveEnabledRepository() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
 		RegisteredClient client = mock(RegisteredClient.class);
 		repository.save(client);
 
-		verify(primary).save(client);
-		verifyNoInteractions(secondary);
+		verify(saveEnabled).save(client);
+		verifyNoInteractions(delegate);
 	}
 
 	@Test
-	void findByIdWhenInPrimaryThenReturns() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+	void findByIdWhenInSaveEnabledThenReturns() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
 		RegisteredClient expectedClient = mock(RegisteredClient.class);
-		given(primary.findById("client-1")).willReturn(expectedClient);
+		when(delegate.findById("client-1")).thenReturn(null);
+		when(saveEnabled.findById("client-1")).thenReturn(expectedClient);
 
 		RegisteredClient actualClient = repository.findById("client-1");
 
 		assertThat(actualClient).isSameAs(expectedClient);
-		verifyNoInteractions(secondary);
+		verify(delegate).findById("client-1");
+		verify(saveEnabled).findById("client-1");
 	}
 
 	@Test
-	void findByIdWhenInSecondaryThenReturns() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+	void findByIdWhenInDelegateThenReturns() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
 		RegisteredClient expectedClient = mock(RegisteredClient.class);
-		given(primary.findById("client-1")).willReturn(null);
-		given(secondary.findById("client-1")).willReturn(expectedClient);
+		when(delegate.findById("client-1")).thenReturn(expectedClient);
 
 		RegisteredClient actualClient = repository.findById("client-1");
 
 		assertThat(actualClient).isSameAs(expectedClient);
-		verify(primary).findById("client-1");
-		verify(secondary).findById("client-1");
+		verify(delegate).findById("client-1");
+		verifyNoInteractions(saveEnabled);
 	}
 
 	@Test
 	void findByIdWhenNotFoundThenReturnsNull() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
-		given(primary.findById(anyString())).willReturn(null);
-		given(secondary.findById(anyString())).willReturn(null);
+		when(saveEnabled.findById(anyString())).thenReturn(null);
+		when(delegate.findById(anyString())).thenReturn(null);
 
 		RegisteredClient actualClient = repository.findById("client-1");
 
@@ -100,52 +101,70 @@ class DelegatingRegisteredClientRepositoryTests {
 	}
 
 	@Test
-	void findByClientIdWhenInPrimaryThenReturns() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+	void findByClientIdWhenInSaveEnabledThenReturns() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
 		RegisteredClient expectedClient = mock(RegisteredClient.class);
-		given(primary.findByClientId("client-1")).willReturn(expectedClient);
+		when(delegate.findByClientId("client-1")).thenReturn(null);
+		when(saveEnabled.findByClientId("client-1")).thenReturn(expectedClient);
 
 		RegisteredClient actualClient = repository.findByClientId("client-1");
 
 		assertThat(actualClient).isSameAs(expectedClient);
-		verifyNoInteractions(secondary);
+		verify(delegate).findByClientId("client-1");
+		verify(saveEnabled).findByClientId("client-1");
 	}
 
 	@Test
-	void findByClientIdWhenInSecondaryThenReturns() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+	void findByClientIdWhenInDelegateThenReturns() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
 		RegisteredClient expectedClient = mock(RegisteredClient.class);
-		given(primary.findByClientId("client-1")).willReturn(null);
-		given(secondary.findByClientId("client-1")).willReturn(expectedClient);
+		when(delegate.findByClientId("client-1")).thenReturn(expectedClient);
 
 		RegisteredClient actualClient = repository.findByClientId("client-1");
 
 		assertThat(actualClient).isSameAs(expectedClient);
-		verify(primary).findByClientId("client-1");
-		verify(secondary).findByClientId("client-1");
+		verify(delegate).findByClientId("client-1");
+		verifyNoInteractions(saveEnabled);
 	}
 
 	@Test
 	void findByClientIdWhenNotFoundThenReturnsNull() {
-		RegisteredClientRepository primary = mock(RegisteredClientRepository.class);
-		RegisteredClientRepository secondary = mock(RegisteredClientRepository.class);
-		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(primary,
-				List.of(secondary));
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(List.of(delegate),
+				saveEnabled);
 
-		given(primary.findByClientId(anyString())).willReturn(null);
-		given(secondary.findByClientId(anyString())).willReturn(null);
+		when(saveEnabled.findByClientId(anyString())).thenReturn(null);
+		when(delegate.findByClientId(anyString())).thenReturn(null);
 
 		RegisteredClient actualClient = repository.findByClientId("client-1");
 
 		assertThat(actualClient).isNull();
+	}
+
+	@Test
+	void saveEnabledInListThenUseFirst() {
+		RegisteredClientRepository saveEnabled = mock(RegisteredClientRepository.class);
+		RegisteredClientRepository delegate = mock(RegisteredClientRepository.class);
+		DelegatingRegisteredClientRepository repository = new DelegatingRegisteredClientRepository(
+				List.of(saveEnabled, delegate), saveEnabled);
+
+		RegisteredClient expectedClient = mock(RegisteredClient.class);
+		when(delegate.findByClientId("client-1")).thenThrow(new RuntimeException("unexpected"));
+		when(saveEnabled.findByClientId("client-1")).thenReturn(expectedClient);
+		when(delegate.findById("client-1")).thenThrow(new RuntimeException("unexpected"));
+		when(saveEnabled.findById("client-1")).thenReturn(expectedClient);
+
+		assertThat(repository.findByClientId("client-1")).isSameAs(expectedClient);
+		assertThat(repository.findById("client-1")).isSameAs(expectedClient);
 	}
 
 }

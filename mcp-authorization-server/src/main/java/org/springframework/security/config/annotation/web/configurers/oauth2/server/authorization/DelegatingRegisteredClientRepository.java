@@ -25,10 +25,11 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 
 /**
  * An implementation of {@link RegisteredClientRepository} that delegates to other
- * repositories. The primary repository will be used to save new clients.
+ * repositories. An optional repository can be provided to save new clients. The
+ * save-enabled repository will be added to the list of delegates if not already present.
  * <p>
- * This is used to support both Client ID Metadata Document-based clients, and regular,
- * pre-registered clients.
+ * This is used to support both Client ID Metadata Document-based clients, Dynamic Client
+ * Registration clients, and regular, pre-registered clients.
  *
  * @author Joe Grandja
  * @author Daniel Garnier-Moiroux
@@ -37,19 +38,36 @@ public class DelegatingRegisteredClientRepository implements RegisteredClientRep
 
 	private final List<RegisteredClientRepository> repositories;
 
-	private final RegisteredClientRepository defaultRepository;
+	private final @Nullable RegisteredClientRepository saveEnabledRepository;
 
-	public DelegatingRegisteredClientRepository(RegisteredClientRepository primaryRepository,
-			List<RegisteredClientRepository> repositories) {
-		this.defaultRepository = primaryRepository;
+	/**
+	 * Construct a read-only repository.
+	 * @param repositories delegate repositories
+	 */
+	public DelegatingRegisteredClientRepository(List<RegisteredClientRepository> repositories) {
+		this(repositories, null);
+	}
+
+	/**
+	 * Construct a delegating repository with an optional save-enabled repository.
+	 * @param repositories delegate repositories
+	 * @param saveEnabledRepository repository where new clients are saved
+	 */
+	public DelegatingRegisteredClientRepository(List<RegisteredClientRepository> repositories,
+			@Nullable RegisteredClientRepository saveEnabledRepository) {
+		this.saveEnabledRepository = saveEnabledRepository;
 		this.repositories = new ArrayList<>();
-		this.repositories.add(primaryRepository);
 		this.repositories.addAll(repositories);
+		if (saveEnabledRepository != null && !this.repositories.contains(saveEnabledRepository)) {
+			this.repositories.add(saveEnabledRepository);
+		}
 	}
 
 	@Override
 	public void save(RegisteredClient registeredClient) {
-		this.defaultRepository.save(registeredClient);
+		if (this.saveEnabledRepository != null) {
+			this.saveEnabledRepository.save(registeredClient);
+		}
 	}
 
 	@Override

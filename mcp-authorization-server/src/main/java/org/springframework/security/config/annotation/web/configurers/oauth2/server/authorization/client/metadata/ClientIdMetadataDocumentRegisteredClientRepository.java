@@ -84,7 +84,11 @@ public final class ClientIdMetadataDocumentRegisteredClientRepository implements
 			clientIdUri = URI.create(clientId);
 		}
 		catch (IllegalArgumentException e) {
-			log.debug("Client id [{}] is not a valid URI, skipping", clientId);
+			log.debug("Client id [{}] is not a valid HTTP(s) URI, skipping", clientId);
+			return null;
+		}
+		if (clientIdUri.getScheme() == null || !clientIdUri.getScheme().startsWith("http")) {
+			log.debug("Client id [{}] is not a valid HTTP(s) URI, skipping", clientId);
 			return null;
 		}
 		ClientIdMetadataDocumentResolver.Result result = null;
