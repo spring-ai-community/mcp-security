@@ -35,7 +35,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * A {@link McpHttpClientAuthorizationErrorHandler.Sync} synchronous authorization error
- * handler that handles HTTP 401 and HTTP with CIMD clients and scope step-up through
+ * handler that handles HTTP 401 and HTTP 403 with CIMD clients and scope step-up through
  * {@link DefaultMcpOAuth2CimdClientManager}.
  *
  * <p>

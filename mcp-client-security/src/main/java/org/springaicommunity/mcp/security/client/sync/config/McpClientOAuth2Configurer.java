@@ -320,7 +320,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 			if (urlValidator == null) {
 				urlValidator = new DefaultUrlValidator();
 			}
-			http.setSharedObject(UrlValidator.class, new DefaultUrlValidator());
+			http.setSharedObject(UrlValidator.class, urlValidator);
 
 		}
 		return urlValidator;

@@ -65,7 +65,7 @@ public final class DefaultClientIdMetadataDocumentResolver implements ClientIdMe
 		OAuth2ClientRegistration clientRegistration = response.getBody();
 		if (clientRegistration == null) {
 			throw new InvalidClientMetadataException("Client metadata response must not have an empty body",
-					clientId.toString());
+					clientId.toString(), (String) null);
 		}
 		long cacheMaxAgeSeconds = getMaxAgeSeconds(response.getHeaders());
 		ResponseAttributes responseAttributes = new ResponseAttributes(cacheMaxAgeSeconds);
