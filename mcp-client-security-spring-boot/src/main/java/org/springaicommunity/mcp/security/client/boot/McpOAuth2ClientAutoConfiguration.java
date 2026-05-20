@@ -20,7 +20,7 @@ import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransport
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -39,7 +39,7 @@ import org.springframework.context.annotation.Import;
  * <li>{@link McpClientRegistrationRepository}
  * <li>{@link DynamicClientRegistrationService}
  * <li>{@link McpMetadataDiscoveryService}
- * <li>{@link McpOAuth2ClientManager}
+ * <li>{@link McpOAuth2DcrClientManager}
  * <li>A {@link McpClientCustomizer} to add
  * {@link AuthenticationMcpTransportContextProvider} to all sync clients.
  * </ul>

@@ -25,7 +25,7 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP
  * Authorization</a>
  */
-public interface McpOAuth2ClientManager {
+public interface McpOAuth2DcrClientManager {
 
 	/**
 	 * Register an OAuth2 client for the given MCP server, discovering the authorization

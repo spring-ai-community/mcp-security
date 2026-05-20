@@ -16,7 +16,7 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -48,7 +48,7 @@ public class McpOAuth2ClientProperties {
 		 * <p>
 		 * If false, ensure you either have a single {@link ClientRegistration} registered
 		 * under {@code spring.security.oauth2.client.registration}, or you provide your
-		 * own {@link OAuth2HttpClientTransportCustomizer} bean.
+		 * own {@link OAuth2DcrHttpClientTransportCustomizer} bean.
 		 */
 		private boolean enabled = false;
 

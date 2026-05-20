@@ -55,11 +55,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * <p>
  * If the client registration does not exist yet (e.g. it is registered dynamically), the
  * request is sent without a token. The MCP server will respond with an HTTP 401, and
- * {@link OAuth2SyncAuthorizationErrorHandler} will handle that response to perform
+ * {@link OAuth2DcrSyncAuthorizationErrorHandler} will handle that response to perform
  * dynamic client registration before retrying.
  *
  * @author Daniel Garnier-Moiroux
- * @see OAuth2SyncAuthorizationErrorHandler
+ * @see OAuth2DcrSyncAuthorizationErrorHandler
  */
 public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 

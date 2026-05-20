@@ -17,9 +17,10 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 /**
- * Partial implementation of {@link McpOAuth2ClientManager} that does not support dynamic
- * client registration. Delegates storage to a {@link McpClientRegistrationRepository}.
- * For full DCR support, see {@link DefaultMcpOAuth2ClientManager}.
+ * Partial implementation of {@link McpOAuth2DcrClientManager} that does not support
+ * dynamic client registration. Delegates storage to a
+ * {@link McpClientRegistrationRepository}. For full DCR support, see
+ * {@link DefaultMcpOAuth2DcrClientManager}.
  * <p>
  * Other methods throw when called.
  *
@@ -28,13 +29,13 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class ScopeStepUpMcpOAuth2ClientManager implements McpOAuth2ClientManager {
+public class ScopeStepUpMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManager {
 
 	protected final McpClientRegistrationRepository repository;
 
 	private final ScopeStepUp scopeStepUp;
 
-	public ScopeStepUpMcpOAuth2ClientManager(McpClientRegistrationRepository repository) {
+	public ScopeStepUpMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository) {
 		this.repository = repository;
 		this.scopeStepUp = new ScopeStepUp(repository);
 	}

@@ -37,7 +37,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * Default implementation of {@link McpOAuth2ClientManager} that delegates storage to a
+ * Default implementation of {@link McpOAuth2DcrClientManager} that delegates storage to a
  * {@link McpClientRegistrationRepository} and uses {@link McpMetadataDiscoveryService}
  * and {@link DynamicClientRegistrationService} to discover MCP server metadata and
  * perform dynamic client registration.
@@ -47,9 +47,9 @@ import org.springframework.util.StringUtils;
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
+public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManager {
 
-	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2ClientManager.class);
+	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2DcrClientManager.class);
 
 	private final DynamicClientRegistrationService clientRegistrationService;
 
@@ -62,18 +62,17 @@ public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 	private final ScopeStepUp scopeStepUp;
 
 	/**
-	 * @deprecated use
-	 * {@link DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository,
-	 * DynamicClientRegistrationService, McpMetadataDiscoveryService, UrlValidator)}
-	 * instead.
+	 * @deprecated use {@link DefaultMcpOAuth2DcrClientManager
+	 * (McpClientRegistrationRepository, DynamicClientRegistrationService,
+	 * McpMetadataDiscoveryService, UrlValidator)} instead.
 	 */
 	@Deprecated
-	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
+	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery) {
 		this(repository, clientRegistrationService, discovery, new DefaultUrlValidator());
 	}
 
-	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
+	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
 			UrlValidator urlValidator) {
 		Assert.notNull(repository, "repository cannot be null");

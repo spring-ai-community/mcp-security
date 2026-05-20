@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
@@ -38,7 +38,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 /**
  * A {@link McpHttpClientAuthorizationErrorHandler.Sync} synchronous authorization error
  * handler that handles HTTP 401 and 403 responses from an MCP server by performing OAuth2
- * dynamic client registration and scope updates through {@link McpOAuth2ClientManager}.
+ * dynamic client registration and scope updates through
+ * {@link McpOAuth2DcrClientManager}.
  *
  * <p>
  * On a 401 Unauthorized response, the handler performs dynamic client registration using
@@ -52,15 +53,15 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * @author Daniel Garnier-Moiroux
  * @see McpHttpClientAuthorizationErrorHandler
- * @see McpOAuth2ClientManager
+ * @see McpOAuth2DcrClientManager
  */
-public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientAuthorizationErrorHandler.Sync {
+public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuthorizationErrorHandler.Sync {
 
-	private static final Logger log = LoggerFactory.getLogger(OAuth2SyncAuthorizationErrorHandler.class);
+	private static final Logger log = LoggerFactory.getLogger(OAuth2DcrSyncAuthorizationErrorHandler.class);
 
 	private static final String DEFAULT_REDIRECT_URI_TEMPLATE = "{baseUrl}/authorize/oauth2/code/{registrationId}";
 
-	private final McpOAuth2ClientManager mcpOAuth2ClientManager;
+	private final McpOAuth2DcrClientManager mcpOAuth2ClientManager;
 
 	private final String registrationId;
 
@@ -78,8 +79,8 @@ public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientAuthori
 	 * @param registrationId the client registration identifier
 	 * @param mcpServerUrl the MCP server URL
 	 */
-	public OAuth2SyncAuthorizationErrorHandler(McpOAuth2ClientManager mcpOAuth2ClientManager, String registrationId,
-			String mcpServerUrl) {
+	public OAuth2DcrSyncAuthorizationErrorHandler(McpOAuth2DcrClientManager mcpOAuth2ClientManager,
+			String registrationId, String mcpServerUrl) {
 		this(mcpOAuth2ClientManager, registrationId, mcpServerUrl, null);
 	}
 
@@ -94,8 +95,9 @@ public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientAuthori
 	 * @param dynamicClientRegistrationRequest the dynamic client registration request, or
 	 * {@code null} for a default request
 	 */
-	public OAuth2SyncAuthorizationErrorHandler(McpOAuth2ClientManager mcpOAuth2ClientManager, String registrationId,
-			String mcpServerUrl, @Nullable DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
+	public OAuth2DcrSyncAuthorizationErrorHandler(McpOAuth2DcrClientManager mcpOAuth2ClientManager,
+			String registrationId, String mcpServerUrl,
+			@Nullable DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
 		Assert.notNull(mcpOAuth2ClientManager, "mcpOAuth2ClientManager must not be null");
 		Assert.hasText(registrationId, "registrationId must not be empty");
 		Assert.hasText(mcpServerUrl, "mcpServerUrl must not be empty");

@@ -21,11 +21,11 @@ import java.util.ArrayList;
 import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -72,8 +72,8 @@ public class McpClientConfiguration {
 	}
 
 	@Bean
-	McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
+	McpOAuth2DcrClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
 				new DynamicClientRegistrationService(new DefaultUrlValidator(true)),
 				new McpMetadataDiscoveryService(new DefaultUrlValidator(true)), new DefaultUrlValidator(true));
 	}

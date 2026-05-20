@@ -22,7 +22,7 @@ import java.util.List;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -112,7 +112,7 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 					"spring.security.oauth2.client.provider.second.token-uri=https://example.com/oauth2/token")
 			.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(OAuth2HttpClientTransportCustomizer.class)
+				assertThat(context).doesNotHaveBean(OAuth2DcrHttpClientTransportCustomizer.class)
 					.hasBean("preRegisteredClientCustomizer");
 				var customizers = getTransportCustomizers(context);
 				assertThat(customizers).hasSize(1)
@@ -127,7 +127,7 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true")
 			.withUserConfiguration(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 			.run(context -> {
-				assertThat(context).hasSingleBean(OAuth2HttpClientTransportCustomizer.class);
+				assertThat(context).hasSingleBean(OAuth2DcrHttpClientTransportCustomizer.class);
 				assertThat(context).doesNotHaveBean("preRegisteredClientCustomizer");
 			});
 	}
@@ -136,8 +136,8 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 	void backsOffOAuth2HttpClientTransportCustomizer() {
 		this.contextRunner.withUserConfiguration(CustomOAuth2HttpClientTransportCustomizerConfiguration.class)
 			.run(context -> {
-				assertThat(context).hasSingleBean(OAuth2HttpClientTransportCustomizer.class);
-				assertThat(context.getBean(OAuth2HttpClientTransportCustomizer.class)).isSameAs(
+				assertThat(context).hasSingleBean(OAuth2DcrHttpClientTransportCustomizer.class);
+				assertThat(context.getBean(OAuth2DcrHttpClientTransportCustomizer.class)).isSameAs(
 						context.getBean(CustomOAuth2HttpClientTransportCustomizerConfiguration.class).customCustomizer);
 			});
 	}
@@ -188,10 +188,11 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 	@Import(CustomOAuth2AuthorizedClientManagerConfiguration.class)
 	static class CustomOAuth2HttpClientTransportCustomizerConfiguration {
 
-		final OAuth2HttpClientTransportCustomizer customCustomizer = mock(OAuth2HttpClientTransportCustomizer.class);
+		final OAuth2DcrHttpClientTransportCustomizer customCustomizer = mock(
+				OAuth2DcrHttpClientTransportCustomizer.class);
 
 		@Bean
-		OAuth2HttpClientTransportCustomizer oAuth2HttpClientTransportCustomizer() {
+		OAuth2DcrHttpClientTransportCustomizer oAuth2HttpClientTransportCustomizer() {
 			return this.customCustomizer;
 		}
 

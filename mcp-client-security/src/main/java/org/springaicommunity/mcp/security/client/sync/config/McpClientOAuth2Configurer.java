@@ -25,12 +25,12 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
@@ -192,7 +192,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	}
 
 	private void registerMcpClients(HttpSecurity http, ClientRegistrationRepository repository,
-			McpOAuth2ClientManager clientManager) {
+			McpOAuth2DcrClientManager clientManager) {
 		if (this.mcpRegistrations.isEmpty()) {
 			return;
 		}
@@ -224,7 +224,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 	}
 
-	private static void doRegisterMcpClients(McpOAuth2ClientManager clientManager, String baseUrl,
+	private static void doRegisterMcpClients(McpOAuth2DcrClientManager clientManager, String baseUrl,
 			Map<String, String> registrations) {
 		for (var entry : registrations.entrySet()) {
 			var registrationId = entry.getKey();
@@ -267,14 +267,14 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		return clientRegistrationRepository;
 	}
 
-	private McpOAuth2ClientManager getMcpOAuth2ClientManager(HttpSecurity http,
+	private McpOAuth2DcrClientManager getMcpOAuth2ClientManager(HttpSecurity http,
 			ClientRegistrationRepository clientRegistrationRepository) {
-		McpOAuth2ClientManager clientManager = getOptionalBean(http, McpOAuth2ClientManager.class);
+		McpOAuth2DcrClientManager clientManager = getOptionalBean(http, McpOAuth2DcrClientManager.class);
 		if (clientManager != null) {
 			return clientManager;
 		}
 		if (clientRegistrationRepository instanceof McpClientRegistrationRepository mcpRepo) {
-			return new DefaultMcpOAuth2ClientManager(mcpRepo, getDynamicClientRegistrationService(http),
+			return new DefaultMcpOAuth2DcrClientManager(mcpRepo, getDynamicClientRegistrationService(http),
 					getMcpMetadataDiscovery(http), getUrlValidator(http));
 		}
 		throw new IllegalStateException(
@@ -346,7 +346,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 * get the port of the running server for redirect urls.
 	 */
 	private static void registerClientsOnServerStartup(ConfigurableApplicationContext context,
-			McpOAuth2ClientManager clientManager, Map<String, String> registrations) {
+			McpOAuth2DcrClientManager clientManager, Map<String, String> registrations) {
 		context.addApplicationListener(event -> {
 			if (event instanceof org.springframework.boot.web.server.servlet.context.ServletWebServerInitializedEvent webServerEvent) {
 				var port = webServerEvent.getWebServer().getPort();

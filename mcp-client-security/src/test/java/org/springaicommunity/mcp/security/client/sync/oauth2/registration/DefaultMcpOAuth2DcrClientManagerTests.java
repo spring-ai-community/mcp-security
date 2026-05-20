@@ -55,7 +55,7 @@ import static org.mockito.Mockito.when;
 /**
  * @author Daniel Garnier-Moiroux
  */
-class DefaultMcpOAuth2ClientManagerTests {
+class DefaultMcpOAuth2DcrClientManagerTests {
 
 	private static final String REGISTRATION_ID = "test-registration";
 
@@ -84,12 +84,12 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 	private final UrlValidator urlValidator = mock(UrlValidator.class);
 
-	private final DefaultMcpOAuth2ClientManager manager = new DefaultMcpOAuth2ClientManager(this.repository,
+	private final DefaultMcpOAuth2DcrClientManager manager = new DefaultMcpOAuth2DcrClientManager(this.repository,
 			this.clientRegistrationService, this.discovery, this.urlValidator);
 
 	@BeforeAll
 	static void beforeAll() {
-		DefaultMcpOAuth2ClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
+		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
 		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
 			.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
@@ -103,7 +103,7 @@ class DefaultMcpOAuth2ClientManagerTests {
 
 	@AfterAll
 	static void afterAll() {
-		DefaultMcpOAuth2ClientManagerTests.clientRegistrationsMock.close();
+		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock.close();
 	}
 
 	@Nested

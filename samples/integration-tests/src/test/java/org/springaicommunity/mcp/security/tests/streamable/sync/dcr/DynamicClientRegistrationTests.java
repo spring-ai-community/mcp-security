@@ -15,13 +15,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
@@ -79,7 +79,7 @@ class DynamicClientRegistrationTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private OAuth2HttpClientTransportCustomizer transportCustomizer;
+	private OAuth2DcrHttpClientTransportCustomizer transportCustomizer;
 
 	@Autowired
 	private McpClientRegistrationRepository clientRegistrationRepository;
@@ -167,12 +167,12 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
-		OAuth2HttpClientTransportCustomizer clientTransportCustomizer(
+		OAuth2DcrHttpClientTransportCustomizer clientTransportCustomizer(
 				OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
 				ClientRegistrationRepository clientRegistrationRepository,
-				McpOAuth2ClientManager mcpOAuth2ClientManager) {
-			return new OAuth2HttpClientTransportCustomizer(oAuth2AuthorizedClientManager, clientRegistrationRepository,
-					mcpOAuth2ClientManager);
+				McpOAuth2DcrClientManager mcpOAuth2ClientManager) {
+			return new OAuth2DcrHttpClientTransportCustomizer(oAuth2AuthorizedClientManager,
+					clientRegistrationRepository, mcpOAuth2ClientManager);
 		}
 
 		@Bean
@@ -185,9 +185,10 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
-		McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		McpOAuth2DcrClientManager mcpOAuth2ClientManager(
+				McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			var validator = new DefaultUrlValidator(true);
-			return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
+			return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
 					new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator),
 					validator);
 		}

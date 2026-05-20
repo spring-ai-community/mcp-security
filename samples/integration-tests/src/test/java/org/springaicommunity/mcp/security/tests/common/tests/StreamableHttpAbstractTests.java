@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -79,7 +79,7 @@ public abstract class StreamableHttpAbstractTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private McpOAuth2ClientManager mcpClientManager;
+	private McpOAuth2DcrClientManager mcpClientManager;
 
 	protected AuthorizedClientServiceOAuth2AuthorizedClientManager clientCredentialsClientManager;
 
