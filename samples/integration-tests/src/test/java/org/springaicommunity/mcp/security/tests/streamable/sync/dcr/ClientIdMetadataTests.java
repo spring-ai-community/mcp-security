@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
@@ -15,13 +16,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2CimdSyncAuthorizationErrorHandler;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2ClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.DefaultMcpOAuth2CimdClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
@@ -46,7 +47,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.client.metadata.ClientIdUrlValidator;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
@@ -60,9 +63,7 @@ import static org.springaicommunity.mcp.security.client.sync.config.McpClientOAu
 		mcp.server.protocol=STREAMABLE
 		mcp.server.validate-audience-claim=true
 		""")
-class DynamicClientRegistrationTests {
-
-	private static final String PRE_REGISTRATION_ID = "default";
+class ClientIdMetadataTests {
 
 	WebClient webClient = new WebClient();
 
@@ -79,10 +80,16 @@ class DynamicClientRegistrationTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private OAuth2HttpClientTransportCustomizer transportCustomizer;
+	private McpClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
-	private McpClientRegistrationRepository clientRegistrationRepository;
+	private OAuth2AuthorizedClientManager authorizedClientManager;
+
+	@Autowired
+	private McpClientRegistrationRepository mcpClientRegistrationRepository;
+
+	@Autowired
+	private McpOAuth2CimdClientManager mcpOAuth2CimdClientManager;
 
 	@BeforeEach
 	void setUp() {
@@ -99,8 +106,13 @@ class DynamicClientRegistrationTests {
 
 		var builder = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
 			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
-		transportCustomizer.customize(oauth2ClientRegistrationName, builder);
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
+			.httpRequestCustomizer(new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(authorizedClientManager,
+					mcpClientRegistrationRepository, oauth2ClientRegistrationName))
+			.authorizationErrorHandler(
+					McpHttpClientAuthorizationErrorHandler.fromSync(new OAuth2CimdSyncAuthorizationErrorHandler(
+							mcpOAuth2CimdClientManager, oauth2ClientRegistrationName, mcpServerBaseUrl + "/mcp")));
+
 		var transport = builder.build();
 
 		var client = McpClient.sync(transport)
@@ -115,38 +127,9 @@ class DynamicClientRegistrationTests {
 			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
 
 		// DCR was performed
-		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNotNull();
-	}
-
-	@Test
-	@DisplayName("Pre-register client with auth server in configuration")
-	void preRegisteredClient() throws IOException {
-		var clientRegistrationName = PRE_REGISTRATION_ID;
-		var preRegistration = clientRegistrationRepository.findByRegistrationId(clientRegistrationName);
-		assertThat(preRegistration).isNotNull();
-
-		ensureAuthServerLogin();
-
-		var builder = HttpClientStreamableHttpTransport.builder(this.mcpServerBaseUrl)
-			.clientBuilder(HttpClient.newBuilder())
-			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
-		// we use the same transport name as the existing client registration
-		transportCustomizer.customize(clientRegistrationName, builder);
-		var transport = builder.build();
-
-		var client = McpClient.sync(transport)
-			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
-			.build();
-		inMemoryMcpClientRepository.addClient("test-client-authcode", client);
-
-		var callToolResponse = webClient
-			.getPage("http://localhost:" + port + "/tool/call?clientName=test-client-authcode&toolName=greeter");
-		var contentAsString = callToolResponse.getWebResponse().getContentAsString();
-		assertThat(contentAsString)
-			.isEqualTo("Called [client: test-client-authcode, tool: greeter], got response [Hello test-user]");
-
-		// No DCR: registration existed already
-		assertThat(clientRegistrationRepository.findByRegistrationId(clientRegistrationName)).isNotNull();
+		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNotNull()
+			.extracting(ClientRegistration::getClientId)
+			.isEqualTo("http://localhost:%s/%s/client-id-metadata.json".formatted(port, oauth2ClientRegistrationName));
 	}
 
 	@Configuration
@@ -167,29 +150,18 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
-		OAuth2HttpClientTransportCustomizer clientTransportCustomizer(
-				OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
-				ClientRegistrationRepository clientRegistrationRepository,
-				McpOAuth2ClientManager mcpOAuth2ClientManager) {
-			return new OAuth2HttpClientTransportCustomizer(oAuth2AuthorizedClientManager, clientRegistrationRepository,
-					mcpOAuth2ClientManager);
-		}
-
-		@Bean
-		SecurityFilterChain securityFilterChain(HttpSecurity http,
-				@Value("${mcp.server.url}") String mcpServerBaseUrl) {
+		SecurityFilterChain securityFilterChain(HttpSecurity http) {
 			return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-				.with(mcpClientOAuth2(),
-						oauth2 -> oauth2.registerMcpOAuth2Client(PRE_REGISTRATION_ID, mcpServerBaseUrl + "/mcp"))
+				.with(mcpClientOAuth2(), mcp -> mcp.cimd(true))
 				.build();
 		}
 
 		@Bean
-		McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		McpOAuth2CimdClientManager mcpOAuth2CimdClientManager(
+				McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			var validator = new DefaultUrlValidator(true);
-			return new DefaultMcpOAuth2ClientManager(mcpClientRegistrationRepository,
-					new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator),
-					validator);
+			return new DefaultMcpOAuth2CimdClientManager(new McpMetadataDiscoveryService(validator),
+					mcpClientRegistrationRepository, new ClientIdUrlValidator(true));
 		}
 
 		@Bean

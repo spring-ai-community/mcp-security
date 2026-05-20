@@ -23,8 +23,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.DefaultMcpOAuth2CimdClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.DefaultMcpOAuth2CimdClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
@@ -61,7 +62,7 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 
 	private @Nullable String fallbackBaseUrl = null;
 
-	private final DefaultMcpOAuth2CimdClientManager mcpCimdClientManager;
+	private final McpOAuth2CimdClientManager mcpCimdClientManager;
 
 	/**
 	 * Build an {@link OAuth2CimdSyncAuthorizationErrorHandler} instance.
@@ -70,7 +71,7 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 	 * registration associated with this handler
 	 * @param mcpServerUrl URL of the MCP server
 	 */
-	public OAuth2CimdSyncAuthorizationErrorHandler(DefaultMcpOAuth2CimdClientManager mcpCimdClientManager,
+	public OAuth2CimdSyncAuthorizationErrorHandler(McpOAuth2CimdClientManager mcpCimdClientManager,
 			String registrationId, String mcpServerUrl) {
 		this.registrationId = registrationId;
 		this.mcpServerUrl = mcpServerUrl;

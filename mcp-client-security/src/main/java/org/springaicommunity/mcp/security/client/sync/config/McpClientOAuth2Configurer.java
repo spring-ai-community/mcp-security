@@ -31,6 +31,7 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.Dynami
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
@@ -52,6 +53,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.web.access.ExceptionTranslationFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.LinkedMultiValueMap;
@@ -76,6 +78,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	private final boolean canListenForWebServerInitialized;
 
 	private @Nullable UrlValidator urlValidator = null;
+
+	private boolean cimdEnabled = true;
 
 	public McpClientOAuth2Configurer() {
 		this.canListenForWebServerInitialized = ClassUtils.isPresent(
@@ -114,6 +118,10 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 
 			oauth2ClientCustomizer.customize(oauth2Client);
 		});
+
+		if (this.cimdEnabled) {
+			http.addFilterBefore(postProcess(new OAuth2CimdEndpointFilter()), ExceptionTranslationFilter.class);
+		}
 
 	}
 
@@ -157,6 +165,18 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 */
 	public McpClientOAuth2Configurer baseUrl(String baseUrl) {
 		this.baseUrl = baseUrl;
+		return this;
+	}
+
+	/**
+	 * Enabled Client ID Metadata Document support. Registers a filter serving metadata
+	 * for this client.
+	 * @param cimdEnabled CIMD enabled if true, disabled otherwise.
+	 * @return The {@link McpClientOAuth2Configurer} for further configuration*
+	 * @see OAuth2CimdEndpointFilter
+	 */
+	public McpClientOAuth2Configurer cimd(boolean cimdEnabled) {
+		this.cimdEnabled = cimdEnabled;
 		return this;
 	}
 
