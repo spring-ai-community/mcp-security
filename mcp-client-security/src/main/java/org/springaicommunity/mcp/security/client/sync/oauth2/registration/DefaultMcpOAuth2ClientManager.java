@@ -47,7 +47,7 @@ import org.springframework.util.StringUtils;
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientManager {
+public class DefaultMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 
 	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2ClientManager.class);
 
@@ -56,6 +56,10 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 	private final McpMetadataDiscoveryService discovery;
 
 	private final UrlValidator urlValidator;
+
+	private final McpClientRegistrationRepository repository;
+
+	private final ScopeStepUp scopeStepUp;
 
 	/**
 	 * @deprecated use
@@ -72,7 +76,6 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 	public DefaultMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
 			UrlValidator urlValidator) {
-		super(repository);
 		Assert.notNull(repository, "repository cannot be null");
 		Assert.notNull(clientRegistrationService, "clientRegistrationService cannot be null");
 		Assert.notNull(discovery, "discovery cannot be null");
@@ -80,6 +83,8 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 		this.clientRegistrationService = clientRegistrationService;
 		this.discovery = discovery;
 		this.urlValidator = urlValidator;
+		this.repository = repository;
+		this.scopeStepUp = new ScopeStepUp(repository);
 	}
 
 	@Override
@@ -112,6 +117,11 @@ public class DefaultMcpOAuth2ClientManager extends ScopeStepUpMcpOAuth2ClientMan
 				mcpServerUrl);
 		var wwwAuthenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
 		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
+	}
+
+	@Override
+	public boolean updateMcpClient(String registrationId, String wwwAuthenticateHeader) {
+		return scopeStepUp.updateOAuth2ClientScopes(registrationId, wwwAuthenticateHeader);
 	}
 
 	private void doRegisterMcpClient(String registrationId, String mcpServerUrl,

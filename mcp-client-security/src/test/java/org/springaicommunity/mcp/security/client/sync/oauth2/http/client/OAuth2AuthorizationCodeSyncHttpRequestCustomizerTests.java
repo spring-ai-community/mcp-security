@@ -189,9 +189,9 @@ class OAuth2AuthorizationCodeSyncHttpRequestCustomizerTests {
 		}
 
 		@Test
-		@DisplayName("when dynamic client registration is disabled and registration does not exist, throws")
+		@DisplayName("when fail on missing client registration and registration does not exist, throws")
 		void disabledAndRegistrationNotFound() {
-			customizer.disableDynamicClientRegistration(true);
+			customizer.failOnMissingClientRegistration(true);
 			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(null);
 
 			assertThatIllegalArgumentException()

@@ -89,7 +89,7 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 			return (name, transport) -> {
 				var customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
 						clientRegistrationRepository, registrationId);
-				customizer.disableDynamicClientRegistration(false);
+				customizer.failOnMissingClientRegistration(true);
 				transport.httpRequestCustomizer(customizer);
 			};
 		}

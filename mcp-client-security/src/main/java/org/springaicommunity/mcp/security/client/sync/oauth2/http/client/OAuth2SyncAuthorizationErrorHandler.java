@@ -36,10 +36,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A {@link McpHttpClientAuthorizationErrorHandler.Sync synchronous authorization error
- * handler} that handles HTTP 401 and 403 responses from an MCP server by performing
- * OAuth2 dynamic client registration and scope updates through
- * {@link McpOAuth2ClientManager}.
+ * A {@link McpHttpClientAuthorizationErrorHandler.Sync} synchronous authorization error
+ * handler that handles HTTP 401 and 403 responses from an MCP server by performing OAuth2
+ * dynamic client registration and scope updates through {@link McpOAuth2ClientManager}.
  *
  * <p>
  * On a 401 Unauthorized response, the handler performs dynamic client registration using

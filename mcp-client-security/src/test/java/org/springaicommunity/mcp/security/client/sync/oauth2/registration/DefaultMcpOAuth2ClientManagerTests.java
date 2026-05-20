@@ -281,58 +281,15 @@ class DefaultMcpOAuth2ClientManagerTests {
 			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
 		}
 
-		@Test
-		@DisplayName("Does not update scopes when the error is not insufficient_scope")
-		void noopErrorIsNotInsufficientScope() {
-			boolean result = manager.updateMcpClient(REGISTRATION_ID,
-					"Bearer resource_metadata=\"https://example.com/\", error=\"invalid_token\", scope=\"mcp:read\"");
-
-			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
-		}
-
-		@Test
-		@DisplayName("Does not update scopes when not provided in header")
-		void noopNoScope() {
-			boolean result = manager.updateMcpClient(REGISTRATION_ID,
-					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\"");
-
-			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
-		}
-
-		@Test
-		@DisplayName("Does not update scopes when scopes are already present")
-		void noopScopesAlreadyPresent() {
-			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read", "mcp:write"));
-
-			boolean result = manager.updateMcpClient(REGISTRATION_ID,
-					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read\"");
-
-			assertThat(result).isFalse();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
-		}
-
+		/**
+		 * @see ScopeStepUpTests
+		 */
 		@Test
 		void updateScopes() {
 			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
 
 			boolean result = manager.updateMcpClient(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
-
-			assertThat(result).isTrue();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
-		}
-
-		@Test
-		@DisplayName("Adds new scope from WWW-Authenticate header without removing existing scopes")
-		void addsScopesWithoutReplacingExisting() {
-			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
-
-			boolean result = manager.updateMcpClient(REGISTRATION_ID,
-					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:write\"");
 
 			assertThat(result).isTrue();
 			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())

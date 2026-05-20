@@ -71,7 +71,7 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 	private final ClientRegistrationRepository clientRegistrationRepository;
 
-	private boolean supportDynamicClientRegistration = true;
+	private boolean failOnMissingClientRegistration = false;
 
 	public OAuth2AuthorizationCodeSyncHttpRequestCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 			ClientRegistrationRepository clientRegistrationRepository, String clientRegistrationId) {
@@ -100,7 +100,7 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		log.debug("Requesting access token for client [{}]", this.clientRegistrationId);
 
 		var registration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);
-		if (registration == null && this.supportDynamicClientRegistration) {
+		if (registration == null && !this.failOnMissingClientRegistration) {
 			log.debug("Client [{}] does not exist. It may be dynamically registered at a later point, skipping.",
 					this.clientRegistrationId);
 			return;
@@ -136,8 +136,15 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 
-	public void disableDynamicClientRegistration(boolean disableDynamicClientRegistration) {
-		this.supportDynamicClientRegistration = !disableDynamicClientRegistration;
+	/**
+	 * Fail when the client registration is missing. Set to {@code true} when using MCP
+	 * client with pre-registered OAuth2 clients. Set to {@code false} when using with
+	 * Dynamic Client Registration (DCR) or Client ID Metadata Document (CIMD)
+	 * @param failOnMissingClientRegistration set to {@code false} for DCR or CIMD
+	 * support. Defaults to {@code false}.
+	 */
+	public void failOnMissingClientRegistration(boolean failOnMissingClientRegistration) {
+		this.failOnMissingClientRegistration = failOnMissingClientRegistration;
 	}
 
 }
