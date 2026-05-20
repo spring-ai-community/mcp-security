@@ -1,9 +1,6 @@
 package org.springaicommunity.mcp.security.sample.authorizationserver;
 
-import java.lang.reflect.Field;
-import java.sql.Ref;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
