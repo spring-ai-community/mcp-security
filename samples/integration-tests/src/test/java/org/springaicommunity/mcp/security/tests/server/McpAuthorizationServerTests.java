@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
@@ -25,8 +26,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationContext;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -34,6 +35,8 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.client.assertj.RestTestClientResponse;
 import org.springframework.web.util.UriComponentsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator.DEFAULT_JWK_SET_URI_VALIDATOR;
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator.DEFAULT_REDIRECT_URI_VALIDATOR;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -374,11 +377,16 @@ class McpAuthorizationServerTests {
 			exclude = { StreamableHttpWebFluxTransportAutoConfiguration.class, AnthropicChatAutoConfiguration.class })
 	static class Config {
 
+		private final Consumer<OAuth2ClientRegistrationAuthenticationContext> ALL_SCOPES_ALLOWED_VALIDATOR = DEFAULT_REDIRECT_URI_VALIDATOR
+			.andThen(DEFAULT_JWK_SET_URI_VALIDATOR);
+
 		@Bean
 		SecurityFilterChain securityFilterChain(HttpSecurity http) {
-			return http.with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), Customizer.withDefaults())
-				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
-				.build();
+			http.with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), mcpAuthzServer -> {
+				mcpAuthzServer.dynamicClientRegistrationValidator(ALL_SCOPES_ALLOWED_VALIDATOR);
+			});
+			http.authorizeHttpRequests(authz -> authz.anyRequest().authenticated());
+			return http.build();
 		}
 
 	}

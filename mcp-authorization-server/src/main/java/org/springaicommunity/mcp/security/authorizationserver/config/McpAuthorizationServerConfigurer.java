@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -37,6 +38,8 @@ import org.springframework.security.config.annotation.web.configurers.oauth2.ser
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationContext;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -60,6 +63,8 @@ public class McpAuthorizationServerConfigurer
 	private boolean supportDynamicClientRegistration = true;
 
 	private boolean supportClientIdMetadataDocument = false;
+
+	private Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator = new OAuth2ClientRegistrationAuthenticationValidator();
 
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
@@ -100,6 +105,19 @@ public class McpAuthorizationServerConfigurer
 		return this;
 	}
 
+	/**
+	 * Update the validator for incoming client registrations.
+	 * @param clientRegistrationValidator the validator. Defaults to
+	 * {@link OAuth2ClientRegistrationAuthenticationValidator};
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer dynamicClientRegistrationValidator(
+			Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator) {
+		Assert.notNull(clientRegistrationValidator, "clientRegistrationValidator cannot be null");
+		this.clientRegistrationValidator = clientRegistrationValidator;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
 		http.authorizeHttpRequests(authz -> {
@@ -108,6 +126,8 @@ public class McpAuthorizationServerConfigurer
 			}
 		}).oauth2AuthorizationServer(authServer -> {
 			authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
+			authServer.addObjectPostProcessor(
+					new McpClientRegistrationValidatorPostProcessor(this.clientRegistrationValidator));
 			authServer.authorizationServerMetadataEndpoint(metadataEndpoint -> {
 				if (this.supportClientIdMetadataDocument) {
 					metadataEndpoint.authorizationServerMetadataCustomizer(

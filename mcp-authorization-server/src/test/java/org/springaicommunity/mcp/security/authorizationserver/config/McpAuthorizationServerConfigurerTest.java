@@ -8,6 +8,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -35,7 +36,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationContext;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -49,10 +55,12 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator.DEFAULT_REDIRECT_URI_VALIDATOR;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration
@@ -104,11 +112,7 @@ class McpAuthorizationServerConfigurerTest {
 				{
 					"redirect_uris": ["https://example.com/oauth2/callback"]
 				}""";
-		var resp = this.mvc.post()
-			.uri("/oauth2/register")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(dcrRequest)
-			.exchange();
+		var resp = registerClient(dcrRequest);
 		assertThat(resp.getResponse().getStatus()).isEqualTo(201);
 	}
 
@@ -142,6 +146,48 @@ class McpAuthorizationServerConfigurerTest {
 		assertThat(thingy).containsEntry("one", "one").containsEntry("two", "two");
 	}
 
+	@Test
+	void dynamicClientRegistrationSucceeds() {
+		var resp = registerClient("""
+				{
+					"redirect_uris": ["https://example.com/callback"],
+					"scope": "test.read test.write"
+				}
+				""");
+		assertThat(resp).hasStatus(HttpStatus.CREATED);
+	}
+
+	@Test
+	void dynamicClientRegistrationFailsValidation() {
+		var invalidRedirectUri = """
+				{
+					"redirect_uris": ["https://example.com/callback#invalid-fragment"]
+				}
+				""";
+		var invalidScope = """
+				{
+					"redirect_uris": ["https://example.com/callback"],
+					"scope": "admin.scope"
+				}
+				""";
+		assertThat(registerClient(invalidRedirectUri)).hasStatus(HttpStatus.BAD_REQUEST)
+			.bodyJson()
+			.extractingPath("error")
+			.isEqualTo("invalid_redirect_uri");
+		assertThat(registerClient(invalidScope)).hasStatus(HttpStatus.BAD_REQUEST)
+			.bodyJson()
+			.extractingPath("error")
+			.isEqualTo("invalid_scope");
+	}
+
+	private MvcTestResult registerClient(String clientRegistration) {
+		return this.mvc.post()
+			.uri("/oauth2/register")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(clientRegistration)
+			.exchange();
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
 	@EnableWebSecurity
@@ -149,6 +195,17 @@ class McpAuthorizationServerConfigurerTest {
 
 		private static final ImmutableSecret<SecurityContext> SECRET = new ImmutableSecret<>(
 				"0558BC36-378D-4809-A551-E61F3B8894B9-8ECA8B16-D07E-4856-9564-50637494E51A".getBytes());
+
+		private static final Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator = DEFAULT_REDIRECT_URI_VALIDATOR
+			.andThen(ctx -> {
+				OAuth2ClientRegistrationAuthenticationToken registration = ctx.getAuthentication();
+				var scopes = registration.getClientRegistration().getScopes();
+				if (scopes != null && scopes.stream().anyMatch(s -> !s.startsWith("test."))) {
+					throw new OAuth2AuthenticationException(
+							new OAuth2Error(OAuth2ErrorCodes.INVALID_SCOPE, "Scopes must start with 'test.'",
+									"https://datatracker.ietf.org/doc/html/rfc7591#section-3.2.2"));
+				}
+			});
 
 		@Bean
 		AtomicInteger authzServerCustomizationCount() {
@@ -169,6 +226,7 @@ class McpAuthorizationServerConfigurerTest {
 					});
 					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
 					mcpAuthzServer.cimd(true);
+					mcpAuthzServer.dynamicClientRegistrationValidator(clientRegistrationValidator);
 				});
 			return http.build();
 		}
