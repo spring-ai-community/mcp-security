@@ -17,7 +17,8 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.net.http.HttpResponse;
 
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.client.transport.HttpRequestSnapshot;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
 import io.modelcontextprotocol.common.McpTransportContext;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -34,9 +35,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A {@link McpHttpClientAuthorizationErrorHandler.Sync} synchronous authorization error
- * handler that handles HTTP 401 and HTTP 403 with CIMD clients and scope step-up through
- * {@link DefaultMcpOAuth2CimdClientManager}.
+ * A {@link McpHttpClientTransportAuthorizationErrorHandler.Sync} synchronous
+ * authorization error handler that handles HTTP 401 and HTTP 403 with CIMD clients and
+ * scope step-up through {@link DefaultMcpOAuth2CimdClientManager}.
  *
  * <p>
  * On a 401 Unauthorized response, the handler registers a CIMD client, with information
@@ -49,16 +50,14 @@ import org.springframework.web.util.UriComponentsBuilder;
  * a {@code boundedElastic} scheduler, which is the default in the Java SDK.
  *
  * @author Daniel Garnier-Moiroux
- * @see McpHttpClientAuthorizationErrorHandler
+ * @see McpHttpClientTransportAuthorizationErrorHandler
  * @see DefaultMcpOAuth2CimdClientManager
  */
-public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAuthorizationErrorHandler.Sync {
+public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientTransportAuthorizationErrorHandler.Sync {
 
 	private static final Logger log = LoggerFactory.getLogger(OAuth2CimdSyncAuthorizationErrorHandler.class);
 
 	private final String registrationId;
-
-	private final String mcpServerUrl;
 
 	private @Nullable String fallbackBaseUrl = null;
 
@@ -74,7 +73,6 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 	public OAuth2CimdSyncAuthorizationErrorHandler(McpOAuth2CimdClientManager mcpCimdClientManager,
 			String registrationId, String mcpServerUrl) {
 		this.registrationId = registrationId;
-		this.mcpServerUrl = mcpServerUrl;
 		this.mcpCimdClientManager = mcpCimdClientManager;
 	}
 
@@ -89,13 +87,14 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 	}
 
 	@Override
-	public boolean handle(HttpResponse.ResponseInfo responseInfo, McpTransportContext context) {
+	public boolean handle(HttpRequestSnapshot requestSnapshot, HttpResponse.ResponseInfo responseInfo,
+			McpTransportContext context) {
 		var wwwAuthenticateHeader = responseInfo.headers().firstValue("www-authenticate").orElse(null);
 		if (wwwAuthenticateHeader == null) {
 			log.debug("No WWW-Authenticate header found, cannot handle authorization error");
 		}
 		else if (responseInfo.statusCode() == HttpStatus.UNAUTHORIZED.value()) {
-			handleUnauthorized(wwwAuthenticateHeader, context);
+			handleUnauthorized(requestSnapshot.requestUri().toString(), wwwAuthenticateHeader, context);
 		}
 		else if (responseInfo.statusCode() == HttpStatus.FORBIDDEN.value()) {
 			handleForbidden(wwwAuthenticateHeader);
@@ -104,7 +103,7 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 		return false;
 	}
 
-	private void handleUnauthorized(String wwwAuthenticateHeader, McpTransportContext context) {
+	private void handleUnauthorized(String mcpServerUrl, String wwwAuthenticateHeader, McpTransportContext context) {
 		log.debug("Handling 401 Unauthorized for client [{}]", this.registrationId);
 		var baseUrl = this.resolveBaseUrl(context);
 		if (baseUrl == null) {
@@ -112,8 +111,7 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientAut
 			return;
 		}
 		try {
-			this.mcpCimdClientManager.createClient(this.registrationId, this.mcpServerUrl, wwwAuthenticateHeader,
-					baseUrl);
+			this.mcpCimdClientManager.createClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader, baseUrl);
 		}
 		catch (ClientAlreadyExistsException e) {
 			log.debug("Client [{}] already exists, not expecting HTTP 401 from the server", this.registrationId);

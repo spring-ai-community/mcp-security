@@ -20,7 +20,7 @@ import java.lang.reflect.Field;
 import java.util.function.Function;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -146,7 +146,7 @@ public class OAuth2DcrHttpClientTransportCustomizer
 				mcpServerUrl);
 
 		transportBuilder.httpRequestCustomizer(requestCustomizer)
-			.authorizationErrorHandler(McpHttpClientAuthorizationErrorHandler.fromSync(errorHandler));
+			.authorizationErrorHandler(McpHttpClientTransportAuthorizationErrorHandler.fromSync(errorHandler));
 		log.debug("OAuth2 request customizer and authorization error handler configured for transport [{}]", name);
 	}
 

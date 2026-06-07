@@ -19,7 +19,8 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 import java.net.http.HttpResponse;
 import java.util.List;
 
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.client.transport.HttpRequestSnapshot;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
 import io.modelcontextprotocol.common.McpTransportContext;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -36,9 +37,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * A {@link McpHttpClientAuthorizationErrorHandler.Sync} synchronous authorization error
- * handler that handles HTTP 401 and 403 responses from an MCP server by performing OAuth2
- * dynamic client registration and scope updates through
+ * A {@link McpHttpClientTransportAuthorizationErrorHandler.Sync} synchronous
+ * authorization error handler that handles HTTP 401 and 403 responses from an MCP server
+ * by performing OAuth2 dynamic client registration and scope updates through
  * {@link McpOAuth2DcrClientManager}.
  *
  * <p>
@@ -52,10 +53,10 @@ import org.springframework.web.util.UriComponentsBuilder;
  * a {@code boundedElastic} scheduler, which is the default in the Java SDK.
  *
  * @author Daniel Garnier-Moiroux
- * @see McpHttpClientAuthorizationErrorHandler
+ * @see McpHttpClientTransportAuthorizationErrorHandler
  * @see McpOAuth2DcrClientManager
  */
-public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuthorizationErrorHandler.Sync {
+public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTransportAuthorizationErrorHandler.Sync {
 
 	private static final Logger log = LoggerFactory.getLogger(OAuth2DcrSyncAuthorizationErrorHandler.class);
 
@@ -64,8 +65,6 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuth
 	private final McpOAuth2DcrClientManager mcpOAuth2ClientManager;
 
 	private final String registrationId;
-
-	private final String mcpServerUrl;
 
 	public @Nullable final DynamicClientRegistrationRequest dynamicClientRegistrationRequest;
 
@@ -103,7 +102,6 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuth
 		Assert.hasText(mcpServerUrl, "mcpServerUrl must not be empty");
 		this.mcpOAuth2ClientManager = mcpOAuth2ClientManager;
 		this.registrationId = registrationId;
-		this.mcpServerUrl = mcpServerUrl;
 		this.dynamicClientRegistrationRequest = dynamicClientRegistrationRequest;
 	}
 
@@ -118,13 +116,14 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuth
 	}
 
 	@Override
-	public boolean handle(HttpResponse.ResponseInfo responseInfo, McpTransportContext context) {
+	public boolean handle(HttpRequestSnapshot requestSnapshot, HttpResponse.ResponseInfo responseInfo,
+			McpTransportContext context) {
 		var wwwAuthenticateHeader = responseInfo.headers().firstValue("www-authenticate").orElse(null);
 		if (wwwAuthenticateHeader == null) {
 			log.debug("No WWW-Authenticate header found, cannot handle authorization error");
 		}
 		else if (responseInfo.statusCode() == HttpStatus.UNAUTHORIZED.value()) {
-			handleUnauthorized(wwwAuthenticateHeader, context);
+			handleUnauthorized(requestSnapshot.requestUri().toString(), wwwAuthenticateHeader, context);
 		}
 		else if (responseInfo.statusCode() == HttpStatus.FORBIDDEN.value()) {
 			handleForbidden(wwwAuthenticateHeader);
@@ -133,10 +132,10 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientAuth
 		return false;
 	}
 
-	private void handleUnauthorized(String wwwAuthenticateHeader, McpTransportContext context) {
+	private void handleUnauthorized(String mcpServerUrl, String wwwAuthenticateHeader, McpTransportContext context) {
 		log.debug("Handling 401 Unauthorized for client [{}]", this.registrationId);
 		var registrationRequest = resolveRegistrationRequest(context);
-		this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, this.mcpServerUrl, wwwAuthenticateHeader,
+		this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader,
 				registrationRequest);
 		log.debug("Client [{}] registered, triggering authorization", this.registrationId);
 		// client changed, retry

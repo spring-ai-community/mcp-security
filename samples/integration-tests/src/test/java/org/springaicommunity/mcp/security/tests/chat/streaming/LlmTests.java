@@ -1,20 +1,23 @@
 package org.springaicommunity.mcp.security.tests.chat.streaming;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.AnthropicClientAsync;
 import com.anthropic.core.JsonNull;
 import com.anthropic.core.JsonString;
-import com.anthropic.core.http.AsyncStreamResponse;
+import com.anthropic.core.http.Headers;
+import com.anthropic.core.http.HttpResponseFor;
+import com.anthropic.core.http.StreamResponse;
 import com.anthropic.models.messages.Container;
 import com.anthropic.models.messages.ContentBlock;
 import com.anthropic.models.messages.ContentBlockParam;
@@ -62,8 +65,6 @@ import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatProperties;
-import org.springframework.ai.model.tool.DefaultToolExecutionEligibilityPredicate;
-import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -163,21 +164,26 @@ class LlmTests {
 		reset(anthropicClientAsync);
 
 		// --- Sync client mocking (for chatClient.prompt().call()) ---
-		when(anthropicClient.messages().create(argThat(LlmTests::hasSingleAnthropicMessage))).thenReturn(firstResponse);
-		when(anthropicClient.messages().create(argThat(LlmTests::hasToolCallResult))).thenAnswer(invocation -> {
-			MessageCreateParams messageParams = invocation.getArgument(0);
-			var toolResponse = extractToolResponse(messageParams);
-			return makeFinalResponse.apply(toolResponse);
-		});
-
-		// --- Async client mocking (for chatClient.prompt().stream()) ---
-		when(anthropicClientAsync.messages().createStreaming(argThat(LlmTests::hasSingleAnthropicMessage)))
-			.thenReturn(fakeAsyncStreamResponse(messageToStreamEvents(firstResponse)));
-		when(anthropicClientAsync.messages().createStreaming(argThat(LlmTests::hasToolCallResult)))
+		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasSingleAnthropicMessage)))
+			.thenReturn(fakeRawResponse(firstResponse));
+		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasToolCallResult)))
 			.thenAnswer(invocation -> {
 				MessageCreateParams messageParams = invocation.getArgument(0);
 				var toolResponse = extractToolResponse(messageParams);
-				return fakeAsyncStreamResponse(messageToStreamEvents(makeFinalResponse.apply(toolResponse)));
+				return fakeRawResponse(makeFinalResponse.apply(toolResponse));
+			});
+
+		// --- Async client mocking (for chatClient.prompt().stream()) ---
+		when(anthropicClientAsync.messages()
+			.withRawResponse()
+			.createStreaming(argThat(LlmTests::hasSingleAnthropicMessage)))
+			.thenReturn(CompletableFuture.completedFuture(fakeStreamRawResponse(messageToStreamEvents(firstResponse))));
+		when(anthropicClientAsync.messages().withRawResponse().createStreaming(argThat(LlmTests::hasToolCallResult)))
+			.thenAnswer(invocation -> {
+				MessageCreateParams messageParams = invocation.getArgument(0);
+				var toolResponse = extractToolResponse(messageParams);
+				return CompletableFuture.completedFuture(
+						fakeStreamRawResponse(messageToStreamEvents(makeFinalResponse.apply(toolResponse))));
 			});
 	}
 
@@ -252,14 +258,10 @@ class LlmTests {
 
 		@Bean
 		public AnthropicChatModel anthropicChatModel(AnthropicChatProperties chatProperties,
-				ToolCallingManager toolCallingManager, AnthropicClient anthropicClient,
-				AnthropicClientAsync anthropicClientAsync) {
+				AnthropicClient anthropicClient, AnthropicClientAsync anthropicClientAsync) {
 			AnthropicChatOptions options = chatProperties.toOptions();
-
 			return AnthropicChatModel.builder()
 				.options(options)
-				.toolCallingManager(toolCallingManager)
-				.toolExecutionEligibilityPredicate(new DefaultToolExecutionEligibilityPredicate())
 				.anthropicClient(anthropicClient)
 				.anthropicClientAsync(anthropicClientAsync)
 				.build();
@@ -387,34 +389,64 @@ class LlmTests {
 		return events;
 	}
 
-	private static <T> AsyncStreamResponse<T> fakeAsyncStreamResponse(List<T> events) {
-		return new AsyncStreamResponse<T>() {
-			private final CompletableFuture<Void> completeFuture = new CompletableFuture<>();
+	private static HttpResponseFor<Message> fakeRawResponse(Message message) {
+		return new HttpResponseFor<>() {
+			@Override
+			public Message parse() {
+				return message;
+			}
 
 			@Override
-			public AsyncStreamResponse<T> subscribe(Handler<? super T> handler) {
-				try {
-					for (T event : events) {
-						handler.onNext(event);
+			public int statusCode() {
+				return 200;
+			}
+
+			@Override
+			public Headers headers() {
+				return Headers.builder().build();
+			}
+
+			@Override
+			public InputStream body() {
+				return InputStream.nullInputStream();
+			}
+
+			@Override
+			public void close() {
+			}
+		};
+	}
+
+	private static HttpResponseFor<StreamResponse<RawMessageStreamEvent>> fakeStreamRawResponse(
+			List<RawMessageStreamEvent> events) {
+		return new HttpResponseFor<>() {
+			@Override
+			public StreamResponse<RawMessageStreamEvent> parse() {
+				return new StreamResponse<>() {
+					@Override
+					public Stream<RawMessageStreamEvent> stream() {
+						return events.stream();
 					}
-					handler.onComplete(Optional.empty());
-					completeFuture.complete(null);
-				}
-				catch (Exception e) {
-					handler.onComplete(Optional.of(e));
-					completeFuture.completeExceptionally(e);
-				}
-				return this;
+
+					@Override
+					public void close() {
+					}
+				};
 			}
 
 			@Override
-			public AsyncStreamResponse<T> subscribe(Handler<? super T> handler, Executor executor) {
-				return subscribe(handler);
+			public int statusCode() {
+				return 200;
 			}
 
 			@Override
-			public CompletableFuture<Void> onCompleteFuture() {
-				return completeFuture;
+			public Headers headers() {
+				return Headers.builder().build();
+			}
+
+			@Override
+			public InputStream body() {
+				return InputStream.nullInputStream();
 			}
 
 			@Override

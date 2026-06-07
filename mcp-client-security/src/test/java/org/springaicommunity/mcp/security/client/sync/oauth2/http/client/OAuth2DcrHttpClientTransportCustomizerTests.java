@@ -21,7 +21,7 @@ import java.util.Map;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
-import io.modelcontextprotocol.client.transport.customizer.McpHttpClientAuthorizationErrorHandler;
+import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -66,9 +66,9 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 
 			assertThat(getBuilderField(builder, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
 				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
-			assertThat(
-					getBuilderField(builder, "authorizationErrorHandler", McpHttpClientAuthorizationErrorHandler.class))
-				.isNotSameAs(McpHttpClientAuthorizationErrorHandler.NOOP);
+			assertThat(getBuilderField(builder, "authorizationErrorHandler",
+					McpHttpClientTransportAuthorizationErrorHandler.class))
+				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
 		}
 
 		@Test
@@ -85,13 +85,13 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 			assertThat(getBuilderField(builder1, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
 				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
 			assertThat(getBuilderField(builder1, "authorizationErrorHandler",
-					McpHttpClientAuthorizationErrorHandler.class))
-				.isNotSameAs(McpHttpClientAuthorizationErrorHandler.NOOP);
+					McpHttpClientTransportAuthorizationErrorHandler.class))
+				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
 			assertThat(getBuilderField(builder2, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
 				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
 			assertThat(getBuilderField(builder2, "authorizationErrorHandler",
-					McpHttpClientAuthorizationErrorHandler.class))
-				.isNotSameAs(McpHttpClientAuthorizationErrorHandler.NOOP);
+					McpHttpClientTransportAuthorizationErrorHandler.class))
+				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
 		}
 
 		@Test
@@ -109,13 +109,13 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 			assertThat(getBuilderField(builder1, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
 				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
 			assertThat(getBuilderField(builder1, "authorizationErrorHandler",
-					McpHttpClientAuthorizationErrorHandler.class))
-				.isNotSameAs(McpHttpClientAuthorizationErrorHandler.NOOP);
+					McpHttpClientTransportAuthorizationErrorHandler.class))
+				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
 			assertThat(getBuilderField(builder2, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
 				.isSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
 			assertThat(getBuilderField(builder2, "authorizationErrorHandler",
-					McpHttpClientAuthorizationErrorHandler.class))
-				.isSameAs(McpHttpClientAuthorizationErrorHandler.NOOP);
+					McpHttpClientTransportAuthorizationErrorHandler.class))
+				.isSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
 		}
 
 	}
