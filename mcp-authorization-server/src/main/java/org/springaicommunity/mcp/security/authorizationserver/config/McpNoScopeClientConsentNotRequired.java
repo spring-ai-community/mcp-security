@@ -22,6 +22,11 @@ class McpNoScopeClientConsentNotRequired implements Predicate<OAuth2Authorizatio
 
 	@Override
 	public boolean test(OAuth2AuthorizationCodeRequestAuthenticationContext authenticationContext) {
+		if (authenticationContext.getAuthorizationRequest() == null) {
+			// This should not happen here, we're checking consent required so this means
+			// we're processing an authorization request.
+			return true;
+		}
 		if (!authenticationContext.getRegisteredClient().getClientSettings().isRequireAuthorizationConsent()) {
 			return false;
 		}

@@ -64,6 +64,9 @@ public class McpOAuth2ClientCredentialsExchangeFilterFunction implements Exchang
 
 	private Mono<String> getClientCredentialsAccessToken() {
 		var clientRegistration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);
+		if (clientRegistration == null) {
+			return Mono.empty();
+		}
 
 		var authRequest = OAuth2AuthorizationContext.withClientRegistration(clientRegistration)
 			.principal(new AnonymousAuthenticationToken("client-credentials-client", "client-credentials-client",

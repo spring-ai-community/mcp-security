@@ -45,7 +45,7 @@ public class McpController {
 			Optional<SyncMcpToolCallbackProvider> mcpTools) {
 		this.repository = repository;
 		this.chatClientSupplier = SingletonSupplier
-			.of(() -> chatClientBuilder.getIfUnique().defaultToolCallbacks(mcpTools.get()).build());
+			.of(() -> chatClientBuilder.getIfUnique().defaultTools(mcpTools.get()).build());
 	}
 
 	@GetMapping("/tool/call")

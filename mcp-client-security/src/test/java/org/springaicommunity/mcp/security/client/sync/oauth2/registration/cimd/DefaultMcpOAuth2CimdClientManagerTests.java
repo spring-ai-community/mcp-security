@@ -151,6 +151,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, headerWithScopes, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:read", "mcp:write");
 		}
 
@@ -165,6 +166,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:tools", "mcp:prompts");
 		}
 
@@ -199,6 +201,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
 			assertThat(registration.getClientName()).isEqualTo("Custom Name");
 		}
 
@@ -233,8 +236,9 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();
-			assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes())
-				.containsExactlyInAnyOrder("mcp:read", "mcp:write");
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 		}
 
 	}

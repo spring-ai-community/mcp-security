@@ -97,12 +97,13 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 			return authorizedClient.getAccessToken();
 		}
 
-		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
-			.withClientRegistrationId(this.authorizationCodeClientRegistrationId)
+		var builder = OAuth2AuthorizeRequest.withClientRegistrationId(this.authorizationCodeClientRegistrationId)
 			.principal((Authentication) authentication)
-			.attribute(HttpServletRequest.class.getName(), attrs.getRequest())
-			.attribute(HttpServletResponse.class.getName(), attrs.getResponse())
-			.build();
+			.attribute(HttpServletRequest.class.getName(), attrs.getRequest());
+		if (attrs.getResponse() != null) {
+			builder.attribute(HttpServletResponse.class.getName(), attrs.getResponse());
+		}
+		OAuth2AuthorizeRequest authorizeRequest = builder.build();
 		log.debug("Requesting access token");
 		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
 		if (authorizedClient == null) {

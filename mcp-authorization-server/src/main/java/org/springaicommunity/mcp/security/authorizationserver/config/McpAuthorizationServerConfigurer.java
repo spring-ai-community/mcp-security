@@ -156,6 +156,10 @@ public class McpAuthorizationServerConfigurer
 			tokenGenerator = getOptionalBean(http, OAuth2TokenGenerator.class);
 			if (tokenGenerator == null) {
 				JWKSource<SecurityContext> jwkSource = getJwkSource(http);
+				if (jwkSource == null) {
+					throw new IllegalStateException(
+							"Could not create default OAuth2TokenGenerator. Provide your own bean of type OAuth2TokenGenerator, or a bean of type JWKSource<SecurityContext> to create the default generator.");
+				}
 				JwtGenerator jwtGenerator = new JwtGenerator(new NimbusJwtEncoder(jwkSource));
 				var audienceTokenCustomizer = new ResourceIdentifierAudienceTokenCustomizer();
 				var defaultCustomizers = McpDefaultJwtCustomizer.DEFAULT_JWT_CUSTOMIZER;

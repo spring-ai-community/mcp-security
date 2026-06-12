@@ -91,12 +91,15 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 			return;
 		}
 
-		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
-			.withClientRegistrationId(this.clientRegistrationId)
+		var oauth2AuthorizeRequestBuilder = OAuth2AuthorizeRequest.withClientRegistrationId(this.clientRegistrationId)
 			.principal(authentication)
-			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest())
-			.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse())
-			.build();
+			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest());
+		if (requestAttributes.getResponse() != null) {
+			oauth2AuthorizeRequestBuilder.attribute(HttpServletResponse.class.getName(),
+					requestAttributes.getResponse());
+		}
+		OAuth2AuthorizeRequest authorizeRequest = oauth2AuthorizeRequestBuilder.build();
+
 		log.debug("Requesting access token for client [{}]", this.clientRegistrationId);
 
 		var registration = this.clientRegistrationRepository.findByRegistrationId(this.clientRegistrationId);

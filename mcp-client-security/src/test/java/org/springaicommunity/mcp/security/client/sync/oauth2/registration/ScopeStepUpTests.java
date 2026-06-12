@@ -56,7 +56,9 @@ class ScopeStepUpTests {
 				"Bearer resource_metadata=\"https://example.com/\", error=\"invalid_token\", scope=\"mcp:read\"");
 
 		assertThat(result).isFalse();
-		assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
+		var registration = repository.findByRegistrationId(REGISTRATION_ID);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).isNullOrEmpty();
 	}
 
 	@Test
@@ -66,7 +68,9 @@ class ScopeStepUpTests {
 				"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\"");
 
 		assertThat(result).isFalse();
-		assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).isNullOrEmpty();
+		var registration = repository.findByRegistrationId(REGISTRATION_ID);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).isNullOrEmpty();
 	}
 
 	@Test
@@ -78,8 +82,9 @@ class ScopeStepUpTests {
 				"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read\"");
 
 		assertThat(result).isFalse();
-		assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).containsExactlyInAnyOrder("mcp:read",
-				"mcp:write");
+		var registration = repository.findByRegistrationId(REGISTRATION_ID);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 	}
 
 	@Test
@@ -90,8 +95,9 @@ class ScopeStepUpTests {
 				"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 		assertThat(result).isTrue();
-		assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).containsExactlyInAnyOrder("mcp:read",
-				"mcp:write");
+		var registration = repository.findByRegistrationId(REGISTRATION_ID);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 	}
 
 	@Test
@@ -103,8 +109,9 @@ class ScopeStepUpTests {
 				"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:write\"");
 
 		assertThat(result).isTrue();
-		assertThat(repository.findByRegistrationId(REGISTRATION_ID).getScopes()).containsExactlyInAnyOrder("mcp:read",
-				"mcp:write");
+		var registration = repository.findByRegistrationId(REGISTRATION_ID);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "mcp:write");
 	}
 
 }
