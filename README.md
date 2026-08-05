@@ -36,7 +36,8 @@ The project enables developers to:
 Provides OAuth 2.0 resource server capabilities
 for [Spring AI's MCP servers](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html).
 It also provides basic support for API-key based servers.
-This module is compatible with Spring WebMVC-based servers only.
+OAuth2 and API-key authentication are compatible with Spring WebMVC-based servers only.
+[Origin validation](#origin-validation) additionally supports Spring WebFlux.
 
 ### Quick start with `mcp-server-security-spring-boot` (recommended)
 
@@ -365,6 +366,8 @@ DNS rebinding attacks. To mitigate this, the
 [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#security-warning)
 requires servers to validate the `Origin` header of incoming requests.
 
+Unlike the rest of MCP Server Security, origin validation works on both Spring WebMVC and Spring WebFlux servers.
+
 With `mcp-server-security-spring-boot`, origin validation is **on by default**, and allows local origins only:
 
 ```yaml
@@ -386,6 +389,8 @@ spring:
 Setting `allowed-origins` replaces the defaults, so remember to add back the local origins if you still need them, for
 example when developing with the MCP Inspector.
 
+#### WebMVC servers
+
 When wiring things up manually with `mcp-server-security`, validation is **not** enabled unless you configure it, on
 either configurer:
 
@@ -394,22 +399,50 @@ http.with(mcpServerOAuth2(), (mcpAuthorization) -> {
     mcpAuthorization.authorizationServer(issuerUrl);
 
     // OPTIONAL: restrict the Origin header
-    mcpAuthorization.allowedOrigins(List.of("https://my-cool-mcp-client.example.com"));
+    mcpAuthorization.allowedOrigins(List.of("https://mcp-client.example.com"));
 
     // OPTIONAL: restrict the Host header
-    mcpAuthorization.allowedHosts(List.of("my-cool-mcp-server.example.com"));
+    mcpAuthorization.allowedHosts(List.of("mcp-server.example.com"));
 });
 
 // ... or, for API-key based servers:
 http.with(mcpServerApiKey(), (apiKey) -> {
     apiKey.apiKeyRepository(apiKeyRepository());
-    apiKey.allowedOrigins(List.of("https://my-cool-mcp-client.example.com"));
-    apiKey.allowedHosts(List.of("my-cool-mcp-server.example.com"));
+    apiKey.allowedOrigins(List.of("https://mcp-client.example.com"));
+    apiKey.allowedHosts(List.of("mcp-server.example.com"));
 });
 ```
 
 Both origins and hosts support exact matches and wildcard port patterns (`https://example.com:*`, `example.com:*`).
-If your server needs to support Cross-Origin requests (CORS), see [CORS support in Spring Security](https://docs.spring.io/spring-security/reference/servlet/integrations/cors.html).
+Rejected requests receive a JSON-RPC error body, with an HTTP 403 for a disallowed `Origin` and an HTTP 421 for a disallowed `Host`.
+If your server needs to support Cross-Origin requests (CORS), see CORS support in Spring Security
+for [servlet](https://docs.spring.io/spring-security/reference/servlet/integrations/cors.html)
+applications.
+
+
+#### WebFlux servers
+
+When wiring things up manually with `mcp-server-security`, add the `OriginValidationWebFilter` to your
+`ServerHttpSecurity`:
+
+```java
+@Bean
+SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+    // The second argument is the OPTIONAL Host allowlist; pass null to skip Host validation
+    var originValidation = new OriginValidationWebFilter(
+            List.of("https://mcp-client.example.com"),
+            List.of("mcp-server.example.com"));
+
+    return http.authorizeExchange(exchanges -> exchanges.anyExchange().authenticated())
+        .addFilterAfter(originValidation, SecurityWebFiltersOrder.CORS)
+        .build();
+}
+```
+
+Both origins and hosts support exact matches and wildcard port patterns (`https://example.com:*`, `example.com:*`).
+Rejected requests receive a JSON-RPC error body, with an HTTP 403 for a disallowed `Origin` and an HTTP 421 for a disallowed `Host`.
+If your server needs to support Cross-Origin requests (CORS), see CORS support in Spring Security
+for [reactive](https://docs.spring.io/spring-security/reference/reactive/integrations/cors.html) applications.
 
 ### Known limitations
 
@@ -417,7 +450,8 @@ If your server needs to support Cross-Origin requests (CORS), see [CORS support 
   Use [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http)
   or [stateless transport](https://modelcontextprotocol.io/sdk/java/mcp-server#stateless-streamable-http-webmvc). (the
   link for stateless does not work out of the box, reload the page if required)
-- WebFlux-based servers are not supported.
+- WebFlux-based servers are only supported for [origin validation](#origin-validation). OAuth2 and API-key
+  authentication require WebMVC.
 - Opaque tokens are not supported. Use JWT.
 
 ## MCP Client Security

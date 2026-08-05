@@ -80,6 +80,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- All dependencies from spring-boot-starter-oauth2-resource-server -->
         <dependency>
             <groupId>org.springframework.security</groupId>
