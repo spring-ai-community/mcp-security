@@ -16,12 +16,16 @@
 
 package org.springaicommunity.mcp.security.server.config;
 
+import java.util.Collections;
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntity;
 import org.springaicommunity.mcp.security.server.apikey.ApiKeyEntityRepository;
 import org.springaicommunity.mcp.security.server.apikey.authentication.ApiKeyAuthenticationProvider;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationConverter;
 import org.springaicommunity.mcp.security.server.apikey.web.ApiKeyAuthenticationFilter;
+import org.springaicommunity.mcp.security.server.web.OriginValidationFilter;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -33,7 +37,9 @@ import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.filter.CorsFilter;
 
 /**
  * {@link HttpSecurity} configurer that enables API key authentication for an MCP server.
@@ -52,6 +58,10 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 
 	public @Nullable SessionBindingConfigurer sessionBindingConfigurer;
 
+	public @Nullable List<String> allowedOrigins;
+
+	public @Nullable List<String> allowedHosts;
+
 	@Override
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.apiKeyEntityRepository, "apiKeyRepository cannot be null");
@@ -63,6 +73,12 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 		registerCsrfOverride(http);
 		if (this.sessionBindingConfigurer != null) {
 			this.sessionBindingConfigurer.init(http);
+		}
+
+		if (!CollectionUtils.isEmpty(this.allowedOrigins)) {
+			var originValidationFilter = new OriginValidationFilter(
+					this.allowedOrigins != null ? this.allowedOrigins : Collections.emptyList(), this.allowedHosts);
+			http.addFilterAfter(originValidationFilter, CorsFilter.class);
 		}
 	}
 
@@ -159,6 +175,36 @@ public class McpApiKeyConfigurer extends AbstractHttpConfigurer<McpApiKeyConfigu
 		}
 		sessionBindingCustomizer.customize(sessionBindingConfigurer);
 		return this;
+	}
+
+	/**
+	 * Restrict the {@code Origin} header of incoming requests to this allowlist, as per
+	 * Security Best Practices.
+	 * <p>
+	 * Supports exact matches and wildcard port patterns (e.g., "https://example.com:*").
+	 * @param allowedOrigins the allowed origins; must not be empty
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-1">Security
+	 * best practices</a>
+	 */
+	public void allowedOrigins(List<String> allowedOrigins) {
+		Assert.notEmpty(allowedOrigins, "allowedOrigins cannot be empty");
+		this.allowedOrigins = allowedOrigins;
+	}
+
+	/**
+	 * Restrict the {@code Host} header of incoming requests to this allow-list, as per
+	 * Security Best Practices.
+	 * <p>
+	 * Supports exact matches and wildcard port patterns (e.g., "example.com:*").
+	 * @param allowedHosts the allowed hosts
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-1">Security
+	 * best practices</a>
+	 */
+	public void allowedHosts(List<String> allowedHosts) {
+		Assert.notEmpty(allowedHosts, "allowedHosts cannot be empty");
+		this.allowedHosts = allowedHosts;
 	}
 
 	private void registerCsrfOverride(HttpSecurity http) {

@@ -126,6 +126,38 @@ class McpServerTests {
 						.contains("scope=\"test.write\""));
 	}
 
+	@Test
+	void invalidOrigin() {
+		var clientResponse = client.post().uri("/mcp").header(HttpHeaders.ORIGIN, "https://example.com").exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus(HttpStatus.FORBIDDEN);
+	}
+
+	@Test
+	void validOrigin() {
+		var clientResponse = client.post().uri("/mcp").header(HttpHeaders.ORIGIN, "http://localhost:8080").exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus(HttpStatus.UNAUTHORIZED);
+	}
+
+	@Test
+	void invalidHost() {
+		var clientResponse = client.post().uri("/mcp").header(HttpHeaders.HOST, "example.com").exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus(HttpStatus.MISDIRECTED_REQUEST);
+	}
+
+	@Test
+	void validHost() {
+		var clientResponse = client.post().uri("/mcp").header(HttpHeaders.HOST, "localhost:8080").exchange();
+
+		var response = RestTestClientResponse.from(clientResponse);
+		assertThat(response).hasStatus(HttpStatus.UNAUTHORIZED);
+	}
+
 	private Jwt jwt(String... scopes) {
 		var header = JwsHeader.with(MacAlgorithm.HS512).build();
 		var claimsBuilder = JwtClaimsSet.builder().audience(List.of("http://localhost:%s/mcp".formatted(serverPort)));
@@ -157,6 +189,8 @@ class McpServerTests {
 			}).with(McpServerOAuth2Configurer.mcpServerOAuth2(), oauth2 -> {
 				oauth2.authorizationServer("https://example.com");
 				oauth2.jwtDecoder(jwtDecoder);
+				oauth2.allowedOrigins(List.of("http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*"));
+				oauth2.allowedHosts(List.of("localhost:*", "127.0.0.1:*", "[::1]:*"));
 			}).build();
 		}
 

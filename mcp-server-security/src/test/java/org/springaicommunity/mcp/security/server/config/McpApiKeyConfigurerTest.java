@@ -168,6 +168,55 @@ class McpApiKeyConfigurerTest {
 	}
 
 	@Test
+	void allowedOriginsRejectsDisallowedOrigin() {
+		var resp = this.mvc.get()
+			.uri("/origin")
+			.header("X-API-key", "api01.test-secret")
+			.header(HttpHeaders.ORIGIN, "https://evil.example.com");
+
+		assertThat(resp).hasStatus(HttpStatus.FORBIDDEN);
+	}
+
+	@Test
+	void allowedOriginsAllowsAllowedOrigin() {
+		var resp = this.mvc.get()
+			.uri("/origin")
+			.header("X-API-key", "api01.test-secret")
+			.header(HttpHeaders.ORIGIN, "https://allowed.example.com");
+
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
+	void allowedOriginsAllowsMissingOrigin() {
+		var resp = this.mvc.get().uri("/origin").header("X-API-key", "api01.test-secret");
+
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
+	void allowedHostsRejectsDisallowedHost() {
+		var resp = this.mvc.get()
+			.uri("/origin-and-host")
+			.header("X-API-key", "api01.test-secret")
+			.header(HttpHeaders.ORIGIN, "https://allowed.example.com")
+			.header(HttpHeaders.HOST, "evil.example");
+
+		assertThat(resp).hasStatus(HttpStatus.MISDIRECTED_REQUEST);
+	}
+
+	@Test
+	void allowedHostsAllowsAllowedHost() {
+		var resp = this.mvc.get()
+			.uri("/origin-and-host")
+			.header("X-API-key", "api01.test-secret")
+			.header(HttpHeaders.ORIGIN, "https://allowed.example.com")
+			.header(HttpHeaders.HOST, "allowed.example.com");
+
+		assertThat(resp).hasStatus2xxSuccessful().bodyText().isEqualTo("Hello api01");
+	}
+
+	@Test
 	void postProcessors(@Autowired PostProcessorRecorder postProcessorRecorder) {
 		assertThat(postProcessorRecorder.getPostProcessedClasses()).containsExactlyInAnyOrder(
 				ApiKeyAuthenticationConverter.class, ApiKeyAuthenticationFilter.class,
@@ -236,6 +285,29 @@ class McpApiKeyConfigurerTest {
 				.exceptionHandling(exceptions -> exceptions
 					.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.I_AM_A_TEAPOT)))
 				.with(mcpServerApiKey(), apiKey -> apiKey.apiKeyRepository(repo()).unauthorizedOnMissingApiKey(false))
+				.build();
+		}
+
+		@Bean
+		SecurityFilterChain allowedOriginsSecurityFilterChain(HttpSecurity http) throws Exception {
+			return http.securityMatcher("/origin/**")
+				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+				.with(mcpServerApiKey(), apiKey -> {
+					apiKey.apiKeyRepository(repo());
+					apiKey.allowedOrigins(List.of("https://allowed.example.com"));
+				})
+				.build();
+		}
+
+		@Bean
+		SecurityFilterChain allowedOriginsAndHostsSecurityFilterChain(HttpSecurity http) throws Exception {
+			return http.securityMatcher("/origin-and-host/**")
+				.authorizeHttpRequests(authz -> authz.anyRequest().authenticated())
+				.with(mcpServerApiKey(), apiKey -> {
+					apiKey.apiKeyRepository(repo());
+					apiKey.allowedOrigins(List.of("https://allowed.example.com"));
+					apiKey.allowedHosts(List.of("allowed.example.com"));
+				})
 				.build();
 		}
 

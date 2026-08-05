@@ -16,12 +16,15 @@
 
 package org.springaicommunity.mcp.security.server.config;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJwtDecoder;
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
+import org.springaicommunity.mcp.security.server.web.OriginValidationFilter;
 
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -31,6 +34,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.filter.CorsFilter;
 
 /**
  * {@link HttpSecurity} configurer that sets up an MCP server as an OAuth2 resource
@@ -56,6 +61,10 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	public @Nullable JwtDecoder jwtDecoder;
 
 	public @Nullable SessionBindingConfigurer sessionBindingConfigurer;
+
+	public @Nullable List<String> allowedOrigins;
+
+	public @Nullable List<String> allowedHosts;
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
@@ -122,6 +131,36 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return this;
 	}
 
+	/**
+	 * Restrict the {@code Origin} header of incoming requests to this allowlist, as per
+	 * Security Best Practices.
+	 * <p>
+	 * Supports exact matches and wildcard port patterns (e.g., "https://example.com:*").
+	 * @param allowedOrigins the allowed origins; must not be empty
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-1">Security
+	 * best practices</a>
+	 */
+	public void allowedOrigins(List<String> allowedOrigins) {
+		Assert.notEmpty(allowedOrigins, "allowedOrigins cannot be empty");
+		this.allowedOrigins = allowedOrigins;
+	}
+
+	/**
+	 * Restrict the {@code Host} header of incoming requests to this allow-list, as per
+	 * Security Best Practices.
+	 * <p>
+	 * Supports exact matches and wildcard port patterns (e.g., "example.com:*").
+	 * @param allowedHosts the allowed hosts
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices#mitigation-1">Security
+	 * best practices</a>
+	 */
+	public void allowedHosts(List<String> allowedHosts) {
+		Assert.notEmpty(allowedHosts, "allowedHosts cannot be empty");
+		this.allowedHosts = allowedHosts;
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
 		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
@@ -139,6 +178,12 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		});
 		if (this.sessionBindingConfigurer != null) {
 			this.sessionBindingConfigurer.init(http);
+		}
+
+		if (!CollectionUtils.isEmpty(this.allowedOrigins)) {
+			var originValidationFilter = new OriginValidationFilter(
+					this.allowedOrigins != null ? this.allowedOrigins : Collections.emptyList(), this.allowedHosts);
+			http.addFilterAfter(originValidationFilter, CorsFilter.class);
 		}
 	}
 

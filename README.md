@@ -358,6 +358,59 @@ Then you should be able to call your MCP server with a header `X-API-key: api01.
 Requests without an API key receive an HTTP 401 response when no other configured authentication mechanism
 authenticates the request. Requests containing an invalid API key also receive an HTTP 401 response.
 
+### Origin validation
+
+MCP servers that listen on localhost are reachable from any web page the user visits, which makes them a target for
+DNS rebinding attacks. To mitigate this, the
+[MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#security-warning)
+requires servers to validate the `Origin` header of incoming requests.
+
+With `mcp-server-security-spring-boot`, origin validation is **on by default**, and allows local origins only:
+
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        security:
+          # Defaults to http://localhost:*, http://127.0.0.1:*, http://[::1]:*, http://[::]:*
+          allowed-origins:
+            - https://mcp-client.example.com
+            - https://another-mcp-client.example.com:*
+          # OPTIONAL: also validate the Host header. Not validated by default.
+          allowed-hosts:
+            - mcp-server.example.com
+            - mcp-server.example.com:*
+```
+
+Setting `allowed-origins` replaces the defaults, so remember to add back the local origins if you still need them, for
+example when developing with the MCP Inspector.
+
+When wiring things up manually with `mcp-server-security`, validation is **not** enabled unless you configure it, on
+either configurer:
+
+```java
+http.with(mcpServerOAuth2(), (mcpAuthorization) -> {
+    mcpAuthorization.authorizationServer(issuerUrl);
+
+    // OPTIONAL: restrict the Origin header
+    mcpAuthorization.allowedOrigins(List.of("https://my-cool-mcp-client.example.com"));
+
+    // OPTIONAL: restrict the Host header
+    mcpAuthorization.allowedHosts(List.of("my-cool-mcp-server.example.com"));
+});
+
+// ... or, for API-key based servers:
+http.with(mcpServerApiKey(), (apiKey) -> {
+    apiKey.apiKeyRepository(apiKeyRepository());
+    apiKey.allowedOrigins(List.of("https://my-cool-mcp-client.example.com"));
+    apiKey.allowedHosts(List.of("my-cool-mcp-server.example.com"));
+});
+```
+
+Both origins and hosts support exact matches and wildcard port patterns (`https://example.com:*`, `example.com:*`).
+If your server needs to support Cross-Origin requests (CORS), see [CORS support in Spring Security](https://docs.spring.io/spring-security/reference/servlet/integrations/cors.html).
+
 ### Known limitations
 
 - The deprecated SSE transport is not supported.

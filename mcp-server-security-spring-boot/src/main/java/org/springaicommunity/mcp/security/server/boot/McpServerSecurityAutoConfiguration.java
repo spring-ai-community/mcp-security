@@ -16,7 +16,10 @@
 
 package org.springaicommunity.mcp.security.server.boot;
 
+import io.modelcontextprotocol.server.transport.ServerTransportSecurityValidator;
+
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,6 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer.mcpServerOAuth2;
 
 /**
@@ -40,18 +44,25 @@ import static org.springaicommunity.mcp.security.server.config.McpServerOAuth2Co
 @AutoConfiguration(before = OAuth2ResourceServerAutoConfiguration.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnDefaultWebSecurity
-@EnableConfigurationProperties(OAuth2ResourceServerProperties.class)
+@EnableConfigurationProperties({ OAuth2ResourceServerProperties.class, McpServerSecurityProperties.class })
 @ConditionalOnProperty(prefix = "spring.security.oauth2.resourceserver", name = "jwt.issuer-uri",
 		matchIfMissing = false)
 class McpServerSecurityAutoConfiguration {
 
 	@Bean
-	SecurityFilterChain mcpServerSecurityFilterChain(HttpSecurity http, OAuth2ResourceServerProperties properties) {
+	SecurityFilterChain mcpServerSecurityFilterChain(HttpSecurity http, OAuth2ResourceServerProperties properties,
+			McpServerSecurityProperties mcpProperties) {
 		var issuerUri = properties.getJwt().getIssuerUri();
 		// Always true with @ConditonalOnProperty
 		Assert.notNull(issuerUri, "spring.security.oauth2.resourceserver.jwt.issuer-uri must be set");
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpServerOAuth2(), (mcpAuthorization) -> mcpAuthorization.authorizationServer(issuerUri))
+			.with(mcpServerOAuth2(), (mcpAuthorization) -> {
+				mcpAuthorization.authorizationServer(issuerUri);
+				mcpAuthorization.allowedOrigins(mcpProperties.getAllowedOrigins());
+				if (!CollectionUtils.isEmpty(mcpProperties.getAllowedHosts())) {
+					mcpAuthorization.allowedHosts(mcpProperties.getAllowedHosts());
+				}
+			})
 			.build();
 	}
 
