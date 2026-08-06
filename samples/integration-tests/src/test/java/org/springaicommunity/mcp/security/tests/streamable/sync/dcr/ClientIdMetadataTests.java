@@ -87,8 +87,8 @@ class ClientIdMetadataTests {
 	}
 
 	@Test
-	@DisplayName("Discover MCP Server authorization needs, automatically register client")
-	void fullDynamicClientRegistration() throws IOException {
+	@DisplayName("Discover MCP Server authorization needs, request token with CIMD url, get resource")
+	void fullCimdRegistration() throws IOException {
 		var oauth2ClientRegistrationName = UUID.randomUUID().toString();
 		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNull();
 
@@ -145,7 +145,7 @@ class ClientIdMetadataTests {
 				McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			var validator = new DefaultUrlValidator(true);
 			return new DefaultMcpOAuth2CimdClientManager(new McpMetadataDiscoveryService(validator),
-					mcpClientRegistrationRepository, new ClientIdUrlValidator(true));
+					mcpClientRegistrationRepository, new DefaultUrlValidator(true));
 		}
 
 		@Bean

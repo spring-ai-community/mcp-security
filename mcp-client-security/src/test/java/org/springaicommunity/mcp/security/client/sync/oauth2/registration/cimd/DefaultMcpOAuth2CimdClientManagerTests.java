@@ -187,6 +187,23 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
+		void throwsWhenAuthorizationServerUrlIsInvalid() throws InvalidUrlException {
+			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
+			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
+
+			doThrow(new InvalidUrlException("Invalid test url", ISSUER_URL)).when(urlValidator).validateUrl(ISSUER_URL);
+
+			assertThatThrownBy(
+					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("Invalid authorization server URL: Invalid test url");
+
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID)).isNull();
+		}
+
+		@Test
 		void appliesClientRegistrationCustomizer() throws ClientAlreadyExistsException {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);

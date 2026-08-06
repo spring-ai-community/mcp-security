@@ -83,7 +83,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 		}
 		var metadata = this.discoveryService.getMcpMetadata(mcpServerUrl,
 				WwwAuthenticateParameters.parse(wwwAuthenticateHeader));
-		var clientReg = clientRegistrationCustomizer.apply(toClientRegistration(registrationId, metadata, baseUrl));
+		var clientReg = this.clientRegistrationCustomizer
+			.apply(toClientRegistration(registrationId, metadata, baseUrl));
 		validateClientRegistration(clientReg);
 		log.debug("Adding client registration {}", clientReg);
 		this.clientRegistrationRepository.addClientRegistration(clientReg,
@@ -112,9 +113,16 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 		}
 		Assert.notEmpty(mcpMetadata.protectedResourceMetadata().authorizationServers(),
 				"Protected Resource Metadata must expose at least one authorization server");
+		var issuerUrl = mcpMetadata.protectedResourceMetadata().authorizationServers().get(0);
 
-		return ClientRegistrations
-			.fromIssuerLocation(mcpMetadata.protectedResourceMetadata().authorizationServers().get(0))
+		try {
+			this.urlValidator.validateUrl(issuerUrl);
+		}
+		catch (InvalidUrlException e) {
+			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
+		}
+
+		return ClientRegistrations.fromIssuerLocation(issuerUrl)
 			.registrationId(registrationId)
 			.clientId(DEFAULT_METADATA_DOCUMENT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 				.replace("{registrationId}", registrationId))
