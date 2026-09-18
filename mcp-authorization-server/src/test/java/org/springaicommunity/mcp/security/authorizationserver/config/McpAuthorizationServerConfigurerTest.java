@@ -13,7 +13,6 @@ import java.util.function.Consumer;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -156,6 +155,24 @@ class McpAuthorizationServerConfigurerTest {
 				}
 				""");
 		assertThat(resp).hasStatus(HttpStatus.CREATED);
+	}
+
+	@Test
+	void dynamicClientRegistrationIgnoresEmptyScope() {
+		var emptyScope = """
+				{
+					"redirect_uris": ["https://example.com/callback"],
+					"scope": ""
+				}
+				""";
+		var nullScope = """
+				{
+					"redirect_uris": ["https://example.com/callback"],
+					"scope": null
+				}
+				""";
+		assertThat(registerClient(emptyScope)).hasStatus(HttpStatus.CREATED);
+		assertThat(registerClient(nullScope)).hasStatus(HttpStatus.CREATED);
 	}
 
 	@Test

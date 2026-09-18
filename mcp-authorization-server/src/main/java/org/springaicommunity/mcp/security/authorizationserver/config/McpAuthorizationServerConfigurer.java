@@ -161,6 +161,8 @@ public class McpAuthorizationServerConfigurer
 			authServer.tokenGenerator(tokenGenerator);
 			if (this.supportDynamicClientRegistration) {
 				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
+				authServer.clientRegistrationEndpoint(cr -> cr
+					.clientRegistrationRequestConverter(new McpEmptyScopeClientRegistrationAuthenticationConverter()));
 			}
 			this.authServerCustomizer.forEach(c -> c.customize(authServer));
 		});
