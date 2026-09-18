@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
 import tools.jackson.databind.DeserializationFeature;
@@ -126,7 +127,7 @@ class McpAuthorizationServerTests {
 
 	@Test
 	void dynamicClientRegistration() {
-		var clientResponse = client.post().uri("/oauth2/register").contentType(MediaType.APPLICATION_JSON).body("""
+		RestTestClient.ResponseSpec clientResponse = registerClient("""
 				{
 					"redirect_uris": [
 						"https://example.com"
@@ -137,10 +138,10 @@ class McpAuthorizationServerTests {
 					],
 					"client_name": "Dynamically Registered Client",
 					"token_endpoint_auth_method": "client_secret_basic",
-					"scope": "test.read,test.write",
+					"scope": "test.read test.write",
 					"resource": "http://localhost:8080/"
 				}
-				""").exchange();
+				""");
 		var response = RestTestClientResponse.from(clientResponse);
 
 		assertThat(response).hasStatus(HttpStatus.CREATED);
@@ -148,25 +149,48 @@ class McpAuthorizationServerTests {
 	}
 
 	@Test
+	void dynamicClientRegistrationEmptyScope() {
+		var noScopeParam = """
+				{
+				    "redirect_uris": [
+				        "https://example.com"
+				    ],
+				    "grant_types": [
+				        "authorization_code"
+				    ]
+				}
+				""";
+		assertThat(RestTestClientResponse.from(registerClient(noScopeParam))).hasStatus(HttpStatus.CREATED);
+		var emptyScopeParam = """
+				{
+				    "redirect_uris": [
+				        "https://example.com"
+				    ],
+				    "grant_types": [
+				        "authorization_code"
+				    ],
+				    "scope": ""
+				}
+				""";
+		assertThat(RestTestClientResponse.from(registerClient(emptyScopeParam))).hasStatus(HttpStatus.CREATED);
+	}
+
+	@Test
 	void useDynamicallyRegisteredClient() {
-		var registrationResponse = client.post()
-			.uri("/oauth2/register")
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-						"redirect_uris": [
-							"https://example.com"
-						],
-						"grant_types": [
-							"client_credentials"
-						],
-						"client_name": "Client Credentials-based dynamic client",
-						"token_endpoint_auth_method": "client_secret_basic",
-						"scope": "test.read test.write",
-						"resource": "http://localhost:8080/"
-					}
-					""")
-			.exchange();
+		RestTestClient.ResponseSpec registrationResponse = registerClient("""
+				{
+					"redirect_uris": [
+						"https://example.com"
+					],
+					"grant_types": [
+						"client_credentials"
+					],
+					"client_name": "Client Credentials-based dynamic client",
+					"token_endpoint_auth_method": "client_secret_basic",
+					"scope": "test.read test.write",
+					"resource": "http://localhost:8080/"
+				}
+				""");
 		var registration = RestTestClientResponse.from(registrationResponse);
 
 		assertThat(registration).hasStatus(HttpStatus.CREATED);
@@ -342,28 +366,32 @@ class McpAuthorizationServerTests {
 	}
 
 	private ClientCreationResponse registerDynamicClient() {
-		var registrationResponse = client.post()
-			.uri("/oauth2/register")
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-						"redirect_uris": [
-							"https://example.com"
-						],
-						"grant_types": [
-							"client_credentials",
-							"authorization_code",
-							"refresh_token"
-						],
-						"client_name": "auth-code-test-client",
-						"token_endpoint_auth_method": "client_secret_basic",
-						"scope": "test.read test.write",
-						"resource": "http://localhost:8080/"
-					}
-					""")
-			.exchange();
+		RestTestClient.ResponseSpec registrationResponse = registerClient("""
+				{
+					"redirect_uris": [
+						"https://example.com"
+					],
+					"grant_types": [
+						"client_credentials",
+						"authorization_code",
+						"refresh_token"
+					],
+					"client_name": "auth-code-test-client",
+					"token_endpoint_auth_method": "client_secret_basic",
+					"scope": "test.read test.write",
+					"resource": "http://localhost:8080/"
+				}
+				""");
 		return snakeCaseMapper.readValue(registrationResponse.returnResult().getResponseBodyContent(),
 				ClientCreationResponse.class);
+	}
+
+	private RestTestClient.@NonNull ResponseSpec registerClient(String registrationRequest) {
+		return client.post()
+			.uri("/oauth2/register")
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(registrationRequest)
+			.exchange();
 	}
 
 	private static String generateCodeChallenge(String codeVerifier) throws NoSuchAlgorithmException {
