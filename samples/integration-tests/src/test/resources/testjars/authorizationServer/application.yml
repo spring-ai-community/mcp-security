@@ -22,6 +22,16 @@ spring:
                 - "http://127.0.0.1:1/authorize/oauth2/code/authserver" # port is a wildcard
                 - "http://localhost:6274/oauth/callback" # mcp-inspector
                 - "http://127.0.0.1:6274/oauth/callback" # mcp-inspector
+          token-exchange-client:
+            token:
+              access-token-time-to-live: 1h
+            registration:
+              client-id: "token-exchange-client"
+              client-secret: "{noop}token-exchange-secret"
+              client-authentication-methods:
+                - "client_secret_basic"
+              authorization-grant-types:
+                - "urn:ietf:params:oauth:grant-type:token-exchange"
     user:
       name: test-user
       password: test-password

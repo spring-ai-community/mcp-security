@@ -60,6 +60,12 @@
         </dependency>
         <dependency>
             <groupId>org.springaicommunity</groupId>
+            <artifactId>sample-mcp-client-token-exchange</artifactId>
+            <version>0.1.14-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
             <artifactId>mcp-client-security</artifactId>
             <version>0.1.15-SNAPSHOT</version>
         </dependency>
