@@ -51,12 +51,11 @@ import org.springframework.web.reactive.function.client.WebClient;
  * {@link McpAsyncHttpClientRequestCustomizer} for {@link HttpClient}-based transports,
  * and with {@link ExchangeFilterFunction} for {@link WebClient}-based transports.
  * <p>
- * This is usually used through a Spring AI {@code McpSyncClientCustomizer} or
- * {@code McpAsyncClientCustomizer}, like so:
+ * This is usually used through a Spring AI {@code McpClientCustomizer}, like so:
  *
  * <pre>
  * &#x40;Bean
- * McpSyncClientCustomizer syncClientCustomizer() {
+ * McpClientCustomizer&lt;McpClient.SyncSpec&gt; syncClientCustomizer() {
  *   return (name, syncSpec) -> syncSpec
  *     .transportContextProvider(
  *       new AuthenticationMcpTransportContextProvider()
