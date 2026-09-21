@@ -30,6 +30,7 @@ import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.converter.ClaimConversionService;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
@@ -71,18 +72,31 @@ public class DynamicClientRegistrationService {
 
 	public DynamicClientRegistrationResponse register(DynamicClientRegistrationRequest registrationRequest,
 			String authServerUrl) {
-		var registrationEndpoint = findRegistrationEndpoint(authServerUrl);
+		return register(registrationRequest, getAuthorizationServerMetadata(authServerUrl));
+	}
+
+	DynamicClientRegistrationResponse register(DynamicClientRegistrationRequest registrationRequest,
+			ClientRegistration authorizationServerMetadata) {
+		var authServerUrl = authorizationServerMetadata.getProviderDetails().getIssuerUri();
+		var registrationEndpoint = authorizationServerMetadata.getProviderDetails()
+			.getConfigurationMetadata()
+			.get("registration_endpoint");
+		if (registrationEndpoint == null) {
+			throw new IllegalStateException(
+					"No registration endpoint found for auth server [%s]".formatted(authServerUrl));
+		}
+		var registrationEndpointUrl = registrationEndpoint.toString();
 		try {
-			urlValidator.validateUrl(registrationEndpoint);
+			urlValidator.validateUrl(registrationEndpointUrl);
 		}
 		catch (InvalidUrlException e) {
 			throw new IllegalStateException("Invalid registration_endpoint URL: " + e.getMessage(), e);
 		}
-		log.debug("Performing dynamic client registration at [{}]", registrationEndpoint);
+		log.debug("Performing dynamic client registration at [{}]", registrationEndpointUrl);
 		var typeRef = new ParameterizedTypeReference<Map<String, Object>>() {
 		};
 		var response = restClient.post()
-			.uri(registrationEndpoint)
+			.uri(registrationEndpointUrl)
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(createRegistrationRequest(registrationRequest))
 			.retrieve()
@@ -150,22 +164,15 @@ public class DynamicClientRegistrationService {
 		return parameters;
 	}
 
-	private String findRegistrationEndpoint(String authServerUrl) {
+	ClientRegistration getAuthorizationServerMetadata(String authServerUrl) {
 		try {
 			urlValidator.validateUrl(authServerUrl);
 		}
 		catch (InvalidUrlException e) {
 			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
 		}
-		log.debug("Discovering registration endpoint for auth server [{}]", authServerUrl);
-		var builder = ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
-		var registrationEndpoint = builder.getProviderDetails().getConfigurationMetadata().get("registration_endpoint");
-		if (registrationEndpoint == null) {
-			throw new IllegalStateException(
-					"No registration endpoint found for auth server [%s]".formatted(authServerUrl));
-		}
-		log.debug("Found registration endpoint [{}]", registrationEndpoint);
-		return registrationEndpoint.toString();
+		log.debug("Discovering metadata for auth server [{}]", authServerUrl);
+		return ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
 	}
 
 }

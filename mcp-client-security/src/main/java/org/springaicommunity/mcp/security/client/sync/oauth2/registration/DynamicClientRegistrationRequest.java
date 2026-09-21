@@ -115,6 +115,9 @@ public class DynamicClientRegistrationRequest {
 		builder.clientName = other.clientName;
 		builder.clientUri = other.clientUri;
 		builder.scope = other.scope;
+		if (other.applicationType != null) {
+			builder.applicationType(other.applicationType);
+		}
 		return builder;
 	}
 

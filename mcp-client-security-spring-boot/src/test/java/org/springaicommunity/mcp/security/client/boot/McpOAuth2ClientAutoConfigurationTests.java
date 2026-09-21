@@ -109,6 +109,16 @@ class McpOAuth2ClientAutoConfigurationTests {
 	}
 
 	@Test
+	void requestOfflineAccessProperty() {
+		this.contextRunner
+			.withPropertyValues(
+					"spring.ai.mcp.client.authorization.dynamic-client-registration.request-offline-access=true")
+			.run(context -> assertThat(context.getBean(McpOAuth2ClientProperties.class)
+				.getDynamicClientRegistration()
+				.isRequestOfflineAccess()).isTrue());
+	}
+
+	@Test
 	void clientRegistrationRepositoryLoadsOAuth2ClientProperties() {
 		this.contextRunner
 			.withPropertyValues("spring.security.oauth2.client.registration.test.client-id=test-client-id",

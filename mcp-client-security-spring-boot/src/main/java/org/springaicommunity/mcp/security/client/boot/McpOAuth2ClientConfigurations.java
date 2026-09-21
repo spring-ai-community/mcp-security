@@ -109,9 +109,11 @@ class McpOAuth2ClientConfigurations {
 		DefaultMcpOAuth2DcrClientManager mcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository,
 				DynamicClientRegistrationService dynamicClientRegistrationService,
-				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
+				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator,
+				McpOAuth2ClientProperties properties) {
 			return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
-					dynamicClientRegistrationService, mcpMetadataDiscoveryService, urlValidator);
+					dynamicClientRegistrationService, mcpMetadataDiscoveryService, urlValidator,
+					properties.getDynamicClientRegistration().isRequestOfflineAccess());
 		}
 
 		@Bean

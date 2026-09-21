@@ -510,6 +510,8 @@ spring.ai.mcp.client.streamable-http.connections.my-mcp-server.url=http://localh
 
 # Enable Dynamic Client Registration (default: false)
 spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true
+# Request refresh tokens with offline_access when supported by the authorization server (default: false)
+spring.ai.mcp.client.authorization.dynamic-client-registration.request-offline-access=true
 # For development purposes, allow loopback addresses for MCP Servers and Auth Servers (default: false)
 spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
 ```
@@ -610,6 +612,10 @@ When enabled, the flow works as follows:
 
 DCR is disabled by default in the `mcp-client-security-spring-boot` auto-configuration.
 To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
+Clients that can securely store refresh tokens can opt in to requesting them with
+`spring.ai.mcp.client.authorization.dynamic-client-registration.request-offline-access=true`. In accordance with
+[SEP-2207](https://modelcontextprotocol.io/seps/2207-oidc-refresh-token-guidance), this adds `refresh_token` to the
+registered grant types and requests `offline_access` only when the authorization server advertises that scope.
 When disabled, ensure you either have a single `ClientRegistration` registered under
 `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
 Scope step-up is still supported when DCR is disabled.

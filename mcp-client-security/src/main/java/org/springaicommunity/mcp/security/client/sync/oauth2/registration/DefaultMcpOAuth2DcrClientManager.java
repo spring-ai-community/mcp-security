@@ -16,6 +16,9 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
@@ -29,7 +32,6 @@ import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.util.Assert;
@@ -61,6 +63,8 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 
 	private final ScopeStepUp scopeStepUp;
 
+	private final boolean requestOfflineAccess;
+
 	/**
 	 * @deprecated use {@link DefaultMcpOAuth2DcrClientManager
 	 * (McpClientRegistrationRepository, DynamicClientRegistrationService,
@@ -75,6 +79,12 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
 			UrlValidator urlValidator) {
+		this(repository, clientRegistrationService, discovery, urlValidator, false);
+	}
+
+	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
+			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
+			UrlValidator urlValidator, boolean requestOfflineAccess) {
 		Assert.notNull(repository, "repository cannot be null");
 		Assert.notNull(clientRegistrationService, "clientRegistrationService cannot be null");
 		Assert.notNull(discovery, "discovery cannot be null");
@@ -84,6 +94,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		this.urlValidator = urlValidator;
 		this.repository = repository;
 		this.scopeStepUp = new ScopeStepUp(repository);
+		this.requestOfflineAccess = requestOfflineAccess;
 	}
 
 	@Override
@@ -131,42 +142,65 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 				"cannot find authorization_servers from MCP Server's protected resource metadata");
 		var issuerUrl = mcpMetadata.protectedResourceMetadata().authorizationServers().get(0);
 		log.debug("Discovered authorization server [{}] for registration [{}]", issuerUrl, registrationId);
-		var finalRegistrationRequest = updateScopes(registrationRequest, mcpMetadata);
+		var authorizationServerMetadata = this.clientRegistrationService.getAuthorizationServerMetadata(issuerUrl);
+		var finalRegistrationRequest = updateRegistrationRequest(registrationRequest, mcpMetadata,
+				authorizationServerMetadata);
 		log.debug("Performing dynamic client registration at [{}] for registration [{}]", issuerUrl, registrationId);
-		var registrationResponse = this.clientRegistrationService.register(finalRegistrationRequest, issuerUrl);
+		var registrationResponse = this.clientRegistrationService.register(finalRegistrationRequest,
+				authorizationServerMetadata);
 		log.debug("Dynamic client registration successful for registration [{}], clientId=[{}]", registrationId,
 				registrationResponse.clientId());
-		var clientRegistration = toClientRegistration(registrationId, issuerUrl, finalRegistrationRequest,
-				registrationResponse);
+		var clientRegistration = toClientRegistration(registrationId, authorizationServerMetadata,
+				finalRegistrationRequest, registrationResponse);
 		validateClientRegistration(clientRegistration);
 		this.repository.addClientRegistration(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
 	}
 
-	private DynamicClientRegistrationRequest updateScopes(DynamicClientRegistrationRequest originalRequest,
-			McpMetadata mcpMetadata) {
-		if (StringUtils.hasText(originalRequest.getScope())) {
-			return originalRequest;
-		}
-
-		if (mcpMetadata.wwwAuthenticateParameters() != null
+	private DynamicClientRegistrationRequest updateRegistrationRequest(DynamicClientRegistrationRequest originalRequest,
+			McpMetadata mcpMetadata, ClientRegistration authorizationServerMetadata) {
+		var builder = DynamicClientRegistrationRequest.from(originalRequest);
+		if (!StringUtils.hasText(originalRequest.getScope()) && mcpMetadata.wwwAuthenticateParameters() != null
 				&& StringUtils.hasText(mcpMetadata.wwwAuthenticateParameters().getScope())) {
-			return DynamicClientRegistrationRequest.from(originalRequest)
-				.scope(mcpMetadata.wwwAuthenticateParameters().getScope())
-				.build();
+			builder.scope(mcpMetadata.wwwAuthenticateParameters().getScope());
 		}
-		else if (!CollectionUtils.isEmpty(mcpMetadata.protectedResourceMetadata().scopesSupported())) {
-			return DynamicClientRegistrationRequest.from(originalRequest)
-				.scope(mcpMetadata.protectedResourceMetadata().scopesSupported())
-				.build();
+		else if (!StringUtils.hasText(originalRequest.getScope())
+				&& !CollectionUtils.isEmpty(mcpMetadata.protectedResourceMetadata().scopesSupported())) {
+			builder.scope(mcpMetadata.protectedResourceMetadata().scopesSupported());
 		}
 
-		return originalRequest;
+		if (this.requestOfflineAccess
+				&& originalRequest.getGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+				&& supportsOfflineAccess(authorizationServerMetadata)) {
+			var grantTypes = new ArrayList<>(
+					originalRequest.getGrantTypes().stream().map(AuthorizationGrantType::new).toList());
+			if (!originalRequest.getGrantTypes().contains(AuthorizationGrantType.REFRESH_TOKEN.getValue())) {
+				grantTypes.add(AuthorizationGrantType.REFRESH_TOKEN);
+			}
+			builder.grantTypes(grantTypes);
+			var scopes = new LinkedHashSet<String>();
+			var scope = builder.scope;
+			if (StringUtils.hasText(scope)) {
+				scopes.addAll(List.of(scope.split(" ")));
+			}
+			scopes.add("offline_access");
+			builder.scope(scopes.stream().toList());
+		}
+
+		return builder.build();
 	}
 
-	private static ClientRegistration toClientRegistration(String registrationId, String issuerUrl,
-			DynamicClientRegistrationRequest registrationRequest,
+	private boolean supportsOfflineAccess(ClientRegistration authorizationServerMetadata) {
+		var scopesSupported = authorizationServerMetadata.getProviderDetails()
+			.getConfigurationMetadata()
+			.get("scopes_supported");
+		return scopesSupported instanceof Collection<?> scopes && scopes.contains("offline_access");
+	}
+
+	private static ClientRegistration toClientRegistration(String registrationId,
+			ClientRegistration authorizationServerMetadata, DynamicClientRegistrationRequest registrationRequest,
 			DynamicClientRegistrationResponse registrationResponse) {
-		ClientRegistration.Builder registrationBuilder = ClientRegistrations.fromIssuerLocation(issuerUrl)
+		ClientRegistration.Builder registrationBuilder = ClientRegistration
+			.withClientRegistration(authorizationServerMetadata)
 			.registrationId(registrationId);
 		registrationBuilder.clientId(registrationResponse.clientId());
 

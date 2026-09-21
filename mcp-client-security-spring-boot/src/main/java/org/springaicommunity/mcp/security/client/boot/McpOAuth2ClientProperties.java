@@ -60,6 +60,13 @@ public class McpOAuth2ClientProperties {
 		 */
 		private boolean allowLoopbackAddresses = false;
 
+		/**
+		 * Request the {@code offline_access} scope for authorization code clients when
+		 * the authorization server advertises support for it. This also advertises the
+		 * {@code refresh_token} grant type during dynamic client registration.
+		 */
+		private boolean requestOfflineAccess = false;
+
 		public boolean isAllowLoopbackAddresses() {
 			return allowLoopbackAddresses;
 		}
@@ -74,6 +81,14 @@ public class McpOAuth2ClientProperties {
 
 		public void setEnabled(boolean enabled) {
 			this.enabled = enabled;
+		}
+
+		public boolean isRequestOfflineAccess() {
+			return requestOfflineAccess;
+		}
+
+		public void setRequestOfflineAccess(boolean requestOfflineAccess) {
+			this.requestOfflineAccess = requestOfflineAccess;
 		}
 
 	}
