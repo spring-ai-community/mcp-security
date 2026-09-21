@@ -18,7 +18,10 @@ package org.springaicommunity.mcp.security.server.config;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
@@ -26,6 +29,7 @@ import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJw
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.server.web.OriginValidationFilter;
 
+import org.springframework.security.authentication.AuthenticationManagerResolver;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -46,6 +50,10 @@ import org.springframework.web.filter.CorsFilter;
 public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerOAuth2Configurer, HttpSecurity> {
 
 	public @Nullable String issuerUri = null;
+
+	public @Nullable List<String> authorizationServers = null;
+
+	public @Nullable AuthenticationManagerResolver<HttpServletRequest> authenticationManagerResolver = null;
 
 	private String resourceName = "Spring MCP Resource Server";
 
@@ -68,6 +76,20 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	public McpServerOAuth2Configurer authorizationServer(String issuerUri) {
 		this.issuerUri = issuerUri;
+		this.authorizationServers = List.of(issuerUri);
+		return this;
+	}
+
+	public McpServerOAuth2Configurer authorizationServers(List<String> authorizationServers) {
+		Assert.notEmpty(authorizationServers, "authorizationServers cannot be empty");
+		this.authorizationServers = List.copyOf(authorizationServers);
+		return this;
+	}
+
+	public McpServerOAuth2Configurer authenticationManagerResolver(
+			AuthenticationManagerResolver<HttpServletRequest> authenticationManagerResolver) {
+		Assert.notNull(authenticationManagerResolver, "authenticationManagerResolver cannot be null");
+		this.authenticationManagerResolver = authenticationManagerResolver;
 		return this;
 	}
 
@@ -163,17 +185,26 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 
 	@Override
 	public void init(HttpSecurity http) {
-		Assert.notNull(this.issuerUri, "authorizationServer cannot be null");
+		var authorizationServers = Objects.requireNonNull(this.authorizationServers,
+				"authorizationServers cannot be null");
+		Assert.notEmpty(authorizationServers, "authorizationServers cannot be empty");
+		Assert.isTrue(this.issuerUri != null || this.jwtDecoder != null || this.authenticationManagerResolver != null,
+				"authorizationServer, jwtDecoder, or authenticationManagerResolver must be configured");
 		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
-		var issuerUri = this.issuerUri;
+		var authenticationManagerResolver = this.authenticationManagerResolver;
 
 		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
 
 		http.oauth2ResourceServer(resourceServer -> {
-			resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(issuerUri)));
+			if (authenticationManagerResolver != null) {
+				resourceServer.authenticationManagerResolver(authenticationManagerResolver);
+			}
+			else {
+				resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(this.issuerUri)));
+			}
 			resourceServer.authenticationEntryPoint(entryPoint);
 			resourceServer.protectedResourceMetadata(protectedResource -> protectedResource
-				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(issuerUri)));
+				.protectedResourceMetadataCustomizer(getProtectedMetadataCustomizer(authorizationServers)));
 			this.oauth2ResourceServerCustomizer.customize(resourceServer);
 		});
 		if (this.sessionBindingConfigurer != null) {
@@ -187,9 +218,12 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		}
 	}
 
-	private JwtDecoder getJwtDecoder(String issuerUri) {
-		var rawDecoder = this.jwtDecoder != null ? this.jwtDecoder
-				: NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+	private JwtDecoder getJwtDecoder(@Nullable String issuerUri) {
+		var rawDecoder = this.jwtDecoder;
+		if (rawDecoder == null) {
+			Assert.notNull(issuerUri, "authorizationServer cannot be null when jwtDecoder is not configured");
+			rawDecoder = NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+		}
 
 		if (this.validateAudienceClaim) {
 			return new AudienceValidationJwtDecoder(rawDecoder, this.resourceIdentifier);
@@ -198,11 +232,14 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return rawDecoder;
 	}
 
-	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(String issuerUri) {
+	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(
+			List<String> authorizationServers) {
 		if (this.customizer != null) {
 			return this.customizer;
 		}
-		return (protectedMetadata) -> protectedMetadata.authorizationServer(issuerUri).resourceName(this.resourceName);
+		return (protectedMetadata) -> protectedMetadata
+			.authorizationServers((servers) -> servers.addAll(authorizationServers))
+			.resourceName(this.resourceName);
 	}
 
 	public static McpServerOAuth2Configurer mcpServerOAuth2() {
