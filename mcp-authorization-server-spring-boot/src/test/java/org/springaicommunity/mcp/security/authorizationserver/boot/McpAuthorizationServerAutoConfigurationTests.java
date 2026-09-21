@@ -147,6 +147,13 @@ class McpAuthorizationServerAutoConfigurationTests {
 		});
 	}
 
+	@Test
+	void publicClientRefreshTokensCanBeEnabled() {
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.authorizationserver.public-client-refresh-tokens.enabled=true")
+			.run((context) -> assertThat(context).hasNotFailed());
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	static class CustomizerConfiguration {
 
