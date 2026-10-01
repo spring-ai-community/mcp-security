@@ -16,10 +16,13 @@
 
 package org.springframework.security.oauth2.server.authorization.mcp.token;
 
+import java.util.Map;
+
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationGrantAuthenticationToken;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
@@ -37,6 +40,19 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 		if (context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)
 				&& context.getAuthorizedScopes().contains(OidcScopes.OPENID)) {
 			// No customizations needed for access tokens in OpenID Connect flow
+			return;
+		}
+
+		if (context.getAuthorizationGrant() instanceof OAuth2RefreshTokenAuthenticationToken) {
+			// On refresh, never trust a client-supplied `resource`: re-derive the
+			// audience from the access token that was originally issued for this
+			// authorization, so a refresh_token grant cannot escalate `aud` to a
+			// resource that was not part of the original authorization_code exchange.
+			Map<String, Object> previousClaims = context.getAuthorization().getAccessToken().getClaims();
+			Object previousAudience = (previousClaims != null) ? previousClaims.get(JwtClaimNames.AUD) : null;
+			if (previousAudience != null) {
+				context.getClaims().claim(JwtClaimNames.AUD, previousAudience);
+			}
 			return;
 		}
 
