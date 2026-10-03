@@ -237,13 +237,33 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 	}
 
-	private static Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
+	/**
+	 * Create a converter that adds the registered MCP resource identifier to token
+	 * requests. Use it with
+	 * {@link RestClientAuthorizationCodeTokenResponseClient#addParametersConverter(Converter)}
+	 * when supplying a custom token response client.
+	 * @param mcpClientRegistrationRepository the repository of MCP client registrations
+	 * @return the token request parameters converter
+	 * @since 0.1.15
+	 */
+	public static Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
 			McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		Assert.notNull(mcpClientRegistrationRepository, "mcpClientRegistrationRepository cannot be null");
 		return new McpTokenRequestParametersConverter(mcpClientRegistrationRepository);
 	}
 
-	private static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(
+	/**
+	 * Create a customizer that adds the registered MCP resource identifier to
+	 * authorization requests. Use it with
+	 * {@link DefaultOAuth2AuthorizationRequestResolver#setAuthorizationRequestCustomizer(Consumer)}
+	 * when supplying a custom authorization request resolver.
+	 * @param mcpClientRegistrationRepository the repository of MCP client registrations
+	 * @return the authorization request customizer
+	 * @since 0.1.15
+	 */
+	public static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(
 			McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		Assert.notNull(mcpClientRegistrationRepository, "mcpClientRegistrationRepository cannot be null");
 		return req -> {
 			var baseRequest = req.build();
 			var registrationIdAttr = baseRequest.getAttributes().get(OAuth2ParameterNames.REGISTRATION_ID);
