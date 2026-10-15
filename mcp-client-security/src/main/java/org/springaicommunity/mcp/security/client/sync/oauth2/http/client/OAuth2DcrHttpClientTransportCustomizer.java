@@ -145,7 +145,7 @@ public class OAuth2DcrHttpClientTransportCustomizer
 		var errorHandler = new OAuth2DcrSyncAuthorizationErrorHandler(this.mcpOAuth2ClientManager, registrationId,
 				mcpServerUrl);
 
-		transportBuilder.httpRequestCustomizer(requestCustomizer)
+		transportBuilder.asyncHttpRequestCustomizer(requestCustomizer.asAsync())
 			.authorizationErrorHandler(McpHttpClientTransportAuthorizationErrorHandler.fromSync(errorHandler));
 		log.debug("OAuth2 request customizer and authorization error handler configured for transport [{}]", name);
 	}

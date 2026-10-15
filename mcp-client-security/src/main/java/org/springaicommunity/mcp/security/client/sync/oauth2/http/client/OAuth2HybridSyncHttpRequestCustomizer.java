@@ -19,6 +19,7 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 import java.net.URI;
 import java.net.http.HttpRequest;
 
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +27,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
@@ -43,6 +46,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * This is an historical workaround to Spring AI 1.x limitations around initializing
  * clients eagerly. Not relevant in most recent use-cases. Now clients must decide which
  * grant type to use.
+ * <p>
+ * Use {@link #asAsync()} when configuring an asynchronous HTTP transport to offload
+ * potentially blocking OAuth2 operations to a scheduler intended for blocking work.
  *
  * @author Daniel Garnier-Moiroux
  * @see OAuth2AuthorizationCodeSyncHttpRequestCustomizer
@@ -69,6 +75,23 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 		this.serviceAuthorizedClientManager = serviceAuthorizedClientManager;
 		this.authorizationCodeClientRegistrationId = authorizationCodeClientRegistrationId;
 		this.clientCredentialsClientRegistrationId = clientCredentialsClientRegistrationId;
+	}
+
+	/**
+	 * Return an asynchronous adapter that defers request customization until subscription
+	 * and runs it on {@link Schedulers#boundedElastic()}. Client registration lookup and
+	 * authorization may perform blocking I/O.
+	 * <p>
+	 * Register this adapter with the transport builder's
+	 * {@code asyncHttpRequestCustomizer} method. Authentication and servlet request
+	 * attributes are carried by the supplied {@link McpTransportContext}.
+	 * @return an asynchronous request customizer
+	 */
+	public McpAsyncHttpClientRequestCustomizer asAsync() {
+		var delegate = McpAsyncHttpClientRequestCustomizer.fromSync(this);
+		return (builder, method, endpoint, body, context) -> Mono
+			.from(delegate.customize(builder, method, endpoint, body, context))
+			.subscribeOn(Schedulers.boundedElastic());
 	}
 
 	@Override

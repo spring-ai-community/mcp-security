@@ -753,7 +753,12 @@ request customizers directly:
 
 - `OAuth2AuthorizationCodeSyncHttpRequestCustomizer` (user-level tokens)
 - `OAuth2ClientCredentialsSyncHttpRequestCustomizer` (machine-to-machine)
-- `OAuth2HybridSyncHttpRequestCustomizer` (both)
+- `OAuth2HybridSyncHttpRequestCustomizer` (both, deprecated)
+
+Use each customizer's `asAsync()` adapter with the transport's `asyncHttpRequestCustomizer` hook.
+The adapter runs OAuth2 client registration and authorized-client lookups on Reactor's bounded elastic scheduler,
+so blocking stores or token requests run on workers intended for blocking I/O.
+The existing synchronous `customize` methods remain available for callers that manage their own blocking execution.
 
 All request customizers rely on authentication data passed through `McpTransportContext`.
 When not using the Boot auto-configuration, you need to add an `AuthenticationMcpTransportContextProvider`:
@@ -764,7 +769,7 @@ When not using the Boot auto-configuration, you need to add an `AuthenticationMc
 class McpConfiguration {
 
     @Bean
-    McpSyncClientCustomizer syncClientCustomizer() {
+    McpClientCustomizer<McpClient.SyncSpec> syncClientCustomizer() {
         return (name, syncSpec) ->
                 syncSpec.transportContextProvider(
                         new AuthenticationMcpTransportContextProvider()
@@ -772,15 +777,16 @@ class McpConfiguration {
     }
 
     @Bean
-    McpSyncHttpClientRequestCustomizer requestCustomizer(
+    McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
             OAuth2AuthorizedClientManager clientManager,
             ClientRegistrationRepository clientRegistrationRepository
     ) {
-        return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
+        var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
                 clientManager,
                 clientRegistrationRepository,
                 "authserver"
         );
+        return (name, transport) -> transport.asyncHttpRequestCustomizer(requestCustomizer.asAsync());
     }
 
 }
@@ -976,13 +982,16 @@ All in all, it could look like so:
 @Bean
 McpSyncClient client(
         ObjectMapper objectMapper,
-        McpSyncHttpClientRequestCustomizer requestCustomizer,
+        OAuth2AuthorizedClientManager clientManager,
+        ClientRegistrationRepository clientRegistrationRepository,
         McpClientCommonProperties commonProps
 ) {
+    var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
+            clientManager, clientRegistrationRepository, "authserver");
     var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
             .clientBuilder(HttpClient.newBuilder())
             .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
-            .httpRequestCustomizer(requestCustomizer)
+            .asyncHttpRequestCustomizer(requestCustomizer.asAsync())
             .build();
 
     var clientInfo = new McpSchema.Implementation("client-name", commonProps.getVersion());

@@ -16,13 +16,23 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
+import io.modelcontextprotocol.common.McpTransportContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
+import org.mockito.ArgumentCaptor;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -32,9 +42,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ResolvableType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,7 +79,7 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 	}
 
 	@Test
-	void preRegisteredCustomizer() {
+	void preRegisteredCustomizerOffloadsAuthorization() {
 		this.contextRunner
 			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false",
 					"spring.security.oauth2.client.registration.test.client-id=test-client-id",
@@ -78,8 +93,28 @@ class HttpClientStreamableHttpTransportAutoConfigurationTests {
 
 				var transportBuilder = mock(HttpClientStreamableHttpTransport.Builder.class);
 				customizers.get(0).customize("test", transportBuilder);
-				verify(transportBuilder)
-					.httpRequestCustomizer(any(OAuth2AuthorizationCodeSyncHttpRequestCustomizer.class));
+				var captor = ArgumentCaptor.forClass(McpAsyncHttpClientRequestCustomizer.class);
+				verify(transportBuilder).asyncHttpRequestCustomizer(captor.capture());
+				var requestCustomizer = captor.getValue();
+				var clientManager = context.getBean(OAuth2AuthorizedClientManager.class);
+				var failure = new IllegalStateException("authorization failed");
+				given(clientManager.authorize(any())).willAnswer(invocation -> {
+					assertThat(Schedulers.isInNonBlockingThread()).isFalse();
+					throw failure;
+				});
+				var endpoint = URI.create("https://mcp.example.com/mcp");
+				var requestBuilder = HttpRequest.newBuilder(endpoint);
+				var transportContext = McpTransportContext
+					.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY,
+							new TestingAuthenticationToken("user", "password"),
+							AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY,
+							new ServletRequestAttributes(mock(HttpServletRequest.class))));
+
+				assertThatThrownBy(() -> Mono.defer(() -> {
+					assertThat(Schedulers.isInNonBlockingThread()).isTrue();
+					return Mono
+						.from(requestCustomizer.customize(requestBuilder, "POST", endpoint, "{}", transportContext));
+				}).subscribeOn(Schedulers.parallel()).block(Duration.ofSeconds(5))).isSameAs(failure);
 			});
 	}
 

@@ -91,7 +91,7 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 				var customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(oAuth2AuthorizedClientManager,
 						clientRegistrationRepository, registrationId);
 				customizer.failOnMissingClientRegistration(true);
-				transport.httpRequestCustomizer(customizer);
+				transport.asyncHttpRequestCustomizer(customizer.asAsync());
 			};
 		}
 		else {

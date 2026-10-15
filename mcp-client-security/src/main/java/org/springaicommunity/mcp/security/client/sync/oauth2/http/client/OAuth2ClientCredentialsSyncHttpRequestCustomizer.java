@@ -19,10 +19,13 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 import java.net.URI;
 import java.net.http.HttpRequest;
 
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
@@ -43,6 +46,9 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
  * <p>
  * The resolved access token is added as a {@code Bearer} token in the
  * {@code Authorization} header of each outgoing MCP request.
+ * <p>
+ * Use {@link #asAsync()} when configuring an asynchronous HTTP transport to offload
+ * potentially blocking OAuth2 operations to a scheduler intended for blocking work.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -58,6 +64,23 @@ public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSync
 			AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager, String clientRegistrationId) {
 		this.authorizedClientManager = authorizedClientManager;
 		this.clientRegistrationId = clientRegistrationId;
+	}
+
+	/**
+	 * Return an asynchronous adapter that defers request customization until subscription
+	 * and runs it on {@link Schedulers#boundedElastic()}. Client registration lookup and
+	 * authorization may perform blocking I/O.
+	 * <p>
+	 * Register this adapter with the transport builder's
+	 * {@code asyncHttpRequestCustomizer} method. Authentication and servlet request
+	 * attributes are carried by the supplied {@link McpTransportContext}.
+	 * @return an asynchronous request customizer
+	 */
+	public McpAsyncHttpClientRequestCustomizer asAsync() {
+		var delegate = McpAsyncHttpClientRequestCustomizer.fromSync(this);
+		return (builder, method, endpoint, body, context) -> Mono
+			.from(delegate.customize(builder, method, endpoint, body, context))
+			.subscribeOn(Schedulers.boundedElastic());
 	}
 
 	@Override

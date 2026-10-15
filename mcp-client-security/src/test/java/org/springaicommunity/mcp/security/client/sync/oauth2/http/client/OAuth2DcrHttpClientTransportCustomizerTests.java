@@ -17,22 +17,35 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.lang.reflect.Field;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.time.Duration;
 import java.util.Map;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
+import io.modelcontextprotocol.common.McpTransportContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -50,6 +63,34 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> new OAuth2DcrHttpClientTransportCustomizer(authorizedClientManager,
 					clientRegistrationRepository, mcpOAuth2ClientManager, ""));
+	}
+
+	@Test
+	void offloadsClientRegistrationLookup() {
+		var customizer = new OAuth2DcrHttpClientTransportCustomizer(authorizedClientManager,
+				clientRegistrationRepository, mcpOAuth2ClientManager);
+		var transportBuilder = HttpClientStreamableHttpTransport.builder("https://mcp.example.com");
+		customizer.customize("my-server", transportBuilder);
+		var requestCustomizer = getBuilderField(transportBuilder, "httpRequestCustomizer",
+				McpAsyncHttpClientRequestCustomizer.class);
+		given(clientRegistrationRepository.findByRegistrationId("my-server")).willAnswer(invocation -> {
+			assertThat(Schedulers.isInNonBlockingThread()).isFalse();
+			return null;
+		});
+		var endpoint = URI.create("https://mcp.example.com/mcp");
+		var requestBuilder = HttpRequest.newBuilder(endpoint);
+		var context = McpTransportContext.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY,
+				new TestingAuthenticationToken("user", "password"),
+				AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY,
+				new ServletRequestAttributes(mock(HttpServletRequest.class))));
+
+		var result = Mono.defer(() -> {
+			assertThat(Schedulers.isInNonBlockingThread()).isTrue();
+			return Mono.from(requestCustomizer.customize(requestBuilder, "POST", endpoint, "{}", context));
+		}).subscribeOn(Schedulers.parallel()).block(Duration.ofSeconds(5));
+
+		assertThat(result).isSameAs(requestBuilder);
+		verify(clientRegistrationRepository).findByRegistrationId("my-server");
 	}
 
 	@Nested

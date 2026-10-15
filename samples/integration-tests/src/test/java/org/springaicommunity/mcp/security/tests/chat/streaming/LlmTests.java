@@ -235,8 +235,9 @@ class LlmTests {
 				OAuth2AuthorizedClientManager clientManager,
 				ClientRegistrationRepository clientRegistrationRepository) {
 			return (name, builder) -> builder
-				.httpRequestCustomizer(new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager,
-						clientRegistrationRepository, "authserver"));
+				.asyncHttpRequestCustomizer(new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(clientManager,
+						clientRegistrationRepository, "authserver")
+					.asAsync());
 		}
 
 		@Bean

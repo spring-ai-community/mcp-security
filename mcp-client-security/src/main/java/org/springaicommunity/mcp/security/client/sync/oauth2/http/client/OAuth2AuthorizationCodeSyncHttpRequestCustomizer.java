@@ -21,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.util.Collection;
 import java.util.Collections;
 
+import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +29,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
@@ -57,6 +60,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * request is sent without a token. The MCP server will respond with an HTTP 401, and
  * {@link OAuth2DcrSyncAuthorizationErrorHandler} will handle that response to perform
  * dynamic client registration before retrying.
+ * <p>
+ * Use {@link #asAsync()} when configuring an asynchronous HTTP transport to offload
+ * potentially blocking OAuth2 operations to a scheduler intended for blocking work.
  *
  * @author Daniel Garnier-Moiroux
  * @see OAuth2DcrSyncAuthorizationErrorHandler
@@ -78,6 +84,23 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 		this.authorizedClientManager = authorizedClientManager;
 		this.clientRegistrationRepository = clientRegistrationRepository;
 		this.clientRegistrationId = clientRegistrationId;
+	}
+
+	/**
+	 * Return an asynchronous adapter that defers request customization until subscription
+	 * and runs it on {@link Schedulers#boundedElastic()}. Client registration lookup and
+	 * authorization may perform blocking I/O.
+	 * <p>
+	 * Register this adapter with the transport builder's
+	 * {@code asyncHttpRequestCustomizer} method. Authentication and servlet request
+	 * attributes are carried by the supplied {@link McpTransportContext}.
+	 * @return an asynchronous request customizer
+	 */
+	public McpAsyncHttpClientRequestCustomizer asAsync() {
+		var delegate = McpAsyncHttpClientRequestCustomizer.fromSync(this);
+		return (builder, method, endpoint, body, context) -> Mono
+			.from(delegate.customize(builder, method, endpoint, body, context))
+			.subscribeOn(Schedulers.boundedElastic());
 	}
 
 	@Override
