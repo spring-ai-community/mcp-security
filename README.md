@@ -272,6 +272,65 @@ public String greet(
 }
 ```
 
+### Hide tools the caller cannot call
+
+With method security, a tool the caller is not allowed to call is still advertised in `tools/list`. The model then
+spends context on it, and may try to call it only to be denied. When using `mcp-server-security-spring-boot`, `@McpTool`
+tools are hidden from `tools/list` when the current caller would be denied calling them. The same annotations decide both
+listing and calling, so they cannot drift apart:
+
+```java
+
+@Service
+public class AdminToolsService {
+
+    // Listed and callable for admins only
+    @PreAuthorize("hasRole('ADMIN')")
+    @McpTool(name = "delete-tenant", description = "Delete a tenant")
+    public String deleteTenant(@McpToolParam(description = "The tenant ID") String tenantId) {
+        // ...
+    }
+
+}
+```
+
+The decision is made by the method-security proxy the tool is called through, so everything configured for method
+security applies: `@PreAuthorize`, `@Secured` and `@RolesAllowed`, role hierarchies, annotation templates, custom
+expression handlers and `@HandleAuthorizationDenied`. Listing tools runs the same authorization checks as calling them,
+so authorization events and `@HandleAuthorizationDenied` handlers are also triggered by `tools/list`.
+
+Some tools are always listed, and are only authorized when called:
+
+- Tools denied by an expression that references method arguments, such as `#tenantId == authentication.name`, because
+  the arguments are only known when the tool is called. Other annotations on the same tool, such as `@Secured`, still
+  apply.
+- Tools only secured with `@PostAuthorize`, which depends on the return value.
+- Tools that are not declared with `@McpTool`, for example with Spring AI's `@Tool`, or registered as tool
+  specifications.
+- Tools whose bean is not secured through a Spring AOP proxy, for example with AspectJ-mode method security, or behind a
+  scoped proxy.
+
+Hiding a tool is not access control: always secure tool calls with method security, as described above. This applies to
+synchronous, servlet-based servers: `STREAMABLE`, `SSE` and `STATELESS`. To turn it off, set
+`spring.ai.mcp.server.security.tool-filter.enabled=false`.
+
+`MethodSecurityMcpToolFilter` is part of `mcp-server-security`, which does not depend on Spring AI: it finds a tool's
+method through an `McpToolMethodResolver`. To register it without the auto-configuration, for example with an
+`McpStatelessSyncServerCustomizer`, provide a resolver, or use `AnnotatedMcpToolMethodResolver` from
+`mcp-server-security-spring-boot` for `@McpTool` tools. The filter reads the current user from the
+`SecurityContextHolder`, so it must run on the thread serving the request: enable `immediateExecution` on the server,
+which Spring AI does for servlet applications.
+
+```java
+
+@Bean
+McpStatelessSyncServerCustomizer toolFilterCustomizer(ServerMcpAnnotatedBeans annotatedBeans) {
+    var toolFilter = new MethodSecurityMcpToolFilter(
+            new AnnotatedMcpToolMethodResolver(() -> annotatedBeans.getBeansByAnnotation(McpTool.class)));
+    return (serverBuilder) -> serverBuilder.addToolFilter(toolFilter);
+}
+```
+
 ### Usage: API keys
 
 Ensure that MCP server is enabled in your `application.properties`:

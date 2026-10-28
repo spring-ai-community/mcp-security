@@ -1,2 +1,3 @@
 org.springaicommunity.mcp.security.server.boot.McpServerSecurityAutoConfiguration
 org.springaicommunity.mcp.security.server.boot.ReactiveMcpServerSecurityAutoConfiguration
+org.springaicommunity.mcp.security.server.boot.McpServerToolSecurityAutoConfiguration
