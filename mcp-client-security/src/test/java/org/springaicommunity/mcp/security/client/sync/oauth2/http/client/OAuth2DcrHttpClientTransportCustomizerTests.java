@@ -17,10 +17,10 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Map;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -64,8 +64,7 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 
 			customizer.customize("my-server", builder);
 
-			assertThat(getBuilderField(builder, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
-				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
+			assertThat(getBuilderField(builder, "httpRequestCustomizers", List.class)).isNotEmpty();
 			assertThat(getBuilderField(builder, "authorizationErrorHandler",
 					McpHttpClientTransportAuthorizationErrorHandler.class))
 				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
@@ -82,13 +81,11 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 			customizer.customize("server-one", builder1);
 			customizer.customize("server-two", builder2);
 
-			assertThat(getBuilderField(builder1, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
-				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
+			assertThat(getBuilderField(builder1, "httpRequestCustomizers", List.class)).isNotEmpty();
 			assertThat(getBuilderField(builder1, "authorizationErrorHandler",
 					McpHttpClientTransportAuthorizationErrorHandler.class))
 				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
-			assertThat(getBuilderField(builder2, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
-				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
+			assertThat(getBuilderField(builder2, "httpRequestCustomizers", List.class)).isNotEmpty();
 			assertThat(getBuilderField(builder2, "authorizationErrorHandler",
 					McpHttpClientTransportAuthorizationErrorHandler.class))
 				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
@@ -106,13 +103,11 @@ class OAuth2DcrHttpClientTransportCustomizerTests {
 			customizer.customize("server-one", builder1);
 			customizer.customize("server-three", builder2);
 
-			assertThat(getBuilderField(builder1, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
-				.isNotSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
+			assertThat(getBuilderField(builder1, "httpRequestCustomizers", List.class)).isNotEmpty();
 			assertThat(getBuilderField(builder1, "authorizationErrorHandler",
 					McpHttpClientTransportAuthorizationErrorHandler.class))
 				.isNotSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
-			assertThat(getBuilderField(builder2, "httpRequestCustomizer", McpAsyncHttpClientRequestCustomizer.class))
-				.isSameAs(McpAsyncHttpClientRequestCustomizer.NOOP);
+			assertThat(getBuilderField(builder2, "httpRequestCustomizers", List.class)).isEmpty();
 			assertThat(getBuilderField(builder2, "authorizationErrorHandler",
 					McpHttpClientTransportAuthorizationErrorHandler.class))
 				.isSameAs(McpHttpClientTransportAuthorizationErrorHandler.NOOP);
