@@ -117,34 +117,53 @@ public class McpMetadataDiscoveryService {
 			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters) {
 		ProtectedResourceMetadata metadata = null;
 		if (wwwAuthenticateParameters != null) {
-			metadata = getProtectedResourceMetadata(wwwAuthenticateParameters.getResourceMetadata());
-			if (metadata != null && !metadata.resource().equals(mcpServerUrl)) {
-				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server url [%s]"
-					.formatted(metadata.resource(), mcpServerUrl));
-			}
+			metadata = getMatchingProtectedResourceMetadata(wwwAuthenticateParameters.getResourceMetadata(),
+					mcpServerUrl);
 		}
 		var rootUrl = UriComponentsBuilder.fromUriString(mcpServerUrl).replacePath(null).toUriString();
 		var path = UriComponentsBuilder.fromUriString(mcpServerUrl).build().getPath();
 		if (metadata == null) {
 			var candidateUrl = computeWellKnownProtectedResourceUrl(rootUrl, path);
-			metadata = getProtectedResourceMetadata(candidateUrl);
-			if (metadata != null && !metadata.resource().equals(mcpServerUrl)) {
-				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server url [%s]"
-					.formatted(metadata.resource(), mcpServerUrl));
-			}
+			metadata = getMatchingProtectedResourceMetadata(candidateUrl, mcpServerUrl);
 		}
 		if (metadata == null) {
 			var candidateUrl = computeWellKnownProtectedResourceUrl(rootUrl, null);
-			metadata = getProtectedResourceMetadata(candidateUrl);
-			if (metadata != null && !metadata.resource().equals(rootUrl)) {
-				throw new IllegalStateException("Resource identifier [%s] does not match MCP Server root url [%s]"
-					.formatted(metadata.resource(), mcpServerUrl));
-			}
+			metadata = getMatchingProtectedResourceMetadata(candidateUrl, mcpServerUrl);
 		}
 		if (metadata == null) {
 			throw new IllegalStateException("Could not find protected resource metadata");
 		}
 		return new McpMetadata(wwwAuthenticateParameters, metadata);
+	}
+
+	/**
+	 * Fetch Protected Resource Metadata from a single candidate URL and keep it only when
+	 * its {@code resource} identifier matches the MCP server URL.
+	 * <p>
+	 * RFC 9728 §3.3 requires the {@code resource} value to be the identifier from which
+	 * the well-known URL was derived. Hosted MCP servers frequently publish a
+	 * {@code resource} that is a prefix of the MCP endpoint (for example the origin when
+	 * the endpoint is {@code /mcp}), so a prefix match is accepted here, consistent with
+	 * {@link #getProtectedResourceMetadata(String, Collection)}. On a mismatch the
+	 * document is discarded so the caller can try the next candidate, rather than failing
+	 * discovery outright.
+	 * @param resourceMetadataUrl the URL from which to fetch the document
+	 * @param mcpServerUrl the MCP server URL used for validation
+	 * @return the matching document, or {@code null} when none was found or the
+	 * {@code resource} identifier did not match
+	 */
+	private @Nullable ProtectedResourceMetadata getMatchingProtectedResourceMetadata(String resourceMetadataUrl,
+			String mcpServerUrl) {
+		var metadata = getProtectedResourceMetadata(resourceMetadataUrl);
+		if (metadata == null) {
+			return null;
+		}
+		if (mcpServerUrl.startsWith(metadata.resource())) {
+			return metadata;
+		}
+		log.debug("Resource identifier [{}] does not match MCP Server url [{}], trying next candidate",
+				metadata.resource(), mcpServerUrl);
+		return null;
 	}
 
 	/**

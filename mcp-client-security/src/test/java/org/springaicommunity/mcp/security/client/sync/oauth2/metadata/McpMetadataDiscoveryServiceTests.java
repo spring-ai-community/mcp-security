@@ -85,4 +85,78 @@ class McpMetadataDiscoveryServiceTests {
 		assertThat(response.protectedResourceMetadata().scopesSupported()).containsExactly("profile", "email", "phone");
 	}
 
+	@Test
+	void acceptsResourceThatIsPrefixOfMcpServerUrl() {
+		var rcBuilder = RestClient.builder();
+		var mockServer = MockRestServiceServer.bindTo(rcBuilder).build();
+		var client = rcBuilder.build();
+		// The document's resource is the origin, a prefix of the MCP server URL
+		// (RFC 9728 §3.3: comparison is against the identifier the well-known URL was
+		// built from).
+		var sampleResponse = """
+				{
+					"resource": "https://resource.example.com",
+					"authorization_servers": ["https://as1.example.com"]
+				}
+				""";
+
+		// No WWW-Authenticate header, so discovery goes straight to the well-known URLs.
+		mockServer.expect(MockRestRequestMatchers.requestTo("https://resource.example.com/mcp"))
+			.andRespond(MockRestResponseCreators.withUnauthorizedRequest());
+		mockServer
+			.expect(MockRestRequestMatchers
+				.requestTo("https://resource.example.com/.well-known/oauth-protected-resource/mcp"))
+			.andRespond(MockRestResponseCreators.withSuccess(sampleResponse, MediaType.APPLICATION_JSON));
+
+		var service = new McpMetadataDiscoveryService(client, url -> {
+		});
+		var response = service.getMcpMetadata("https://resource.example.com/mcp");
+
+		assertThat(response.protectedResourceMetadata().resource()).isEqualTo("https://resource.example.com");
+		assertThat(response.protectedResourceMetadata().authorizationServers())
+			.containsExactly("https://as1.example.com");
+	}
+
+	@Test
+	void fallsThroughToRootWhenPathCandidateResourceDoesNotMatch() {
+		var rcBuilder = RestClient.builder();
+		var mockServer = MockRestServiceServer.bindTo(rcBuilder).build();
+		var client = rcBuilder.build();
+		var pathResponse = """
+				{
+					"resource": "https://other.example.com",
+					"authorization_servers": ["https://as-other.example.com"]
+				}
+				""";
+		var rootResponse = """
+				{
+					"resource": "https://resource.example.com",
+					"authorization_servers": ["https://as-root.example.com"]
+				}
+				""";
+
+		mockServer.expect(MockRestRequestMatchers.requestTo("https://resource.example.com/mcp"))
+			.andRespond(MockRestResponseCreators.withUnauthorizedRequest());
+		// First well-known candidate (with path) resolves to an unrelated resource: it
+		// must be skipped, not throw.
+		mockServer
+			.expect(MockRestRequestMatchers
+				.requestTo("https://resource.example.com/.well-known/oauth-protected-resource/mcp"))
+			.andRespond(MockRestResponseCreators.withSuccess(pathResponse, MediaType.APPLICATION_JSON));
+		// Second well-known candidate (root) resolves to the origin, which is a prefix
+		// of the MCP server URL.
+		mockServer
+			.expect(MockRestRequestMatchers
+				.requestTo("https://resource.example.com/.well-known/oauth-protected-resource"))
+			.andRespond(MockRestResponseCreators.withSuccess(rootResponse, MediaType.APPLICATION_JSON));
+
+		var service = new McpMetadataDiscoveryService(client, url -> {
+		});
+		var response = service.getMcpMetadata("https://resource.example.com/mcp");
+
+		assertThat(response.protectedResourceMetadata().resource()).isEqualTo("https://resource.example.com");
+		assertThat(response.protectedResourceMetadata().authorizationServers())
+			.containsExactly("https://as-root.example.com");
+	}
+
 }
