@@ -46,6 +46,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  * {@link org.springframework.security.oauth2.client.registration.ClientRegistrations#fromIssuerLocation(String)}
  * reads OpenID Connect Discovery first, so it reads the wrong document when the two
  * differ.
+ * <p>
+ * Based on Spring Security's {@code ClientRegistrations}: the location URLs, the issuer
+ * check, the provider details and the client authentication method follow it.
  *
  * @see <a href=
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization#authorization-server-metadata-discovery">MCP
