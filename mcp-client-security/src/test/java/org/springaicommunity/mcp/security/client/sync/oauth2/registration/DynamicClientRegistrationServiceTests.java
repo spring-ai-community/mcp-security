@@ -19,12 +19,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpClientRegistrations;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.client.match.MockRestRequestMatchers;
@@ -69,9 +69,9 @@ class DynamicClientRegistrationServiceTests {
 				urlValidator);
 		DynamicClientRegistrationRequest request = DynamicClientRegistrationRequest.builder().build();
 
-		try (MockedStatic<ClientRegistrations> clientRegistrationsMock = mockStatic(ClientRegistrations.class)) {
+		try (MockedStatic<McpClientRegistrations> clientRegistrationsMock = mockStatic(McpClientRegistrations.class)) {
 			clientRegistrationsMock
-				.when(() -> ClientRegistrations.fromIssuerLocation("https://good-auth-server.example.com"))
+				.when(() -> McpClientRegistrations.fromIssuerLocation("https://good-auth-server.example.com"))
 				.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 					.clientId("placeholder")
@@ -114,9 +114,9 @@ class DynamicClientRegistrationServiceTests {
 		var service = new DynamicClientRegistrationService(client, url -> {
 		});
 
-		try (MockedStatic<ClientRegistrations> clientRegistrationsMock = mockStatic(ClientRegistrations.class)) {
+		try (MockedStatic<McpClientRegistrations> clientRegistrationsMock = mockStatic(McpClientRegistrations.class)) {
 			clientRegistrationsMock
-				.when(() -> ClientRegistrations.fromIssuerLocation("https://good-auth-server.example.com"))
+				.when(() -> McpClientRegistrations.fromIssuerLocation("https://good-auth-server.example.com"))
 				.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 					.clientId("placeholder")

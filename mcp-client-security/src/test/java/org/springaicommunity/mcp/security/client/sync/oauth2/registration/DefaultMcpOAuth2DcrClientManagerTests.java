@@ -27,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpClientRegistrations;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.ProtectedResourceMetadata;
@@ -37,7 +38,6 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +73,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 	private static final String DCR_RESPONSE = "{\"client_id\": \"client-id-123\"}\n";
 
-	private static MockedStatic<ClientRegistrations> clientRegistrationsMock;
+	private static MockedStatic<McpClientRegistrations> clientRegistrationsMock;
 
 	private final McpClientRegistrationRepository repository = new InMemoryMcpClientRegistrationRepository();
 
@@ -89,8 +89,8 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 	@BeforeAll
 	static void beforeAll() {
-		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
-		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
+		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock = mockStatic(McpClientRegistrations.class);
+		clientRegistrationsMock.when(() -> McpClientRegistrations.fromIssuerLocation(ISSUER_URL))
 			.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 				.clientId("placeholder")

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpClientRegistrations;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.ProtectedResourceMetadata;
@@ -35,7 +36,6 @@ import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 
@@ -74,7 +74,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		.redirectUri("https://app.example.com/callback")
 		.build();
 
-	private static MockedStatic<ClientRegistrations> clientRegistrationsMock;
+	private static MockedStatic<McpClientRegistrations> clientRegistrationsMock;
 
 	private final McpClientRegistrationRepository repository = new InMemoryMcpClientRegistrationRepository();
 
@@ -87,8 +87,8 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 
 	@BeforeAll
 	static void beforeAll() {
-		DefaultMcpOAuth2CimdClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
-		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
+		DefaultMcpOAuth2CimdClientManagerTests.clientRegistrationsMock = mockStatic(McpClientRegistrations.class);
+		clientRegistrationsMock.when(() -> McpClientRegistrations.fromIssuerLocation(ISSUER_URL))
 			.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 				.clientId("placeholder")

@@ -24,13 +24,13 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpClientRegistrations;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.converter.ClaimConversionService;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.web.client.RestClient;
@@ -158,7 +158,7 @@ public class DynamicClientRegistrationService {
 			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
 		}
 		log.debug("Discovering registration endpoint for auth server [{}]", authServerUrl);
-		var builder = ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
+		var builder = McpClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
 		var registrationEndpoint = builder.getProviderDetails().getConfigurationMetadata().get("registration_endpoint");
 		if (registrationEndpoint == null) {
 			throw new IllegalStateException(

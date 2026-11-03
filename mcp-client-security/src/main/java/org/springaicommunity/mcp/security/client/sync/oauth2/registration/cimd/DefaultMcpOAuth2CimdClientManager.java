@@ -23,6 +23,7 @@ import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpClientRegistrations;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
@@ -32,7 +33,6 @@ import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.util.Assert;
@@ -122,7 +122,7 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
 		}
 
-		return ClientRegistrations.fromIssuerLocation(issuerUrl)
+		return McpClientRegistrations.fromIssuerLocation(issuerUrl)
 			.registrationId(registrationId)
 			.clientId(DEFAULT_METADATA_DOCUMENT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 				.replace("{registrationId}", registrationId))
