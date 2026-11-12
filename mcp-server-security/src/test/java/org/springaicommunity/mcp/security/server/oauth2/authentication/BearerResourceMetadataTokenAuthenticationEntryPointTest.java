@@ -10,6 +10,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -36,7 +38,7 @@ class BearerResourceMetadataTokenAuthenticationEntryPointTest {
 		String headerValue = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
 
 		assertThat(headerValue)
-			.contains("Bearer resource_metadata=https://example.com/.well-known/oauth-protected-resource/mcp");
+			.isEqualTo("Bearer resource_metadata=\"https://example.com/.well-known/oauth-protected-resource/mcp\"");
 	}
 
 	@Test
@@ -54,7 +56,7 @@ class BearerResourceMetadataTokenAuthenticationEntryPointTest {
 		String headerValue = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
 
 		assertThat(headerValue)
-			.contains("Bearer resource_metadata=https://example.com/foo/.well-known/oauth-protected-resource/mcp");
+			.isEqualTo("Bearer resource_metadata=\"https://example.com/foo/.well-known/oauth-protected-resource/mcp\"");
 
 	}
 
@@ -73,7 +75,7 @@ class BearerResourceMetadataTokenAuthenticationEntryPointTest {
 		String headerValue = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
 
 		assertThat(headerValue)
-			.contains("Bearer resource_metadata=https://example.com/.well-known/oauth-protected-resource/mcp");
+			.isEqualTo("Bearer resource_metadata=\"https://example.com/.well-known/oauth-protected-resource/mcp\"");
 	}
 
 	@Test
@@ -92,7 +94,77 @@ class BearerResourceMetadataTokenAuthenticationEntryPointTest {
 		String headerValue = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
 
 		assertThat(headerValue)
-			.contains("Bearer resource_metadata=https://example.com/.well-known/oauth-protected-resource/mcp");
+			.isEqualTo("Bearer resource_metadata=\"https://example.com/.well-known/oauth-protected-resource/mcp\"");
+	}
+
+	@Test
+	void commenceWithOAuth2ErrorPreservesAuthenticationParameters() throws Exception {
+		request.setScheme("https");
+		request.setServerName("example.com");
+		request.setServerPort(443);
+
+		OAuth2Error error = new OAuth2Error("invalid_token", "Token expired", null);
+
+		entryPoint.commence(request, response, new OAuth2AuthenticationException(error));
+
+		assertThat(response.getHeader(HttpHeaders.WWW_AUTHENTICATE))
+			.isEqualTo("Bearer error=\"invalid_token\", " + "error_description=\"Token expired\", "
+					+ "resource_metadata=\"https://example.com/.well-known/oauth-protected-resource/mcp\"");
+
+		assertThat(response.getStatus()).isEqualTo(401);
+	}
+
+	@Test
+	void replacesExistingResourceMetadataWithoutChangingOtherParameters() {
+		String header = "Bearer error=\"invalid_token\", " + "resource_metadata=\"https://old.example/mcp\", "
+				+ "scope=\"read\"";
+
+		String result = BearerResourceMetadataTokenAuthenticationEntryPoint.withResourceMetadata(header,
+				"https://new.example/mcp");
+
+		assertThat(result).isEqualTo("Bearer error=\"invalid_token\", "
+				+ "resource_metadata=\"https://new.example/mcp\", " + "scope=\"read\"");
+	}
+
+	@Test
+	void doesNotReplaceSimilarlyNamedParameter() {
+		String header = "Bearer other_resource_metadata=\"unchanged\", " + "error=\"invalid_token\"";
+
+		String result = BearerResourceMetadataTokenAuthenticationEntryPoint.withResourceMetadata(header,
+				"https://new.example/mcp");
+
+		assertThat(result).isEqualTo("Bearer other_resource_metadata=\"unchanged\", " + "error=\"invalid_token\", "
+				+ "resource_metadata=\"https://new.example/mcp\"");
+	}
+
+	@Test
+	void replacesResourceMetadataCaseInsensitively() {
+		String header = "Bearer RESOURCE_METADATA=\"https://old.example/mcp\", " + "error=\"invalid_token\"";
+
+		String result = BearerResourceMetadataTokenAuthenticationEntryPoint.withResourceMetadata(header,
+				"https://new.example/mcp");
+
+		assertThat(result)
+			.isEqualTo("Bearer resource_metadata=\"https://new.example/mcp\", " + "error=\"invalid_token\"");
+	}
+
+	@Test
+	void replacementTreatsDollarSignAsLiteralText() {
+		String result = BearerResourceMetadataTokenAuthenticationEntryPoint
+			.withResourceMetadata("Bearer resource_metadata=\"https://old.example/mcp\"", "https://new.example/$mcp");
+
+		assertThat(result).isEqualTo("Bearer resource_metadata=\"https://new.example/$mcp\"");
+	}
+
+	@Test
+	void replacesResourceMetadataWithOptionalWhitespace() {
+		String header = "Bearer error=\"invalid_token\", " + "resource_metadata = \"https://old.example/mcp\"";
+
+		String result = BearerResourceMetadataTokenAuthenticationEntryPoint.withResourceMetadata(header,
+				"https://new.example/mcp");
+
+		assertThat(result)
+			.isEqualTo("Bearer error=\"invalid_token\", " + "resource_metadata=\"https://new.example/mcp\"");
 	}
 
 }

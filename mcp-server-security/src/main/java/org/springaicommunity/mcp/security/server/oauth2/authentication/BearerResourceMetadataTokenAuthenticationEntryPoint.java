@@ -16,6 +16,7 @@
 package org.springaicommunity.mcp.security.server.oauth2.authentication;
 
 import java.io.IOException;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
@@ -43,6 +44,25 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 public final class BearerResourceMetadataTokenAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+	private static final Pattern RESOURCE_METADATA_PATTERN = Pattern
+		.compile("(?i)(?<=[\\s,])resource_metadata[ \\t]*=[ \\t]*\"[^\"]*\"");
+
+	static String withResourceMetadata(String header, String url) {
+		String parameter = "resource_metadata=\"" + url + "\"";
+
+		if ("bearer".equalsIgnoreCase(header)) {
+			return header + " " + parameter;
+		}
+
+		Matcher matcher = RESOURCE_METADATA_PATTERN.matcher(header);
+
+		if (matcher.find()) {
+			return matcher.replaceFirst(Matcher.quoteReplacement(parameter));
+		}
+
+		return header + ", " + parameter;
+	}
+
 	private final AuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
 
 	private final ResourceIdentifier resourceIdentifier;
@@ -58,20 +78,8 @@ public final class BearerResourceMetadataTokenAuthenticationEntryPoint implement
 		this.delegate.commence(request, response, authException);
 
 		String wwwAuthenticateHeader = response.getHeader(HttpHeaders.WWW_AUTHENTICATE);
-		if ("bearer".equalsIgnoreCase(wwwAuthenticateHeader)) {
-			wwwAuthenticateHeader += " resource_metadata="
-					+ buildResourceMetadataPath(request, this.resourceIdentifier);
-		}
-		else if (Pattern.compile("resource_metadata=\".+\"").matcher(wwwAuthenticateHeader).find()) {
-			// Hotfix until Spring Security 7 has context paths
-			wwwAuthenticateHeader = wwwAuthenticateHeader.replaceAll("resource_metadata=\".+\"",
-					"resource_metadata=" + buildResourceMetadataPath(request, this.resourceIdentifier));
-		}
-		else {
-			wwwAuthenticateHeader += ", " + buildResourceMetadataPath(request, this.resourceIdentifier);
-		}
-
-		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, wwwAuthenticateHeader);
+		response.setHeader(HttpHeaders.WWW_AUTHENTICATE, withResourceMetadata(wwwAuthenticateHeader,
+				buildResourceMetadataPath(request, this.resourceIdentifier)));
 	}
 
 	private String buildResourceMetadataPath(HttpServletRequest request, ResourceIdentifier resourceIdentifier) {
