@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
+import jakarta.servlet.Filter;
 import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.server.oauth2.authentication.BearerResourceMetadataTokenAuthenticationEntryPoint;
 import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJwtDecoder;
@@ -33,6 +34,7 @@ import org.springframework.security.config.annotation.web.configurers.oauth2.ser
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.filter.CorsFilter;
@@ -167,7 +169,8 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		Assert.notNull(this.resourceIdentifier, "resourceIdentifier cannot be null");
 		var issuerUri = this.issuerUri;
 
-		var entryPoint = new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier);
+		AuthenticationEntryPoint entryPoint = postProcess(
+				new BearerResourceMetadataTokenAuthenticationEntryPoint(this.resourceIdentifier));
 
 		http.oauth2ResourceServer(resourceServer -> {
 			resourceServer.jwt(jwt -> jwt.decoder(getJwtDecoder(issuerUri)));
@@ -181,18 +184,18 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		}
 
 		if (!CollectionUtils.isEmpty(this.allowedOrigins)) {
-			var originValidationFilter = new OriginValidationFilter(
-					this.allowedOrigins != null ? this.allowedOrigins : Collections.emptyList(), this.allowedHosts);
+			Filter originValidationFilter = postProcess(new OriginValidationFilter(
+					this.allowedOrigins != null ? this.allowedOrigins : Collections.emptyList(), this.allowedHosts));
 			http.addFilterAfter(originValidationFilter, CorsFilter.class);
 		}
 	}
 
 	private JwtDecoder getJwtDecoder(String issuerUri) {
-		var rawDecoder = this.jwtDecoder != null ? this.jwtDecoder
-				: NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+		JwtDecoder rawDecoder = this.jwtDecoder != null ? this.jwtDecoder
+				: postProcess(NimbusJwtDecoder.withIssuerLocation(issuerUri).build());
 
 		if (this.validateAudienceClaim) {
-			return new AudienceValidationJwtDecoder(rawDecoder, this.resourceIdentifier);
+			return postProcess(new AudienceValidationJwtDecoder(rawDecoder, this.resourceIdentifier));
 		}
 
 		return rawDecoder;
