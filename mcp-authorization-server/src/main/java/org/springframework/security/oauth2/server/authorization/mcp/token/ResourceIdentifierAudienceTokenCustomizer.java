@@ -48,7 +48,8 @@ public class ResourceIdentifierAudienceTokenCustomizer implements OAuth2TokenCus
 			// audience from the access token that was originally issued for this
 			// authorization, so a refresh_token grant cannot escalate `aud` to a
 			// resource that was not part of the original authorization_code exchange.
-			Map<String, Object> previousClaims = context.getAuthorization().getAccessToken().getClaims();
+			var previousAccessToken = context.getAuthorization().getAccessToken();
+			Map<String, Object> previousClaims = (previousAccessToken != null) ? previousAccessToken.getClaims() : null;
 			Object previousAudience = (previousClaims != null) ? previousClaims.get(JwtClaimNames.AUD) : null;
 			if (previousAudience != null) {
 				context.getClaims().claim(JwtClaimNames.AUD, previousAudience);
