@@ -81,6 +81,13 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 		return this;
 	}
 
+	/**
+	 * Customize the OAuth2 Protected Resource Metadata. The customizer is applied after
+	 * the defaults, i.e. the {@link #authorizationServer(String) authorization server}
+	 * and the {@link #resourceName(String) resource name}, have been set.
+	 * @param customizer a customizer of the protected resource metadata
+	 * @return The {@link McpServerOAuth2Configurer} for further configuration.
+	 */
 	public McpServerOAuth2Configurer protectedResourceMetadataCustomizer(
 			Consumer<OAuth2ProtectedResourceMetadata.Builder> customizer) {
 		Assert.notNull(customizer, "customizer cannot be null");
@@ -199,10 +206,9 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(String issuerUri) {
-		if (this.customizer != null) {
-			return this.customizer;
-		}
-		return (protectedMetadata) -> protectedMetadata.authorizationServer(issuerUri).resourceName(this.resourceName);
+		Consumer<OAuth2ProtectedResourceMetadata.Builder> defaults = (
+				protectedMetadata) -> protectedMetadata.authorizationServer(issuerUri).resourceName(this.resourceName);
+		return this.customizer != null ? defaults.andThen(this.customizer) : defaults;
 	}
 
 	public static McpServerOAuth2Configurer mcpServerOAuth2() {
