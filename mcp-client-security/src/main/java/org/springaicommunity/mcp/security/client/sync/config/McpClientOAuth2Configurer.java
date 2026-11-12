@@ -120,7 +120,11 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		});
 
 		if (this.cimdEnabled) {
-			http.addFilterBefore(postProcess(new OAuth2CimdEndpointFilter()), ExceptionTranslationFilter.class);
+			var cimdEndpointFilter = new OAuth2CimdEndpointFilter();
+			if (this.baseUrl != null) {
+				cimdEndpointFilter.setBaseUrl(this.baseUrl);
+			}
+			http.addFilterBefore(postProcess(cimdEndpointFilter), ExceptionTranslationFilter.class);
 		}
 
 	}
@@ -158,8 +162,10 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	}
 
 	/**
-	 * The base URL to be used to construct redirect URIs for dynamically registered
-	 * clients. If not set, it will default to {@code http://localhost:{port}}.
+	 * The base URL used to construct redirect URIs for dynamically registered clients and
+	 * client ID metadata documents. If not set, dynamic registration defaults to
+	 * {@code http://localhost:{port}}, while client ID metadata documents use the
+	 * incoming request's base URL.
 	 * @param baseUrl the base URL of the application
 	 * @return The {@link McpClientOAuth2Configurer} for further configuration
 	 */
