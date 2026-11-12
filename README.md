@@ -1177,6 +1177,35 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) {
 }
 ```
 
+### Public client refresh tokens
+
+Spring Authorization Server does not issue refresh tokens to public clients by default. You can opt in to issuing
+and accepting refresh tokens for public clients. The client must also be registered with the `refresh_token` grant
+type.
+
+If you are using the Boot auto-configuration, enable support with the following property:
+
+```properties
+spring.ai.mcp.authorizationserver.public-client-refresh-tokens.enabled=true
+```
+
+If you are configuring the server manually, enable it via the configurer:
+
+```java
+@Bean
+SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    return http
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), mcp -> {
+                mcp.publicClientRefreshTokens(true);
+            })
+            .build();
+}
+```
+
+This option is disabled by default. Refresh tokens are long-lived credentials, so only enable it when your public
+clients can store them securely.
+
 ### Client ID Metadata Document (CIMD)
 
 CIMD is an alternative to DCR where the client identifies itself with a URL pointing to a metadata document

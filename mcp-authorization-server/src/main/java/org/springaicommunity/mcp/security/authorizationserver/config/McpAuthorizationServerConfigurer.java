@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -42,6 +43,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationContext;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -69,6 +71,8 @@ public class McpAuthorizationServerConfigurer
 	private boolean supportDynamicClientRegistration = true;
 
 	private boolean supportClientIdMetadataDocument = false;
+
+	private boolean supportPublicClientRefreshTokens = false;
 
 	private Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator = new OAuth2ClientRegistrationAuthenticationValidator();
 
@@ -114,6 +118,17 @@ public class McpAuthorizationServerConfigurer
 	}
 
 	/**
+	 * Enable or disable refresh token support for public clients.
+	 * @param enabled issue and accept refresh tokens for public clients when true.
+	 * Defaults to false.
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer publicClientRefreshTokens(boolean enabled) {
+		this.supportPublicClientRefreshTokens = enabled;
+		return this;
+	}
+
+	/**
 	 * Update the validator for incoming client registrations.
 	 * @param clientRegistrationValidator the validator. Defaults to
 	 * {@link OAuth2ClientRegistrationAuthenticationValidator};
@@ -146,6 +161,15 @@ public class McpAuthorizationServerConfigurer
 				authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor());
 			}
 		}).oauth2AuthorizationServer(authServer -> {
+			if (this.supportPublicClientRefreshTokens) {
+				RegisteredClientRepository registeredClientRepository = Objects.requireNonNull(
+						getOptionalBean(http, RegisteredClientRepository.class),
+						"registeredClientRepository cannot be null");
+				authServer.clientAuthentication(clientAuthentication -> clientAuthentication
+					.authenticationConverter(new PublicClientRefreshTokenAuthenticationConverter())
+					.authenticationProvider(
+							new PublicClientRefreshTokenAuthenticationProvider(registeredClientRepository)));
+			}
 			authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
 			authServer.addObjectPostProcessor(
 					new McpAuthorizationCodeRequestValidatorPostProcessor(this.authorizationCodeRequestValidator));
@@ -158,6 +182,11 @@ public class McpAuthorizationServerConfigurer
 				}
 			});
 			OAuth2TokenGenerator<?> tokenGenerator = getTokenGenerator(http);
+			if (this.supportPublicClientRefreshTokens) {
+				tokenGenerator = new DelegatingOAuth2TokenGenerator(tokenGenerator,
+						new PublicClientRefreshTokenGenerator());
+				http.setSharedObject(OAuth2TokenGenerator.class, tokenGenerator);
+			}
 			authServer.tokenGenerator(tokenGenerator);
 			if (this.supportDynamicClientRegistration) {
 				authServer.clientRegistrationEndpoint(cr -> cr.openRegistrationAllowed(true));
