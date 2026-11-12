@@ -239,7 +239,9 @@ class McpAuthorizationServerTests {
 		assertThat(refreshTokenRestTestClientResponse).bodyJson().extractingPath("refresh_token").isNotNull();
 
 		var refreshedAccessTokenClaimsMap = extractAccessTokenClaims(refreshTokenRestTestClientResponse);
-		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", "default-client");
+		// A refresh without `resource` must not fall back to the client id as `aud`;
+		// it must reuse the audience of the access token that was originally issued.
+		assertThat(refreshedAccessTokenClaimsMap).containsEntry("aud", "https://example.com");
 	}
 
 	@Test
