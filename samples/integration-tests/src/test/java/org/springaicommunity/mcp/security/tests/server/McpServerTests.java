@@ -75,6 +75,10 @@ class McpServerTests {
 				    "https://example.com"
 				  ],
 				  "resource_name": "Spring MCP Resource Server",
+				  "scopes_supported": [
+				    "test.read",
+				    "test.write"
+				  ],
 				  "bearer_methods_supported": [
 				    "header"
 				  ]
@@ -189,6 +193,7 @@ class McpServerTests {
 			}).with(McpServerOAuth2Configurer.mcpServerOAuth2(), oauth2 -> {
 				oauth2.authorizationServer("https://example.com");
 				oauth2.jwtDecoder(jwtDecoder);
+				oauth2.protectedResourceMetadataCustomizer(metadata -> metadata.scope("test.read").scope("test.write"));
 				oauth2.allowedOrigins(List.of("http://localhost:*", "http://127.0.0.1:*", "http://[::1]:*"));
 				oauth2.allowedHosts(List.of("localhost:*", "127.0.0.1:*", "[::1]:*"));
 			}).build();
