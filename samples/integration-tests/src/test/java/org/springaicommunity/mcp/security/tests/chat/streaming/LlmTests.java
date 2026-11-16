@@ -59,7 +59,6 @@ import org.springaicommunity.mcp.security.tests.common.configuration.McpServerCo
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
-
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
@@ -83,7 +82,9 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -164,9 +165,9 @@ class LlmTests {
 		reset(anthropicClientAsync);
 
 		// --- Sync client mocking (for chatClient.prompt().call()) ---
-		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasSingleAnthropicMessage)))
+		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasSingleAnthropicMessage), any()))
 			.thenReturn(fakeRawResponse(firstResponse));
-		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasToolCallResult)))
+		when(anthropicClient.messages().withRawResponse().create(argThat(LlmTests::hasToolCallResult), any()))
 			.thenAnswer(invocation -> {
 				MessageCreateParams messageParams = invocation.getArgument(0);
 				var toolResponse = extractToolResponse(messageParams);
@@ -176,10 +177,11 @@ class LlmTests {
 		// --- Async client mocking (for chatClient.prompt().stream()) ---
 		when(anthropicClientAsync.messages()
 			.withRawResponse()
-			.createStreaming(argThat(LlmTests::hasSingleAnthropicMessage)))
+			.createStreaming(argThat(LlmTests::hasSingleAnthropicMessage), any()))
 			.thenReturn(CompletableFuture.completedFuture(fakeStreamRawResponse(messageToStreamEvents(firstResponse))));
-		when(anthropicClientAsync.messages().withRawResponse().createStreaming(argThat(LlmTests::hasToolCallResult)))
-			.thenAnswer(invocation -> {
+		when(anthropicClientAsync.messages()
+			.withRawResponse()
+			.createStreaming(argThat(LlmTests::hasToolCallResult), any())).thenAnswer(invocation -> {
 				MessageCreateParams messageParams = invocation.getArgument(0);
 				var toolResponse = extractToolResponse(messageParams);
 				return CompletableFuture.completedFuture(
