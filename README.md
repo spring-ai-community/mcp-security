@@ -1154,6 +1154,22 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) {
 }
 ```
 
+If your application defines another `SecurityFilterChain` for its own web endpoints, scope the authorization server chain with `getEndpointsMatcher()` and give it a higher precedence:
+
+```java
+@Bean
+@Order(Ordered.HIGHEST_PRECEDENCE)
+SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    var authorizationServer = McpAuthorizationServerConfigurer.mcpAuthorizationServer();
+    return http
+            .securityMatcher(authorizationServer.getEndpointsMatcher())
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .with(authorizationServer, withDefaults())
+            .formLogin(withDefaults())
+            .build();
+}
+```
+
 ### Dynamic Client Registration (DCR)
 
 By default, the authorization server supports Dynamic Client Registration (DCR).

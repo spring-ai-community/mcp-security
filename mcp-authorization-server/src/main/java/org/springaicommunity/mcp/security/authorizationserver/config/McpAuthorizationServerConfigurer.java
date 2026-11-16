@@ -51,6 +51,8 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -73,6 +75,11 @@ public class McpAuthorizationServerConfigurer
 	private Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator = new OAuth2ClientRegistrationAuthenticationValidator();
 
 	private Consumer<OAuth2AuthorizationCodeRequestAuthenticationContext> authorizationCodeRequestValidator = new OAuth2AuthorizationCodeRequestAuthenticationValidator();
+
+	private final RequestMatcher openidConfigurationMatcher = PathPatternRequestMatcher.withDefaults()
+		.matcher("/.well-known/openid-configuration");
+
+	private @Nullable RequestMatcher endpointsMatcher;
 
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
@@ -139,6 +146,17 @@ public class McpAuthorizationServerConfigurer
 		return this;
 	}
 
+	/**
+	 * Return a {@link RequestMatcher} for the authorization server endpoints.
+	 * @return a {@link RequestMatcher} for the authorization server endpoints.
+	 */
+	public RequestMatcher getEndpointsMatcher() {
+		return (request) -> {
+			Assert.state(this.endpointsMatcher != null, "endpointsMatcher has not been initialized");
+			return this.endpointsMatcher.matches(request);
+		};
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
 		http.authorizeHttpRequests(authz -> {
@@ -165,14 +183,15 @@ public class McpAuthorizationServerConfigurer
 					.clientRegistrationRequestConverter(new McpEmptyScopeClientRegistrationAuthenticationConverter()));
 			}
 			this.authServerCustomizer.forEach(c -> c.customize(authServer));
+			this.endpointsMatcher = new OrRequestMatcher(authServer.getEndpointsMatcher(),
+					this.openidConfigurationMatcher);
 		});
 
 		// This makes Spring servers happy by ensuring that
 		// NimbusJwtDecoder.withIssuerLocation(...) does not blow up on an HTTP redirect
 		// to a login page.
-		http.exceptionHandling(
-				exc -> exc.defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.NOT_FOUND),
-						PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
+		http.exceptionHandling(exc -> exc.defaultAuthenticationEntryPointFor(
+				new HttpStatusEntryPoint(HttpStatus.NOT_FOUND), this.openidConfigurationMatcher));
 	}
 
 	private OAuth2TokenGenerator<?> getTokenGenerator(HttpSecurity http) {
