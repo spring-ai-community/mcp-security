@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.authorizationserver.boot;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
 
 /**
  * @author Daniel Garnier-Moiroux
@@ -28,12 +29,18 @@ class McpOAuth2AuthorizationServerProperties {
 
 	private DynamicClientRegistration dynamicClientRegistration = new DynamicClientRegistration();
 
+	private final OAuth2AuthorizationServerProperties.Token token = new OAuth2AuthorizationServerProperties.Token();
+
 	public DynamicClientRegistration getDynamicClientRegistration() {
 		return dynamicClientRegistration;
 	}
 
 	public void setDynamicClientRegistration(DynamicClientRegistration dynamicClientRegistration) {
 		this.dynamicClientRegistration = dynamicClientRegistration;
+	}
+
+	public OAuth2AuthorizationServerProperties.Token getToken() {
+		return this.token;
 	}
 
 	public static class DynamicClientRegistration {

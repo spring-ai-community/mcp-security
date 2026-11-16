@@ -19,6 +19,7 @@ package org.springaicommunity.mcp.security.authorizationserver.boot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 
@@ -81,7 +82,7 @@ final class OAuth2AuthorizationServerPropertiesMapper {
 			.forEach((redirectUri) -> map.from(redirectUri).to(builder::postLogoutRedirectUri));
 		registration.getScopes().forEach((scope) -> map.from(scope).to(builder::scope));
 		builder.clientSettings(getClientSettings(client, map));
-		builder.tokenSettings(getTokenSettings(client, map));
+		builder.tokenSettings(getTokenSettings(client));
 		return builder.build();
 	}
 
@@ -96,19 +97,25 @@ final class OAuth2AuthorizationServerPropertiesMapper {
 		return builder.build();
 	}
 
-	private TokenSettings getTokenSettings(OAuth2AuthorizationServerProperties.Client client, PropertyMapper map) {
-		OAuth2AuthorizationServerProperties.Token token = client.getToken();
+	private TokenSettings getTokenSettings(OAuth2AuthorizationServerProperties.Client client) {
 		TokenSettings.Builder builder = TokenSettings.builder();
-		map.from(token::getAuthorizationCodeTimeToLive).to(builder::authorizationCodeTimeToLive);
-		map.from(token::getAccessTokenTimeToLive).to(builder::accessTokenTimeToLive);
-		map.from(token::getAccessTokenFormat).as(OAuth2TokenFormat::new).to(builder::accessTokenFormat);
-		map.from(token::getDeviceCodeTimeToLive).to(builder::deviceCodeTimeToLive);
-		map.from(token::isReuseRefreshTokens).to(builder::reuseRefreshTokens);
-		map.from(token::getRefreshTokenTimeToLive).to(builder::refreshTokenTimeToLive);
-		map.from(token::getIdTokenSignatureAlgorithm)
-			.as(this::signatureAlgorithm)
-			.to(builder::idTokenSignatureAlgorithm);
+		asTokenSettingsCustomizer(client.getToken()).accept(builder);
 		return builder.build();
+	}
+
+	static Consumer<TokenSettings.Builder> asTokenSettingsCustomizer(OAuth2AuthorizationServerProperties.Token token) {
+		return (builder) -> {
+			PropertyMapper map = PropertyMapper.get();
+			map.from(token::getAuthorizationCodeTimeToLive).to(builder::authorizationCodeTimeToLive);
+			map.from(token::getAccessTokenTimeToLive).to(builder::accessTokenTimeToLive);
+			map.from(token::getAccessTokenFormat).as(OAuth2TokenFormat::new).to(builder::accessTokenFormat);
+			map.from(token::getDeviceCodeTimeToLive).to(builder::deviceCodeTimeToLive);
+			map.from(token::isReuseRefreshTokens).to(builder::reuseRefreshTokens);
+			map.from(token::getRefreshTokenTimeToLive).to(builder::refreshTokenTimeToLive);
+			map.from(token::getIdTokenSignatureAlgorithm)
+				.as(OAuth2AuthorizationServerPropertiesMapper::signatureAlgorithm)
+				.to(builder::idTokenSignatureAlgorithm);
+		};
 	}
 
 	private @Nullable JwsAlgorithm jwsAlgorithm(String signingAlgorithm) {
@@ -120,7 +127,7 @@ final class OAuth2AuthorizationServerPropertiesMapper {
 		return jwsAlgorithm;
 	}
 
-	private @Nullable SignatureAlgorithm signatureAlgorithm(String signatureAlgorithm) {
+	private static @Nullable SignatureAlgorithm signatureAlgorithm(String signatureAlgorithm) {
 		return SignatureAlgorithm.from(signatureAlgorithm.toUpperCase(Locale.ROOT));
 	}
 
