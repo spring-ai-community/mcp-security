@@ -16,6 +16,15 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.sun.net.httpserver.HttpServer;
 import io.modelcontextprotocol.client.McpClient;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
@@ -32,7 +41,26 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.ResolvableType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.client.InMemoryOAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.RestClientRefreshTokenTokenResponseClient;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.AuthenticatedPrincipalOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -191,7 +219,96 @@ class McpOAuth2ClientAutoConfigurationTests {
 			assertThat(context).doesNotHaveBean(McpOAuth2DcrClientManager.class);
 			assertThat(context).doesNotHaveBean(DefaultMcpOAuth2DcrClientManager.class);
 			assertThat(context).doesNotHaveBean(ScopeStepUpMcpOAuth2DcrClientManager.class);
+			assertThat(context).doesNotHaveBean(OAuth2AccessTokenResponseClient.class);
 		});
+	}
+
+	@Test
+	void registersRefreshTokenTokenResponseClient() {
+		this.contextRunner.run(context -> {
+			var beanNames = context.getBeanNamesForType(ResolvableType
+				.forClassWithGenerics(OAuth2AccessTokenResponseClient.class, OAuth2RefreshTokenGrantRequest.class));
+			assertThat(beanNames).hasSize(1);
+			assertThat(context.getBean(beanNames[0])).isInstanceOf(RestClientRefreshTokenTokenResponseClient.class);
+		});
+	}
+
+	@Test
+	void backsOffRefreshTokenTokenResponseClient() {
+		this.contextRunner.withUserConfiguration(CustomRefreshTokenResponseClientConfiguration.class).run(context -> {
+			var beanNames = context.getBeanNamesForType(ResolvableType
+				.forClassWithGenerics(OAuth2AccessTokenResponseClient.class, OAuth2RefreshTokenGrantRequest.class));
+			assertThat(beanNames).hasSize(1);
+			assertThat(context.getBean(beanNames[0]))
+				.isSameAs(context.getBean(CustomRefreshTokenResponseClientConfiguration.class).customClient);
+		});
+	}
+
+	@Test
+	void authorizedClientManagerUsesMcpRefreshTokenClientWithResource() throws IOException {
+		AtomicReference<String> requestBody = new AtomicReference<>();
+		HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+		server.createContext("/oauth2/token", exchange -> {
+			requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+			byte[] response = "{\"access_token\":\"refreshed-token\",\"token_type\":\"Bearer\",\"expires_in\":3600}"
+				.getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("Content-Type", "application/json");
+			exchange.sendResponseHeaders(200, response.length);
+			exchange.getResponseBody().write(response);
+			exchange.close();
+		});
+		server.start();
+		try {
+			int port = server.getAddress().getPort();
+			String resource = "https://mcp.example.com/mcp";
+			ClientRegistration registration = ClientRegistration.withRegistrationId("test")
+				.clientId("test-client")
+				.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+				.redirectUri("https://app.example.com/callback")
+				.authorizationUri("https://auth.example.com/oauth2/authorize")
+				.tokenUri("http://127.0.0.1:" + port + "/oauth2/token")
+				.build();
+
+			var repository = new InMemoryMcpClientRegistrationRepository();
+			repository.addClientRegistration(registration, resource);
+			var authorizedClientService = new InMemoryOAuth2AuthorizedClientService(repository);
+			var authorizedClientRepository = new AuthenticatedPrincipalOAuth2AuthorizedClientRepository(
+					authorizedClientService);
+			var principal = new TestingAuthenticationToken("test-user", "n/a");
+			principal.setAuthenticated(true);
+
+			var expiredAccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "expired-token",
+					Instant.now().minusSeconds(120), Instant.now().minusSeconds(60));
+			var refreshToken = new OAuth2RefreshToken("initial-refresh-token", Instant.now().minusSeconds(120));
+			authorizedClientService.saveAuthorizedClient(
+					new OAuth2AuthorizedClient(registration, principal.getName(), expiredAccessToken, refreshToken),
+					principal);
+
+			this.contextRunner.withBean(McpClientRegistrationRepository.class, () -> repository)
+				.withBean(OAuth2AuthorizedClientRepository.class, () -> authorizedClientRepository)
+				.withUserConfiguration(WebSecurityOAuth2ClientConfiguration.class)
+				.run(context -> {
+					var authorizedClientManager = context.getBean(OAuth2AuthorizedClientManager.class);
+					var authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId("test")
+						.principal(principal)
+						.attribute("jakarta.servlet.http.HttpServletRequest", new MockHttpServletRequest())
+						.attribute("jakarta.servlet.http.HttpServletResponse", new MockHttpServletResponse())
+						.build();
+
+					var refreshedClient = authorizedClientManager.authorize(authorizeRequest);
+					assertThat(refreshedClient).isNotNull();
+					assertThat(refreshedClient.getAccessToken().getTokenValue()).isEqualTo("refreshed-token");
+
+					String decodedBody = URLDecoder.decode(requestBody.get(), StandardCharsets.UTF_8);
+					assertThat(decodedBody).contains("grant_type=refresh_token")
+						.contains("refresh_token=initial-refresh-token")
+						.contains("resource=" + resource);
+				});
+		}
+		finally {
+			server.stop(0);
+		}
 	}
 
 	@Configuration
@@ -251,6 +368,26 @@ class McpOAuth2ClientAutoConfigurationTests {
 		McpOAuth2DcrClientManager mcpOAuth2ClientManager() {
 			return this.customManager;
 		}
+
+	}
+
+	@Configuration
+	static class CustomRefreshTokenResponseClientConfiguration {
+
+		@SuppressWarnings("unchecked")
+		final OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> customClient = mock(
+				OAuth2AccessTokenResponseClient.class);
+
+		@Bean
+		OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> customRefreshTokenResponseClient() {
+			return this.customClient;
+		}
+
+	}
+
+	@Configuration
+	@EnableWebSecurity
+	static class WebSecurityOAuth2ClientConfiguration {
 
 	}
 

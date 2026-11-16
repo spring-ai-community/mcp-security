@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.client.boot;
 
 import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.config.McpClientOAuth2Configurer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
@@ -36,6 +37,8 @@ import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2Clien
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientPropertiesMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 /**
@@ -130,6 +133,15 @@ class McpOAuth2ClientConfigurations {
 		@ConditionalOnMissingBean
 		McpClientCustomizer<McpClient.SyncSpec> mcpClientTransportContextProviderCustomizer() {
 			return (name, client) -> client.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+		}
+
+		@Bean
+		@ConditionalOnBean(McpClientRegistrationRepository.class)
+		@ConditionalOnMissingBean(value = OAuth2RefreshTokenGrantRequest.class,
+				parameterizedContainer = OAuth2AccessTokenResponseClient.class)
+		OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> mcpRefreshTokenTokenResponseClient(
+				McpClientRegistrationRepository mcpClientRegistrationRepository) {
+			return McpClientOAuth2Configurer.mcpRefreshTokenTokenResponseClient(mcpClientRegistrationRepository);
 		}
 
 	}

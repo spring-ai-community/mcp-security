@@ -31,6 +31,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
 
 /**
  * {@link AutoConfiguration Auto-configuration} for MCP OAuth2 Client support. Registers
@@ -42,6 +44,7 @@ import org.springframework.context.annotation.Import;
  * <li>{@link McpOAuth2DcrClientManager}
  * <li>A {@link McpClientCustomizer} to add
  * {@link AuthenticationMcpTransportContextProvider} to all sync clients.
+ * <li>{@link OAuth2AccessTokenResponseClient} for {@link OAuth2RefreshTokenGrantRequest}
  * </ul>
  * Only enabled for {@code SYNC} clients.
  *

@@ -44,8 +44,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.client.OAuth2ClientConfigurer;
-import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.AbstractOAuth2AuthorizationGrantRequest;
 import org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.RestClientRefreshTokenTokenResponseClient;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
@@ -237,9 +238,31 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 	}
 
-	private static Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
+	/**
+	 * Create a converter that adds the registered MCP resource identifier to OAuth2 token
+	 * grant requests.
+	 * @param <T> the grant request type
+	 * @param mcpClientRegistrationRepository the repository of MCP client registrations
+	 * @return the token request parameters converter
+	 */
+	public static <T extends AbstractOAuth2AuthorizationGrantRequest> Converter<T, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
 			McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return new McpTokenRequestParametersConverter(mcpClientRegistrationRepository);
+		Assert.notNull(mcpClientRegistrationRepository, "mcpClientRegistrationRepository cannot be null");
+		return new McpTokenRequestParametersConverter<>(mcpClientRegistrationRepository);
+	}
+
+	/**
+	 * Create a {@link RestClientRefreshTokenTokenResponseClient} configured to include
+	 * the registered MCP resource identifier in refresh token requests.
+	 * @param mcpClientRegistrationRepository the repository of MCP client registrations
+	 * @return a configured {@link RestClientRefreshTokenTokenResponseClient}
+	 */
+	public static RestClientRefreshTokenTokenResponseClient mcpRefreshTokenTokenResponseClient(
+			McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		Assert.notNull(mcpClientRegistrationRepository, "mcpClientRegistrationRepository cannot be null");
+		var tokenResponseClient = new RestClientRefreshTokenTokenResponseClient();
+		tokenResponseClient.addParametersConverter(mcpTokenRequestParametersConverter(mcpClientRegistrationRepository));
+		return tokenResponseClient;
 	}
 
 	private static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(
@@ -356,8 +379,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		});
 	}
 
-	private static class McpTokenRequestParametersConverter
-			implements Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> {
+	private static class McpTokenRequestParametersConverter<T extends AbstractOAuth2AuthorizationGrantRequest>
+			implements Converter<T, MultiValueMap<String, String>> {
 
 		private final McpClientRegistrationRepository mcpClientRegistrationRepository;
 
@@ -366,7 +389,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 
 		@Override
-		public MultiValueMap<String, String> convert(OAuth2AuthorizationCodeGrantRequest source) {
+		public MultiValueMap<String, String> convert(T source) {
 			var params = new LinkedMultiValueMap<String, String>();
 			var resource = mcpClientRegistrationRepository
 				.findResourceIdByRegistrationId(source.getClientRegistration().getRegistrationId());
