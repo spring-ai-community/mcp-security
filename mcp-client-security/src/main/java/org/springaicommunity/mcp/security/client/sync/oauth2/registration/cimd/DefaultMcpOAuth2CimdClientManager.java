@@ -131,6 +131,7 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 			.redirectUri(DEFAULT_REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 				.replace("{registrationId}", registrationId))
 			.scope(scope)
+			.clientSettings(ClientRegistration.ClientSettings.builder().requireProofKey(true).build())
 			.build();
 	}
 

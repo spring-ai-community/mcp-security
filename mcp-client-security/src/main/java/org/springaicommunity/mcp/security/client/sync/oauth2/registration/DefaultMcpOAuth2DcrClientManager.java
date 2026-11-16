@@ -216,6 +216,8 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 			registrationBuilder.clientName(registrationRequest.getClientName());
 		}
 
+		registrationBuilder.clientSettings(ClientRegistration.ClientSettings.builder().requireProofKey(true).build());
+
 		return registrationBuilder.build();
 	}
 
