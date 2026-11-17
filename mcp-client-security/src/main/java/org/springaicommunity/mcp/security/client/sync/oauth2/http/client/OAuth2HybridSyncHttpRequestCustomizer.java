@@ -26,14 +26,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Adds an OAuth2 access token to outgoing MCP client requests. Uses either the
@@ -80,10 +77,10 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 	}
 
 	public OAuth2AccessToken getAccessToken(McpTransportContext context) {
-		var authentication = context.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY);
-		var requestAttributes = context.get(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY);
+		var authentication = AuthenticationMcpTransportContextProvider.getAuthentication(context);
+		var requestAttributes = AuthenticationMcpTransportContextProvider.getRequestAttributes(context);
 
-		if (!(requestAttributes instanceof ServletRequestAttributes attrs)) {
+		if (authentication == null || requestAttributes == null) {
 			OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 				.withClientRegistrationId(this.clientCredentialsClientRegistrationId)
 				.principal("mcp-client-service")
@@ -98,10 +95,10 @@ public class OAuth2HybridSyncHttpRequestCustomizer implements McpSyncHttpClientR
 		}
 
 		var builder = OAuth2AuthorizeRequest.withClientRegistrationId(this.authorizationCodeClientRegistrationId)
-			.principal((Authentication) authentication)
-			.attribute(HttpServletRequest.class.getName(), attrs.getRequest());
-		if (attrs.getResponse() != null) {
-			builder.attribute(HttpServletResponse.class.getName(), attrs.getResponse());
+			.principal(authentication)
+			.attribute(HttpServletRequest.class.getName(), requestAttributes.getRequest());
+		if (requestAttributes.getResponse() != null) {
+			builder.attribute(HttpServletResponse.class.getName(), requestAttributes.getResponse());
 		}
 		OAuth2AuthorizeRequest authorizeRequest = builder.build();
 		log.debug("Requesting access token");

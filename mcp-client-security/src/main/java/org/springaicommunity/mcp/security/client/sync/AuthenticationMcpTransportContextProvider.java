@@ -18,11 +18,13 @@ package org.springaicommunity.mcp.security.client.sync;
 
 import java.net.http.HttpClient;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import io.modelcontextprotocol.client.transport.customizer.McpAsyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
@@ -38,6 +40,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -117,6 +120,25 @@ public class AuthenticationMcpTransportContextProvider implements Supplier<McpTr
 	 */
 	public static ContextView writeToReactorContext() {
 		return Context.empty().put(REACTOR_CONTEXT_KEY, fromThreadLocals());
+	}
+
+	/**
+	 * The {@link Authentication} a transport context carries.
+	 * @param context the transport context
+	 * @return the authentication, or {@code null}
+	 */
+	public static @Nullable Authentication getAuthentication(McpTransportContext context) {
+		return (context.get(AUTHENTICATION_KEY) instanceof Authentication authentication) ? authentication : null;
+	}
+
+	/**
+	 * The {@link ServletRequestAttributes} a transport context carries.
+	 * @param context the transport context
+	 * @return the request attributes, or {@code null}
+	 */
+	public static @Nullable ServletRequestAttributes getRequestAttributes(McpTransportContext context) {
+		return (context.get(REQUEST_ATTRIBUTES_KEY) instanceof ServletRequestAttributes requestAttributes)
+				? requestAttributes : null;
 	}
 
 	/**

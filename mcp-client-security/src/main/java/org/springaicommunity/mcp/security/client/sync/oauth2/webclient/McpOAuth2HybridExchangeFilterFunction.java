@@ -84,18 +84,17 @@ public class McpOAuth2HybridExchangeFilterFunction implements ExchangeFilterFunc
 		return Mono.deferContextual(ctx -> {
 			var transportContext = ctx.getOrDefault(McpTransportContext.KEY, McpTransportContext.EMPTY);
 			Assert.notNull(transportContext, "transportContext cannot be null");
-			var requestAttributes = transportContext
-				.get(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY);
-			var authentication = transportContext.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY);
+			var requestAttributes = AuthenticationMcpTransportContextProvider.getRequestAttributes(transportContext);
+			var authentication = AuthenticationMcpTransportContextProvider.getAuthentication(transportContext);
 
-			if (!(requestAttributes instanceof ServletRequestAttributes ra) || authentication == null) {
+			if (requestAttributes == null || authentication == null) {
 				return Mono.empty();
 			}
 
 			var req = ClientRequest.from(request);
 			req.attributes(attrs -> {
-				attrs.putIfAbsent(HTTP_SERVLET_REQUEST_ATTR_NAME, ra.getRequest());
-				attrs.putIfAbsent(HTTP_SERVLET_RESPONSE_ATTR_NAME, ra.getResponse());
+				attrs.putIfAbsent(HTTP_SERVLET_REQUEST_ATTR_NAME, requestAttributes.getRequest());
+				attrs.putIfAbsent(HTTP_SERVLET_RESPONSE_ATTR_NAME, requestAttributes.getResponse());
 				attrs.putIfAbsent(AUTHENTICATION_ATTR_NAME, authentication);
 			});
 			return Mono.just(req.build());

@@ -83,10 +83,9 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 	@Override
 	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
 			McpTransportContext context) {
-		if (!(context
-			.get(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY) instanceof Authentication authentication)
-				|| !(context.get(
-						AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY) instanceof ServletRequestAttributes requestAttributes)) {
+		var authentication = AuthenticationMcpTransportContextProvider.getAuthentication(context);
+		var requestAttributes = AuthenticationMcpTransportContextProvider.getRequestAttributes(context);
+		if (authentication == null || requestAttributes == null) {
 			log.debug("No authentication or request context found: not requesting token");
 			return;
 		}
