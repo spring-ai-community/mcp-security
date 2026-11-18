@@ -32,19 +32,31 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProviderBuilder;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -286,6 +298,80 @@ class OAuth2AuthorizationCodeSyncHttpRequestCustomizerTests {
 			assertThatThrownBy(
 					() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication()))
 				.isInstanceOf(ClientAuthorizationRequiredException.class);
+		}
+
+	}
+
+	@Nested
+	@DisplayName("Refresh token failure")
+	class RefreshTokenFailure {
+
+		private final MockHttpServletRequest request = new MockHttpServletRequest();
+
+		private final MockHttpServletResponse response = new MockHttpServletResponse();
+
+		private final HttpSessionOAuth2AuthorizedClientRepository authorizedClientRepository = new HttpSessionOAuth2AuthorizedClientRepository();
+
+		private final ClientRegistration registration = clientRegistration().build();
+
+		@Test
+		@DisplayName("Throws ClientAuthorizationRequiredException when the refresh token is rejected with invalid_grant")
+		void invalidGrant() {
+			var customizer = customizerWithRefreshFailingWith(OAuth2ErrorCodes.INVALID_GRANT);
+
+			assertThatExceptionOfType(ClientAuthorizationRequiredException.class)
+				.isThrownBy(() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", servletContext()))
+				.satisfies(ex -> assertThat(ex.getClientRegistrationId()).isEqualTo(REGISTRATION_ID));
+			// Spring Security's default failure handler removes the stale client, so
+			// the next authorize() call starts a fresh authorization_code flow
+			assertThat(this.authorizedClientRepository.<OAuth2AuthorizedClient>loadAuthorizedClient(REGISTRATION_ID,
+					AUTHENTICATION, this.request))
+				.isNull();
+		}
+
+		@Test
+		@DisplayName("Rethrows other refresh errors as-is")
+		void otherError() {
+			var customizer = customizerWithRefreshFailingWith(OAuth2ErrorCodes.INVALID_CLIENT);
+
+			assertThatExceptionOfType(ClientAuthorizationException.class)
+				.isThrownBy(() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", servletContext()))
+				.isNotInstanceOf(ClientAuthorizationRequiredException.class)
+				.satisfies(ex -> assertThat(ex.getError().getErrorCode()).isEqualTo(OAuth2ErrorCodes.INVALID_CLIENT));
+		}
+
+		/**
+		 * Real {@link DefaultOAuth2AuthorizedClientManager}, with a stored authorized
+		 * client whose access token is expired, and a token endpoint rejecting the
+		 * refresh token with the given error code.
+		 */
+		private OAuth2AuthorizationCodeSyncHttpRequestCustomizer customizerWithRefreshFailingWith(String errorCode) {
+			var authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
+				.authorizationCode()
+				.refreshToken(refresh -> refresh.accessTokenResponseClient(grantRequest -> {
+					throw new OAuth2AuthorizationException(new OAuth2Error(errorCode));
+				}))
+				.build();
+			var manager = new DefaultOAuth2AuthorizedClientManager(
+					new InMemoryClientRegistrationRepository(this.registration), this.authorizedClientRepository);
+			manager.setAuthorizedClientProvider(authorizedClientProvider);
+
+			var expiredAccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, TOKEN_VALUE,
+					Instant.now().minusSeconds(600), Instant.now().minusSeconds(300));
+			var refreshToken = new OAuth2RefreshToken("test-refresh-token", Instant.now().minusSeconds(600));
+			this.authorizedClientRepository.saveAuthorizedClient(
+					new OAuth2AuthorizedClient(this.registration, "user", expiredAccessToken, refreshToken),
+					AUTHENTICATION, this.request, this.response);
+
+			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(this.registration);
+			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(manager, clientRegistrationRepository,
+					REGISTRATION_ID);
+		}
+
+		private McpTransportContext servletContext() {
+			return McpTransportContext.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY,
+					AUTHENTICATION, AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY,
+					new ServletRequestAttributes(this.request, this.response)));
 		}
 
 	}

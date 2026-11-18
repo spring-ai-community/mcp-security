@@ -157,8 +157,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 					urlValidator.validateUrl(url.toString());
 				}
 				catch (InvalidUrlException e) {
-					throw new IllegalStateException(String.format("Invalid %s [value=%s]: " + e.getMessage(), uri, url),
-							e);
+					throw new IllegalStateException(
+							String.format("Invalid %s [value=%s]: %s", uri, url, e.getMessage()), e);
 				}
 			}
 		}

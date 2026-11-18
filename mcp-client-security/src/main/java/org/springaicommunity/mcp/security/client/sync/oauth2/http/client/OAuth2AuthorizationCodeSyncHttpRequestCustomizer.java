@@ -28,15 +28,18 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OfflineAccess;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
@@ -51,7 +54,15 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * If the current token's scopes do not cover all scopes required by the
  * {@link ClientRegistrationRepository client registration}, a
  * {@link ClientAuthorizationRequiredException} is thrown to trigger re-authorization
- * (e.g. scope step-up).
+ * (e.g. scope step-up). The {@code offline_access} scope is excluded from this check
+ * because it requests a refresh token and need not appear in the access token's scopes.
+ * <p>
+ * If refreshing the access token fails with {@code invalid_grant}, e.g. because the
+ * refresh token is expired or revoked, a {@link ClientAuthorizationRequiredException} is
+ * thrown to trigger re-authorization. This relies on the
+ * {@link OAuth2AuthorizedClientManager} removing the stale authorized client on
+ * {@code invalid_grant}, which is the default behavior of Spring Security's
+ * {@link org.springframework.security.oauth2.client.RemoveAuthorizedClientOAuth2AuthorizationFailureHandler}.
  * <p>
  * If the client registration does not exist yet (e.g. it is registered dynamically), the
  * request is sent without a token. The MCP server will respond with an HTTP 401, and
@@ -113,15 +124,30 @@ public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSync
 
 		}
 
-		OAuth2AuthorizedClient authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
+		OAuth2AuthorizedClient authorizedClient;
+		try {
+			authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
+		}
+		catch (ClientAuthorizationException ex) {
+			// Within authorize(), for authorization_code clients, invalid_grant can only
+			// come from the refresh_token grant: the refresh token is expired or revoked.
+			if (OAuth2ErrorCodes.INVALID_GRANT.equals(ex.getError().getErrorCode())) {
+				log.debug("Refresh token rejected for client [{}]. Re-authorizing.", this.clientRegistrationId);
+				throw new ClientAuthorizationRequiredException(this.clientRegistrationId);
+			}
+			throw ex;
+		}
 		if (authorizedClient == null) {
 			throw new IllegalArgumentException(
 					"Authorization not supported for client [" + this.clientRegistrationId + "]");
 		}
 		log.debug("Client [{}] is authorized", this.clientRegistrationId);
 
-		Collection<String> scopes = registration.getScopes() != null ? registration.getScopes()
-				: Collections.emptyList();
+		Collection<String> scopes = registration.getScopes() == null ? Collections.emptyList()
+				: registration.getScopes()
+					.stream()
+					.filter(scope -> !OfflineAccess.OFFLINE_ACCESS.equals(scope))
+					.toList();
 		if (authorizedClient.getAccessToken().getScopes() != null && !scopes.isEmpty()
 				&& !authorizedClient.getAccessToken().getScopes().containsAll(scopes)) {
 			// For the access token to have scopes, it's likely the client registration

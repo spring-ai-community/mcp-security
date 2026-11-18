@@ -5,16 +5,23 @@ import java.net.http.HttpClient;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.htmlunit.HttpMethod;
+import org.htmlunit.Page;
 import org.htmlunit.WebClient;
+import org.htmlunit.WebRequest;
+import org.htmlunit.WebResponse;
 import org.htmlunit.html.HtmlButton;
+import org.htmlunit.html.HtmlCheckBoxInput;
 import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
+import org.htmlunit.util.WebConnectionWrapper;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +30,7 @@ import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransport
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
@@ -92,6 +100,9 @@ class DynamicClientRegistrationTests {
 
 	@Autowired
 	private RecordingOAuth2AuthorizedClientRepository authorizedClientRepository;
+
+	@Autowired
+	private McpOAuth2DcrClientManager clientManager;
 
 	@BeforeEach
 	void setUp() {
@@ -165,6 +176,68 @@ class DynamicClientRegistrationTests {
 		assertThat(authorizedClientRepository.get(clientRegistrationName)).isNotNull()
 			.extracting(OAuth2AuthorizedClient::getRefreshToken)
 			.isNotNull();
+	}
+
+	@Test
+	@DisplayName("Use access token without offline_access in its scopes, without reauthorization")
+	void callsToolWhenOfflineAccessIsAbsentFromTokenScopes() throws IOException {
+		var registrationId = UUID.randomUUID().toString();
+		var clientName = "offline-access-client";
+		ensureAuthServerLogin();
+
+		var request = DynamicClientRegistrationRequest
+			.from(DynamicClientRegistrationRequest
+				.authorizationCode("http://localhost:" + port + "/authorize/oauth2/code/" + registrationId))
+			.scope("mcp:read")
+			.build();
+		clientManager.registerMcpClient(registrationId, mcpServerBaseUrl + "/mcp", request);
+		var registration = clientRegistrationRepository.findByRegistrationId(registrationId);
+		assertThat(registration).isNotNull();
+		assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "offline_access");
+
+		var authorizationRequests = new AtomicInteger();
+		webClient.setWebConnection(new WebConnectionWrapper(webClient.getWebConnection()) {
+			@Override
+			public WebResponse getResponse(WebRequest request) throws IOException {
+				if (request.getHttpMethod() == HttpMethod.GET
+						&& request.getUrl().toString().startsWith(authorizationServerUrl + "/oauth2/authorize?")) {
+					// Fail promptly on a reauthorization loop.
+					assertThat(authorizationRequests.incrementAndGet())
+						.as("authorization requests: offline_access must not trigger reauthorization")
+						.isEqualTo(1);
+				}
+				return super.getResponse(request);
+			}
+		});
+
+		var builder = HttpClientStreamableHttpTransport.builder(mcpServerBaseUrl)
+			.clientBuilder(HttpClient.newBuilder())
+			.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()));
+		transportCustomizer.customize(registrationId, builder);
+		try (var client = McpClient.sync(builder.build())
+			.transportContextProvider(new AuthenticationMcpTransportContextProvider())
+			.build()) {
+			inMemoryMcpClientRepository.addClient(clientName, client);
+			var toolUrl = "http://localhost:" + port + "/tool/call?clientName=" + clientName + "&toolName=greeter";
+			HtmlPage consent = webClient.getPage(toolUrl);
+			consent.<HtmlCheckBoxInput>querySelector("input[name=scope][value='mcp:read']").setChecked(true);
+			consent.<HtmlCheckBoxInput>querySelector("input[name=scope][value='offline_access']").setChecked(true);
+			Page response = consent.<HtmlButton>querySelector("#submit-consent").click();
+
+			var authorizedClient = authorizedClientRepository.get(registrationId);
+			assertThat(authorizedClient).isNotNull();
+			assertThat(authorizedClient.getRefreshToken()).isNotNull();
+			assertThat(authorizedClient.getAccessToken().getScopes()).containsExactly("mcp:read");
+
+			assertThat(response.getWebResponse().getStatusCode()).isEqualTo(200);
+			assertThat(response.getWebResponse().getContentAsString())
+				.isEqualTo("Called [client: " + clientName + ", tool: greeter], got response [Hello test-user]");
+			Page secondResponse = webClient.getPage(toolUrl);
+			assertThat(secondResponse.getWebResponse().getStatusCode()).isEqualTo(200);
+			assertThat(secondResponse.getWebResponse().getContentAsString())
+				.isEqualTo(response.getWebResponse().getContentAsString());
+			assertThat(authorizationRequests.get()).isEqualTo(1);
+		}
 	}
 
 	@Configuration
