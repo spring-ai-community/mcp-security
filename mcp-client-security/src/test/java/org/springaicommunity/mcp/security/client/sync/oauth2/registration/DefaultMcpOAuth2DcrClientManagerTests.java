@@ -394,6 +394,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			assertThat(registration.getRedirectUri()).isEqualTo("https://redirect.example.com/callback");
 			assertThat(registration.getScopes()).containsExactlyInAnyOrder("openid", "profile");
 			assertThat(registration.getClientName()).isEqualTo("MCP Client");
+			assertThat(registration.getClientSettings().isRequireProofKey()).isTrue();
 		}
 
 	}
