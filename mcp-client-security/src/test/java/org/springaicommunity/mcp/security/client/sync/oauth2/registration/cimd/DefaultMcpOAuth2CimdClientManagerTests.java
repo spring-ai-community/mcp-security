@@ -60,6 +60,8 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 
 	private static final String ISSUER_URL = "https://auth.example.com";
 
+	private static final String OFFLINE_ACCESS_ISSUER_URL = "https://offline.example.com";
+
 	private static final String RESOURCE_ID = "https://mcp.example.com";
 
 	private static final String BASE_URL = "https://app.example.com";
@@ -96,6 +98,15 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 				.authorizationUri(ISSUER_URL + "/oauth2/authorize")
 				.providerConfigurationMetadata(Map.of("token_endpoint", ISSUER_URL + "/oauth2/token",
 						"authorization_endpoint", ISSUER_URL + "/oauth2/authorize")));
+		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(OFFLINE_ACCESS_ISSUER_URL))
+			.thenAnswer(invocation -> ClientRegistration.withRegistrationId("placeholder")
+				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+				.clientId("placeholder")
+				.tokenUri(OFFLINE_ACCESS_ISSUER_URL + "/oauth2/token")
+				.authorizationUri(OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize")
+				.providerConfigurationMetadata(Map.of("token_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/token",
+						"authorization_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize", "scopes_supported",
+						List.of("mcp:read", "offline_access"))));
 	}
 
 	@AfterAll
@@ -168,6 +179,33 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).containsExactly("mcp:tools", "mcp:prompts");
+		}
+
+		@Test
+		void addsOfflineAccessWhenSupportedByAuthorizationServer() throws ClientAlreadyExistsException {
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(OFFLINE_ACCESS_ISSUER_URL),
+					List.of("mcp:tools", "mcp:prompts"));
+			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
+
+			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).containsExactly("mcp:tools", "mcp:prompts", "offline_access");
+		}
+
+		@Test
+		void doesNotAddOfflineAccessWhenNoScopes() throws ClientAlreadyExistsException {
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(OFFLINE_ACCESS_ISSUER_URL), null);
+			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
+
+			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+
+			var registration = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(registration).isNotNull();
+			assertThat(registration.getScopes()).isEmpty();
 		}
 
 		@Test

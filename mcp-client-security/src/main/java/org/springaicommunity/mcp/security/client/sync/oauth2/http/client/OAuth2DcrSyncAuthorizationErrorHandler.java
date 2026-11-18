@@ -17,7 +17,6 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.net.http.HttpResponse;
-import java.util.List;
 
 import io.modelcontextprotocol.client.transport.HttpRequestSnapshot;
 import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTransportAuthorizationErrorHandler;
@@ -31,7 +30,6 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAu
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.util.Assert;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -72,8 +70,8 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 
 	/**
 	 * Create an {@code OAuth2SyncAuthorizationErrorHandler} that will perform dynamic
-	 * client registration with the {@code authorization_code} grant type and a default
-	 * redirect URI template.
+	 * client registration with the {@code authorization_code} and {@code refresh_token}
+	 * grant types and a default redirect URI template.
 	 * @param mcpOAuth2ClientManager the manager to delegate registration and updates to
 	 * @param registrationId the client registration identifier
 	 * @param mcpServerUrl the MCP server URL
@@ -86,8 +84,8 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 	/**
 	 * Create an {@code OAuth2SyncAuthorizationErrorHandler} with a custom
 	 * {@link DynamicClientRegistrationRequest}. When {@code null}, a default request with
-	 * the {@code authorization_code} grant type will be used, and the redirect URI will
-	 * be derived from the current servlet request.
+	 * the {@code authorization_code} and {@code refresh_token} grant types will be used,
+	 * and the redirect URI will be derived from the current servlet request.
 	 * @param mcpOAuth2ClientManager the manager to delegate registration and updates to
 	 * @param registrationId the client registration identifier
 	 * @param mcpServerUrl the MCP server URL
@@ -158,10 +156,7 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 		var baseUrl = resolveBaseUrl(context);
 		var redirectUri = DEFAULT_REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 			.replace("{registrationId}", this.registrationId);
-		return DynamicClientRegistrationRequest.builder()
-			.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE))
-			.redirectUris(List.of(redirectUri))
-			.build();
+		return DynamicClientRegistrationRequest.authorizationCode(redirectUri);
 	}
 
 	private String resolveBaseUrl(McpTransportContext context) {

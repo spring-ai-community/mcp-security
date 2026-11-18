@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -27,6 +28,7 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadat
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OfflineAccess;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUp;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
@@ -122,7 +124,7 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 			throw new IllegalStateException("Invalid authorization server URL: " + e.getMessage(), e);
 		}
 
-		return ClientRegistrations.fromIssuerLocation(issuerUrl)
+		var registration = ClientRegistrations.fromIssuerLocation(issuerUrl)
 			.registrationId(registrationId)
 			.clientId(DEFAULT_METADATA_DOCUMENT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 				.replace("{registrationId}", registrationId))
@@ -132,6 +134,14 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 				.replace("{registrationId}", registrationId))
 			.scope(scope)
 			.build();
+		// "no scopes" implies requesting "default scopes": we don't add offline_access
+		if (scope.isEmpty()
+				|| !OfflineAccess.isSupported(registration.getProviderDetails().getConfigurationMetadata())) {
+			return registration;
+		}
+		var scopes = new LinkedHashSet<>(scope);
+		scopes.add(OfflineAccess.OFFLINE_ACCESS);
+		return ClientRegistration.withClientRegistration(registration).scope(scopes).build();
 	}
 
 	private void validateClientRegistration(ClientRegistration clientRegistration) {

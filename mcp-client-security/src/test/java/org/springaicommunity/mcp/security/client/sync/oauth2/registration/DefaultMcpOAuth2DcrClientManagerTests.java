@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
@@ -43,6 +45,7 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -62,6 +65,8 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 	private static final String MCP_SERVER_URL = "https://mcp.example.com";
 
 	private static final String ISSUER_URL = "https://auth.example.com";
+
+	private static final String OFFLINE_ACCESS_ISSUER_URL = "https://offline.example.com";
 
 	private static final ClientRegistration CLIENT_REGISTRATION = ClientRegistration.withRegistrationId(REGISTRATION_ID)
 		.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
@@ -98,6 +103,15 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 				.authorizationUri(ISSUER_URL + "/oauth2/authorize")
 				.providerConfigurationMetadata(Map.of("token_endpoint", ISSUER_URL + "/oauth2/token",
 						"authorization_endpoint", ISSUER_URL + "/oauth2/authorize")));
+		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(OFFLINE_ACCESS_ISSUER_URL))
+			.thenAnswer(invocation -> ClientRegistration.withRegistrationId("placeholder")
+				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+				.clientId("placeholder")
+				.tokenUri(OFFLINE_ACCESS_ISSUER_URL + "/oauth2/token")
+				.authorizationUri(OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize")
+				.providerConfigurationMetadata(Map.of("token_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/token",
+						"authorization_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize", "scopes_supported",
+						List.of("mcp:read", "offline_access"))));
 
 	}
 
@@ -197,6 +211,112 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
+		@DisplayName("Does not request offline_access for client_credentials clients")
+		void doesNotRequestOfflineAccessForClientCredentials() {
+			var originalRequest = DynamicClientRegistrationRequest.builder().build();
+			var request = registerWithOfflineAccessIssuer(originalRequest);
+
+			assertThat(request.getScope()).isEqualTo("mcp:read");
+			assertThat(request.getGrantTypes()).containsExactly("client_credentials");
+		}
+
+		@Test
+		@DisplayName("Requests offline_access and refresh_token for authorization_code clients")
+		void requestsOfflineAccessForAuthorizationCode() {
+			var originalRequest = DynamicClientRegistrationRequest.builder()
+				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN))
+				.redirectUris(List.of("https://client.example.com/callback"))
+				.build();
+			var request = registerWithOfflineAccessIssuer(originalRequest);
+
+			assertThat(request.getScope()).isNotNull();
+			assertThat(request.getScope().split(" ")).containsExactlyInAnyOrder("mcp:read", "offline_access");
+			assertThat(request.getGrantTypes()).containsExactly("authorization_code", "refresh_token");
+		}
+
+		@Test
+		@DisplayName("Adds offline_access to scopes set explicitly on the request")
+		void requestsOfflineAccessWithExplicitScopes() {
+			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
+				.scope("mcp:custom")
+				.build();
+			var request = registerWithOfflineAccessIssuer(originalRequest);
+
+			assertThat(request.getScope()).isNotNull();
+			assertThat(request.getScope().split(" ")).containsExactlyInAnyOrder("mcp:custom", "offline_access");
+		}
+
+		@Test
+		@DisplayName("Does not duplicate offline_access when already requested")
+		void doesNotDuplicateOfflineAccess() {
+			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
+				.scope("mcp:custom offline_access")
+				.build();
+			var request = registerWithOfflineAccessIssuer(originalRequest);
+
+			assertThat(request.getScope()).isEqualTo("mcp:custom offline_access");
+		}
+
+		@Test
+		@DisplayName("Does not request offline_access without the refresh_token grant")
+		void doesNotRequestOfflineAccessWithoutRefreshTokenGrant() {
+			var originalRequest = DynamicClientRegistrationRequest.builder()
+				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE))
+				.redirectUris(List.of("https://client.example.com/callback"))
+				.build();
+			var request = registerWithOfflineAccessIssuer(originalRequest);
+
+			assertThat(request.getScope()).isEqualTo("mcp:read");
+			assertThat(request.getGrantTypes()).containsExactly("authorization_code");
+		}
+
+		@Test
+		@DisplayName("Does not request offline_access when the authorization server does not list it")
+		void doesNotRequestOfflineAccessWhenUnsupported() {
+			var request = register(ISSUER_URL, "mcp:read", authorizationCodeRequest());
+
+			assertThat(request.getScope()).isEqualTo("mcp:read");
+		}
+
+		@Test
+		@DisplayName("Does not request offline_access when no scopes are found")
+		void doesNotRequestOfflineAccessWithoutScopes() {
+			var request = register(OFFLINE_ACCESS_ISSUER_URL, null, authorizationCodeRequest());
+
+			assertThat(request.getScope()).isNull();
+		}
+
+		private static DynamicClientRegistrationRequest authorizationCodeRequest() {
+			return DynamicClientRegistrationRequest.authorizationCode("https://client.example.com/callback");
+		}
+
+		private DynamicClientRegistrationRequest registerWithOfflineAccessIssuer(
+				DynamicClientRegistrationRequest request) {
+			return register(OFFLINE_ACCESS_ISSUER_URL, "mcp:read", request);
+		}
+
+		/**
+		 * Register a client against the given issuer, with an optional scope in the
+		 * WWW-Authenticate header, and return the request sent to the DCR endpoint.
+		 */
+		private DynamicClientRegistrationRequest register(String issuerUrl, @Nullable String wwwAuthenticateScope,
+				DynamicClientRegistrationRequest request) {
+			var header = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"";
+			if (wwwAuthenticateScope != null) {
+				header += ", scope=\"" + wwwAuthenticateScope + "\"";
+			}
+			var wwwAuthParams = WwwAuthenticateParameters.parse(header);
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(issuerUrl), null);
+			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
+
+			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
+
+			var captor = ArgumentCaptor.forClass(DynamicClientRegistrationRequest.class);
+			verify(clientRegistrationService).register(captor.capture(), eq(issuerUrl));
+			return captor.getValue();
+		}
+
+		@Test
 		@DisplayName("Throws when configuration metadata contains invalid URL")
 		void throwsWhenConfigurationMetadataContainsInvalidUrl() throws InvalidUrlException {
 			var wwwAuthParams = WwwAuthenticateParameters
@@ -218,7 +338,8 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			var mcpMetadata = new McpMetadata(wwwAuthParams, protectedResourceMetadata);
 			when(discovery.getMcpMetadata(MCP_SERVER_URL, wwwAuthParams)).thenReturn(mcpMetadata);
 			var registrationResponse = dcrResponse(dcrResponse);
-			when(clientRegistrationService.register(any(), eq(ISSUER_URL))).thenReturn(registrationResponse);
+			var authzServers = Objects.requireNonNull(protectedResourceMetadata.authorizationServers());
+			when(clientRegistrationService.register(any(), eq(authzServers.get(0)))).thenReturn(registrationResponse);
 		}
 
 	}
