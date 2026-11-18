@@ -41,9 +41,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
-import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
@@ -71,14 +69,12 @@ class McpAuthorizationServerAutoConfiguration {
 	SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
 			McpOAuth2AuthorizationServerProperties properties,
 			ObjectProvider<Customizer<McpAuthorizationServerConfigurer>> mcpCustomizers) {
-		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpAuthorizationServer(), mcp -> {
+		McpAuthorizationServerConfigurer authorizationServerConfigurer = mcpAuthorizationServer();
+		return http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+			.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+			.with(authorizationServerConfigurer, mcp -> {
 				mcp.dynamicClientRegistration(properties.getDynamicClientRegistration().isEnabled());
 				mcpCustomizers.orderedStream().forEach(customizer -> customizer.customize(mcp));
-				mcp.authorizationServer(authzServer -> {
-					http.securityMatcher(new OrRequestMatcher(authzServer.getEndpointsMatcher(),
-							PathPatternRequestMatcher.withDefaults().matcher("/.well-known/openid-configuration")));
-				});
 			})
 			.exceptionHandling((exceptions) -> exceptions.defaultAuthenticationEntryPointFor(
 					new LoginUrlAuthenticationEntryPoint("/login"), createRequestMatcher()))
