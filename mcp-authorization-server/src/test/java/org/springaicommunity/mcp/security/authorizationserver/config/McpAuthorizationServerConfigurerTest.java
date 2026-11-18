@@ -4,6 +4,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
@@ -158,6 +159,27 @@ class McpAuthorizationServerConfigurerTest {
 	}
 
 	@Test
+	void dynamicClientRegistrationAppliesTokenSettings() {
+		var resp = registerClient("""
+				{
+					"redirect_uris": ["https://example.com/callback"]
+				}
+				""");
+		assertThat(resp).hasStatus(HttpStatus.CREATED);
+		var mapper = JsonMapper.builder().build();
+		var body = mapper.readValue(resp.getResponse().getContentAsByteArray(), Map.class);
+		var clientId = body.get("client_id");
+		assertThat(clientId).isNotNull();
+
+		RegisteredClient client = this.wac.getBean(RegisteredClientRepository.class)
+			.findByClientId(clientId.toString());
+		assertThat(client).isNotNull();
+		assertThat(client.getTokenSettings().getAccessTokenTimeToLive()).isEqualTo(Duration.ofMinutes(10));
+		assertThat(client.getTokenSettings().getRefreshTokenTimeToLive()).isEqualTo(Duration.ofDays(30));
+		assertThat(client.getTokenSettings().isReuseRefreshTokens()).isFalse();
+	}
+
+	@Test
 	void dynamicClientRegistrationIgnoresEmptyScope() {
 		var emptyScope = """
 				{
@@ -242,6 +264,10 @@ class McpAuthorizationServerConfigurerTest {
 					mcpAuthzServer.authorizationServer(authzServer -> authzServerCustomizationCount.incrementAndGet());
 					mcpAuthzServer.cimd(true);
 					mcpAuthzServer.dynamicClientRegistrationValidator(clientRegistrationValidator);
+					mcpAuthzServer.registeredClientTokenSettings(
+							tokenSettings -> tokenSettings.accessTokenTimeToLive(Duration.ofMinutes(10))
+								.refreshTokenTimeToLive(Duration.ofDays(30))
+								.reuseRefreshTokens(false));
 					mcpAuthzServer.authorizationCodeRequestValidator(
 							new LocalhostWildcardPortValidator().andThen(DEFAULT_SCOPE_VALIDATOR));
 				});
