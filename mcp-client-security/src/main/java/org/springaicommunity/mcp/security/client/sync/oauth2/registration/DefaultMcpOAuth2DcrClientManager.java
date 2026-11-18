@@ -257,8 +257,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 	/**
 	 * Pick the grant type for the {@link ClientRegistration}, in order of preference:
 	 * {@code authorization_code}, {@code device_code}, {@code client_credentials},
-	 * {@code jwt-bearer}. Other grant types, such as {@code refresh_token}, are not
-	 * usable as the primary grant type. Defaults to {@code client_credentials}.
+	 * {@code jwt-bearer}. Defaults to {@code client_credentials}.
 	 */
 	private static AuthorizationGrantType selectGrantType(@Nullable List<String> grantTypes) {
 		if (grantTypes != null) {
@@ -266,6 +265,9 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 				if (grantTypes.contains(candidate.getValue())) {
 					return candidate;
 				}
+			}
+			if (!grantTypes.isEmpty()) {
+				return new AuthorizationGrantType(grantTypes.get(0));
 			}
 		}
 		return AuthorizationGrantType.CLIENT_CREDENTIALS;
@@ -305,12 +307,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 					String.format("Invalid authorization server url [value=%s]: %s", issuerUrl, e.getMessage()), e);
 		}
 
-		// Create an invalid client registration so it isn't used by accident:
-		// client_secret_basic + no client_secret
-		return ClientRegistrations.fromIssuerLocation(issuerUrl)
-			.clientId("~~~~~ignored~~~~~")
-			.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-			.build();
+		return ClientRegistrations.fromIssuerLocation(issuerUrl).clientId("~~~~~ignored~~~~~").build();
 	}
 
 }

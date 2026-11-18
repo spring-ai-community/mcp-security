@@ -15,6 +15,7 @@
  */
 package org.springaicommunity.mcp.security.tests.common.server;
 
+import java.util.HashSet;
 import java.util.List;
 
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
@@ -33,8 +34,11 @@ import org.springframework.security.config.annotation.web.configurers.oauth2.ser
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.client.metadata.DefaultClientIdMetadataDocumentResolver;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.client.metadata.DefaultClientMetadataValidator;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.web.authentication.OAuth2AccessTokenResponseAuthenticationSuccessHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import static org.springaicommunity.mcp.security.authorizationserver.config.McpAuthorizationServerConfigurer.mcpAuthorizationServer;
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator.DEFAULT_REDIRECT_URI_VALIDATOR;
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator.DEFAULT_JWK_SET_URI_VALIDATOR;
 
 @Configuration
 @EnableWebSecurity
@@ -42,8 +46,25 @@ public class AuthorizationServer {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) {
+		var tokenResponseHandler = new OAuth2AccessTokenResponseAuthenticationSuccessHandler();
+		tokenResponseHandler.setAccessTokenResponseCustomizer(context -> {
+			// Omit offline_access from the JSON scope while preserving the refresh token.
+			var scopes = new HashSet<>(context.getAccessTokenResponse().build().getAccessToken().getScopes());
+			scopes.remove("offline_access");
+			context.getAccessTokenResponse().scopes(scopes);
+		});
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-			.with(mcpAuthorizationServer(), authzServer -> authzServer.dynamicClientRegistration(true).cimd(true))
+			.with(mcpAuthorizationServer(), authzServer -> {
+				authzServer.dynamicClientRegistration(true).cimd(true);
+				authzServer.dynamicClientRegistrationValidator(
+						DEFAULT_REDIRECT_URI_VALIDATOR.andThen(DEFAULT_JWK_SET_URI_VALIDATOR));
+				authzServer.authorizationServer(server -> server
+					.authorizationServerMetadataEndpoint(endpoint -> endpoint
+						.authorizationServerMetadataCustomizer(metadata -> metadata.scope("mcp:read")
+							.scope("offline_access")
+							.claim("client_id_metadata_document_supported", true)))
+					.tokenEndpoint(endpoint -> endpoint.accessTokenResponseHandler(tokenResponseHandler)));
+			})
 			.formLogin(Customizer.withDefaults())
 			// MCP inspector
 			.cors(cors -> cors.configurationSource(new AllowAllCorsConfigurationSource()))
