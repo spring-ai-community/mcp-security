@@ -2,15 +2,20 @@ package org.springaicommunity.mcp.security.tests.streamable.sync.dcr;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.htmlunit.WebClient;
 import org.htmlunit.html.HtmlButton;
 import org.htmlunit.html.HtmlInput;
 import org.htmlunit.html.HtmlPage;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,9 +49,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -82,9 +90,13 @@ class DynamicClientRegistrationTests {
 	@Autowired
 	private McpClientRegistrationRepository clientRegistrationRepository;
 
+	@Autowired
+	private RecordingOAuth2AuthorizedClientRepository authorizedClientRepository;
+
 	@BeforeEach
 	void setUp() {
 		this.webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+		this.authorizedClientRepository.clear();
 	}
 
 	@Test
@@ -114,6 +126,10 @@ class DynamicClientRegistrationTests {
 
 		// DCR was performed
 		assertThat(clientRegistrationRepository.findByRegistrationId(oauth2ClientRegistrationName)).isNotNull();
+		// the client was registered with the refresh_token grant
+		assertThat(authorizedClientRepository.get(oauth2ClientRegistrationName)).isNotNull()
+			.extracting(OAuth2AuthorizedClient::getRefreshToken)
+			.isNotNull();
 	}
 
 	@Test
@@ -145,6 +161,10 @@ class DynamicClientRegistrationTests {
 
 		// No DCR: registration existed already
 		assertThat(clientRegistrationRepository.findByRegistrationId(clientRegistrationName)).isNotNull();
+		// the client was pre-registered with the refresh_token grant
+		assertThat(authorizedClientRepository.get(clientRegistrationName)).isNotNull()
+			.extracting(OAuth2AuthorizedClient::getRefreshToken)
+			.isNotNull();
 	}
 
 	@Configuration
@@ -196,11 +216,56 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
+		RecordingOAuth2AuthorizedClientRepository authorizedClientRepository() {
+			return new RecordingOAuth2AuthorizedClientRepository();
+		}
+
+		@Bean
 		OAuth2AuthorizedClientManager authorizedClientManager(
 				ClientRegistrationRepository mcpClientRegistrationRepository,
 				OAuth2AuthorizedClientRepository oAuth2AuthorizedClientRepository) {
 			return new DefaultOAuth2AuthorizedClientManager(mcpClientRegistrationRepository,
 					oAuth2AuthorizedClientRepository);
+		}
+
+	}
+
+	/**
+	 * Stores authorized clients in the HTTP session, and records them so tests can
+	 * inspect the tokens obtained by the client. This is what Spring Security uses for
+	 * anonymous users, with no authenticated principal, just like our test cases.
+	 */
+	static class RecordingOAuth2AuthorizedClientRepository implements OAuth2AuthorizedClientRepository {
+
+		private final OAuth2AuthorizedClientRepository delegate = new HttpSessionOAuth2AuthorizedClientRepository();
+
+		private final Map<String, OAuth2AuthorizedClient> savedClients = new ConcurrentHashMap<>();
+
+		@Override
+		public <T extends OAuth2AuthorizedClient> @Nullable T loadAuthorizedClient(String clientRegistrationId,
+				Authentication principal, HttpServletRequest request) {
+			return this.delegate.loadAuthorizedClient(clientRegistrationId, principal, request);
+		}
+
+		@Override
+		public void saveAuthorizedClient(OAuth2AuthorizedClient authorizedClient, Authentication principal,
+				HttpServletRequest request, HttpServletResponse response) {
+			this.savedClients.put(authorizedClient.getClientRegistration().getRegistrationId(), authorizedClient);
+			this.delegate.saveAuthorizedClient(authorizedClient, principal, request, response);
+		}
+
+		@Override
+		public void removeAuthorizedClient(String clientRegistrationId, Authentication principal,
+				HttpServletRequest request, HttpServletResponse response) {
+			this.delegate.removeAuthorizedClient(clientRegistrationId, principal, request, response);
+		}
+
+		@Nullable OAuth2AuthorizedClient get(String registrationId) {
+			return this.savedClients.get(registrationId);
+		}
+
+		void clear() {
+			this.savedClients.clear();
 		}
 
 	}

@@ -16,7 +16,11 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -131,42 +135,76 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 				"cannot find authorization_servers from MCP Server's protected resource metadata");
 		var issuerUrl = mcpMetadata.protectedResourceMetadata().authorizationServers().get(0);
 		log.debug("Discovered authorization server [{}] for registration [{}]", issuerUrl, registrationId);
-		var finalRegistrationRequest = updateScopes(registrationRequest, mcpMetadata);
+		var autoconfiguredRegistration = discoverIssuerConfiguration(issuerUrl);
+		var authServerMetadata = autoconfiguredRegistration.getProviderDetails().getConfigurationMetadata();
+		registrationRequest = updateScopes(registrationRequest, mcpMetadata, authServerMetadata);
+
 		log.debug("Performing dynamic client registration at [{}] for registration [{}]", issuerUrl, registrationId);
-		var registrationResponse = this.clientRegistrationService.register(finalRegistrationRequest, issuerUrl);
+		var registrationResponse = this.clientRegistrationService.register(registrationRequest, issuerUrl);
 		log.debug("Dynamic client registration successful for registration [{}], clientId=[{}]", registrationId,
 				registrationResponse.clientId());
-		var clientRegistration = toClientRegistration(registrationId, issuerUrl, finalRegistrationRequest,
-				registrationResponse);
+		var clientRegistration = toClientRegistration(registrationId, registrationRequest, registrationResponse,
+				autoconfiguredRegistration);
 		validateClientRegistration(clientRegistration);
 		this.repository.addClientRegistration(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
 	}
 
+	/**
+	 * Select scopes, in order of preference: from the original request, from the
+	 * {@code WWW-Authenticate} header, from the Protected Resource Metadata. When scopes
+	 * are found, {@code offline_access} may be added, see
+	 * {@link #addOfflineAccess(DynamicClientRegistrationRequest, Map)}.
+	 */
 	private DynamicClientRegistrationRequest updateScopes(DynamicClientRegistrationRequest originalRequest,
-			McpMetadata mcpMetadata) {
+			McpMetadata mcpMetadata, Map<String, Object> authorizationServerMetadata) {
+		String scopes = null;
 		if (StringUtils.hasText(originalRequest.getScope())) {
-			return originalRequest;
+			scopes = originalRequest.getScope();
 		}
-
-		if (mcpMetadata.wwwAuthenticateParameters() != null
+		else if (mcpMetadata.wwwAuthenticateParameters() != null
 				&& StringUtils.hasText(mcpMetadata.wwwAuthenticateParameters().getScope())) {
-			return DynamicClientRegistrationRequest.from(originalRequest)
-				.scope(mcpMetadata.wwwAuthenticateParameters().getScope())
-				.build();
+			scopes = mcpMetadata.wwwAuthenticateParameters().getScope();
 		}
 		else if (!CollectionUtils.isEmpty(mcpMetadata.protectedResourceMetadata().scopesSupported())) {
-			return DynamicClientRegistrationRequest.from(originalRequest)
-				.scope(mcpMetadata.protectedResourceMetadata().scopesSupported())
-				.build();
+			scopes = String.join(" ", mcpMetadata.protectedResourceMetadata().scopesSupported());
 		}
 
-		return originalRequest;
+		if (scopes == null) {
+			// "no scopes" implies requesting "default scopes": don't add offline_access
+			return originalRequest;
+		}
+		scopes = addOfflineAccess(scopes, originalRequest.getGrantTypes(), authorizationServerMetadata);
+		return DynamicClientRegistrationRequest.from(originalRequest).scope(scopes).build();
 	}
 
-	private static ClientRegistration toClientRegistration(String registrationId, String issuerUrl,
+	/**
+	 * Add the {@code offline_access} scope when the client requests the
+	 * {@code refresh_token} grant and the authorization server lists
+	 * {@code offline_access}. This also applies to scopes set explicitly on the request.
+	 */
+	private static String addOfflineAccess(String scopes, List<String> grantTypes,
+			Map<String, Object> authorizationServerMetadata) {
+		// offline_access is only useful to obtain refresh tokens; the request builder
+		// ensures refresh_token is only used alongside authorization_code
+		if (!grantTypes.contains(AuthorizationGrantType.REFRESH_TOKEN.getValue())) {
+			return scopes;
+		}
+
+		Set<String> requestedScopes = new HashSet<>(Arrays.asList(scopes.split(" ")));
+		if (requestedScopes.contains(OfflineAccess.OFFLINE_ACCESS)
+				|| !OfflineAccess.isSupported(authorizationServerMetadata)) {
+			return scopes;
+		}
+
+		requestedScopes.add(OfflineAccess.OFFLINE_ACCESS);
+		log.debug("Authorization server supports offline_access, requesting scopes {}", requestedScopes);
+		return String.join(" ", requestedScopes);
+	}
+
+	private static ClientRegistration toClientRegistration(String registrationId,
 			DynamicClientRegistrationRequest registrationRequest,
-			DynamicClientRegistrationResponse registrationResponse) {
-		ClientRegistration.Builder registrationBuilder = ClientRegistrations.fromIssuerLocation(issuerUrl)
+			DynamicClientRegistrationResponse registrationResponse, ClientRegistration originalRegistration) {
+		ClientRegistration.Builder registrationBuilder = ClientRegistration.withClientRegistration(originalRegistration)
 			.registrationId(registrationId);
 		registrationBuilder.clientId(registrationResponse.clientId());
 
@@ -183,17 +221,10 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 					new ClientAuthenticationMethod(registrationRequest.getTokenEndpointAuthMethod()));
 		}
 
-		if (registrationResponse.grantTypes() != null && !registrationResponse.grantTypes().isEmpty()) {
-			registrationBuilder
-				.authorizationGrantType(new AuthorizationGrantType(registrationResponse.grantTypes().get(0)));
-		}
-		else if (!registrationRequest.getGrantTypes().isEmpty()) {
-			registrationBuilder
-				.authorizationGrantType(new AuthorizationGrantType(registrationRequest.getGrantTypes().get(0)));
-		}
-		else {
-			registrationBuilder.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS);
-		}
+		List<String> grantTypes = (registrationResponse.grantTypes() != null
+				&& !registrationResponse.grantTypes().isEmpty()) ? registrationResponse.grantTypes()
+						: registrationRequest.getGrantTypes();
+		registrationBuilder.authorizationGrantType(selectGrantType(grantTypes));
 
 		if (registrationResponse.redirectUris() != null && !registrationResponse.redirectUris().isEmpty()) {
 			registrationBuilder.redirectUri(registrationResponse.redirectUris().get(0));
@@ -219,6 +250,27 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		return registrationBuilder.build();
 	}
 
+	private static final List<AuthorizationGrantType> GRANT_TYPE_PREFERENCE = List.of(
+			AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.DEVICE_CODE,
+			AuthorizationGrantType.CLIENT_CREDENTIALS, AuthorizationGrantType.JWT_BEARER);
+
+	/**
+	 * Pick the grant type for the {@link ClientRegistration}, in order of preference:
+	 * {@code authorization_code}, {@code device_code}, {@code client_credentials},
+	 * {@code jwt-bearer}. Other grant types, such as {@code refresh_token}, are not
+	 * usable as the primary grant type. Defaults to {@code client_credentials}.
+	 */
+	private static AuthorizationGrantType selectGrantType(@Nullable List<String> grantTypes) {
+		if (grantTypes != null) {
+			for (var candidate : GRANT_TYPE_PREFERENCE) {
+				if (grantTypes.contains(candidate.getValue())) {
+					return candidate;
+				}
+			}
+		}
+		return AuthorizationGrantType.CLIENT_CREDENTIALS;
+	}
+
 	private void validateClientRegistration(ClientRegistration clientRegistration) {
 		var configuration = clientRegistration.getProviderDetails().getConfigurationMetadata();
 		if (configuration == null) {
@@ -232,11 +284,33 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 					urlValidator.validateUrl(url.toString());
 				}
 				catch (InvalidUrlException e) {
-					throw new IllegalStateException(String.format("Invalid %s [value=%s]: " + e.getMessage(), uri, url),
-							e);
+					throw new IllegalStateException(
+							String.format("Invalid %s [value=%s]: %s", uri, url, e.getMessage()), e);
 				}
 			}
 		}
+	}
+
+	/**
+	 * Gather metadata configuration from the issuer. Spring Security pre-fills a
+	 * {@link ClientRegistration} with the information, which can be reused for the final
+	 * client registration stored in the app's repository.
+	 */
+	private ClientRegistration discoverIssuerConfiguration(String issuerUrl) {
+		try {
+			urlValidator.validateUrl(issuerUrl);
+		}
+		catch (InvalidUrlException e) {
+			throw new IllegalStateException(
+					String.format("Invalid authorization server url [value=%s]: %s", issuerUrl, e.getMessage()), e);
+		}
+
+		// Create an invalid client registration so it isn't used by accident:
+		// client_secret_basic + no client_secret
+		return ClientRegistrations.fromIssuerLocation(issuerUrl)
+			.clientId("~~~~~ignored~~~~~")
+			.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+			.build();
 	}
 
 }

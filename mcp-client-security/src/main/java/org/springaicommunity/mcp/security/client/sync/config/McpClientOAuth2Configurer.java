@@ -17,7 +17,6 @@
 package org.springaicommunity.mcp.security.client.sync.config;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -50,7 +49,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.access.ExceptionTranslationFilter;
@@ -229,10 +227,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		for (var entry : registrations.entrySet()) {
 			var registrationId = entry.getKey();
 			var mcpServerUrl = entry.getValue();
-			var registration = DynamicClientRegistrationRequest.builder()
-				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE))
-				.redirectUris(List.of(baseUrl + "/authorize/oauth2/code/" + registrationId))
-				.build();
+			var registration = DynamicClientRegistrationRequest
+				.authorizationCode(baseUrl + "/authorize/oauth2/code/" + registrationId);
 			clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
 		}
 	}

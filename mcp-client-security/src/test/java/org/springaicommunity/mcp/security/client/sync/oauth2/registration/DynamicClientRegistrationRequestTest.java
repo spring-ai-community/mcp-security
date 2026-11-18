@@ -11,6 +11,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResponseType;
 import org.springframework.test.json.JsonContent;
 import org.springframework.test.json.JsonContentAssert;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class DynamicClientRegistrationRequestTest {
 
@@ -52,6 +54,22 @@ class DynamicClientRegistrationRequestTest {
 				  "token_endpoint_auth_method": "client_secret_post"
 				}
 				""");
+	}
+
+	@Test
+	void authorizationCode() {
+		var request = DynamicClientRegistrationRequest.authorizationCode("https://client.example.com/callback");
+
+		assertThat(request.getGrantTypes()).containsExactly("authorization_code", "refresh_token");
+		assertThat(request.getRedirectUris()).containsExactly("https://client.example.com/callback");
+		assertThat(request.getResponseTypes()).containsExactly("code");
+		assertThat(request.getScope()).isNull();
+	}
+
+	@Test
+	void authorizationCodeRejectsEmptyRedirectUri() {
+		assertThatIllegalArgumentException().isThrownBy(() -> DynamicClientRegistrationRequest.authorizationCode(""))
+			.withMessage("redirectUri cannot be empty");
 	}
 
 }

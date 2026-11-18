@@ -103,6 +103,21 @@ public class DynamicClientRegistrationRequest {
 		return new Builder();
 	}
 
+	/**
+	 * Create a request for an {@code authorization_code} client, which also requests the
+	 * {@code refresh_token} grant so the authorization server may issue refresh tokens.
+	 * Use {@link #from(DynamicClientRegistrationRequest)} to customize it further.
+	 * @param redirectUri the redirect URI for the authorization code flow
+	 * @return the registration request
+	 */
+	public static DynamicClientRegistrationRequest authorizationCode(String redirectUri) {
+		Assert.hasText(redirectUri, "redirectUri cannot be empty");
+		return builder()
+			.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN))
+			.redirectUris(List.of(redirectUri))
+			.build();
+	}
+
 	public static Builder from(DynamicClientRegistrationRequest other) {
 		Assert.notNull(other, "source request must not be null");
 		Builder builder = new Builder();
@@ -115,6 +130,9 @@ public class DynamicClientRegistrationRequest {
 		builder.clientName = other.clientName;
 		builder.clientUri = other.clientUri;
 		builder.scope = other.scope;
+		if (other.applicationType != null) {
+			builder.applicationType = other.applicationType;
+		}
 		return builder;
 	}
 
