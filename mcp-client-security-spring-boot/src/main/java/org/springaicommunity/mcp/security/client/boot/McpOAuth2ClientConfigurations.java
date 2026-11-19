@@ -18,6 +18,7 @@ package org.springaicommunity.mcp.security.client.boot;
 
 import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
@@ -36,6 +37,14 @@ import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2Clien
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientPropertiesMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.client.ClientCredentialsOAuth2AuthorizedClientProvider;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.RefreshTokenOAuth2AuthorizedClientProvider;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2ClientCredentialsGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.RestClientClientCredentialsTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.RestClientRefreshTokenTokenResponseClient;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 /**
@@ -119,6 +128,56 @@ class McpOAuth2ClientConfigurations {
 		ScopeStepUpMcpOAuth2DcrClientManager scopeStepUpMcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			return new ScopeStepUpMcpOAuth2DcrClientManager(mcpClientRegistrationRepository);
+		}
+
+	}
+
+	/**
+	 * Adds the RFC 8707 {@code resource} parameter to refresh token requests. Spring
+	 * Security's default {@link OAuth2AuthorizedClientManager} uses this
+	 * {@link OAuth2AccessTokenResponseClient} when it refreshes tokens.
+	 * <p>
+	 * Backs off when a {@link RefreshTokenOAuth2AuthorizedClientProvider} bean is
+	 * defined: Spring Security would otherwise override that provider's response client
+	 * with this one.
+	 */
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnBean(McpClientRegistrationRepository.class)
+	@ConditionalOnMissingBean(RefreshTokenOAuth2AuthorizedClientProvider.class)
+	static class RefreshTokenConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean
+		OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> mcpRefreshTokenResponseClient(
+				McpClientRegistrationRepository mcpClientRegistrationRepository) {
+			var client = new RestClientRefreshTokenTokenResponseClient();
+			client.addParametersConverter(new McpResourceParametersConverter<>(mcpClientRegistrationRepository));
+			return client;
+		}
+
+	}
+
+	/**
+	 * Adds the RFC 8707 {@code resource} parameter to client credentials token requests.
+	 * Spring Security's default {@link OAuth2AuthorizedClientManager} uses this
+	 * {@link OAuth2AccessTokenResponseClient} for the {@code client_credentials} grant.
+	 * <p>
+	 * Backs off when a {@link ClientCredentialsOAuth2AuthorizedClientProvider} bean is
+	 * defined: Spring Security would otherwise override that provider's response client
+	 * with this one.
+	 */
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnBean(McpClientRegistrationRepository.class)
+	@ConditionalOnMissingBean(ClientCredentialsOAuth2AuthorizedClientProvider.class)
+	static class ClientCredentialsConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean
+		OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> mcpClientCredentialsTokenResponseClient(
+				McpClientRegistrationRepository mcpClientRegistrationRepository) {
+			var client = new RestClientClientCredentialsTokenResponseClient();
+			client.addParametersConverter(new McpResourceParametersConverter<>(mcpClientRegistrationRepository));
+			return client;
 		}
 
 	}
