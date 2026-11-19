@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
@@ -235,7 +236,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 
 	private static Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
 			McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return new McpTokenRequestParametersConverter(mcpClientRegistrationRepository);
+		return new McpResourceParametersConverter<>(mcpClientRegistrationRepository);
 	}
 
 	private static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(
@@ -350,28 +351,6 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 				doRegisterMcpClients(clientManager, baseUrl, registrations);
 			}
 		});
-	}
-
-	private static class McpTokenRequestParametersConverter
-			implements Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> {
-
-		private final McpClientRegistrationRepository mcpClientRegistrationRepository;
-
-		public McpTokenRequestParametersConverter(McpClientRegistrationRepository mcpClientRegistrationRepository) {
-			this.mcpClientRegistrationRepository = mcpClientRegistrationRepository;
-		}
-
-		@Override
-		public MultiValueMap<String, String> convert(OAuth2AuthorizationCodeGrantRequest source) {
-			var params = new LinkedMultiValueMap<String, String>();
-			var resource = mcpClientRegistrationRepository
-				.findResourceIdByRegistrationId(source.getClientRegistration().getRegistrationId());
-			if (resource != null) {
-				params.addIfAbsent("resource", resource);
-			}
-			return params;
-		}
-
 	}
 
 	public static McpClientOAuth2Configurer mcpClientOAuth2() {
