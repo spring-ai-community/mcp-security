@@ -540,6 +540,10 @@ This is all you need. The auto-configuration module sets up the following beans:
   identifier
 - `McpOAuth2ClientManager`: manages Dynamic Client Registration (DCR) and scope step-up
 - `UrlValidator`, `McpMetadataDiscoveryService` and `DynamicClientRegistrationService`: infrastructure for DCR
+- `OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>` and
+  `OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest>`: add the MCP server's `resource=` parameter to
+  refresh token and client credentials token requests.
+  See [Refresh tokens and client credentials](#refresh-tokens-and-client-credentials).
 - Various `McpClientConfigurer` to update MCP transports and MCP clients so a token is added on every request
 
 For a complete working example, see the
@@ -700,6 +704,65 @@ class SecurityConfiguration {
                 .build();
     }
 
+}
+```
+
+### Refresh tokens and client credentials
+
+The MCP spec requires clients to send the
+[RFC 8707](https://www.rfc-editor.org/rfc/rfc8707) `resource=` parameter in every token request, including refresh
+token and client credentials requests. `McpClientOAuth2Configurer` only covers the authorization request and the
+authorization code token request. Spring Security performs the `refresh_token` and `client_credentials` grants in the
+`OAuth2AuthorizedClientManager`, which is a bean, outside of `HttpSecurity`.
+
+With `mcp-client-security-spring-boot`, there is nothing to do: the auto-configuration provides
+`OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>` and
+`OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest>` beans that add the `resource=` parameter, and
+the `OAuth2AuthorizedClientManager` that Spring Security creates picks them up. Each bean backs off if you provide your
+own, or if you define the matching `RefreshTokenOAuth2AuthorizedClientProvider` or
+`ClientCredentialsOAuth2AuthorizedClientProvider` bean. In that case, configure the response client on your provider
+with `McpResourceParametersConverter`, as shown below.
+
+Without Spring Boot, define the beans yourself:
+
+```java
+@Bean
+OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshTokenResponseClient(
+        McpClientRegistrationRepository repository) {
+    var client = new RestClientRefreshTokenTokenResponseClient();
+    client.addParametersConverter(new McpResourceParametersConverter<>(repository));
+    return client;
+}
+
+@Bean
+OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> clientCredentialsTokenResponseClient(
+        McpClientRegistrationRepository repository) {
+    var client = new RestClientClientCredentialsTokenResponseClient();
+    client.addParametersConverter(new McpResourceParametersConverter<>(repository));
+    return client;
+}
+```
+
+⚠️ Spring Security ignores the beans above if you define your own `OAuth2AuthorizedClientManager` bean, or a single
+`OAuth2AuthorizedClientProvider` bean built with `OAuth2AuthorizedClientProviderBuilder`. Configure the response
+clients on your provider directly:
+
+```java
+@Bean
+OAuth2AuthorizedClientManager authorizedClientManager(McpClientRegistrationRepository repository,
+        OAuth2AuthorizedClientRepository authorizedClientRepository) {
+    var refreshTokenClient = new RestClientRefreshTokenTokenResponseClient();
+    refreshTokenClient.addParametersConverter(new McpResourceParametersConverter<>(repository));
+    var clientCredentialsClient = new RestClientClientCredentialsTokenResponseClient();
+    clientCredentialsClient.addParametersConverter(new McpResourceParametersConverter<>(repository));
+    var manager = new DefaultOAuth2AuthorizedClientManager(repository, authorizedClientRepository);
+    manager.setAuthorizedClientProvider(OAuth2AuthorizedClientProviderBuilder.builder()
+            .authorizationCode()
+            .refreshToken(refreshToken -> refreshToken.accessTokenResponseClient(refreshTokenClient))
+            .clientCredentials(clientCredentials -> clientCredentials.accessTokenResponseClient(clientCredentialsClient))
+            .build());
+    // ... further configuration ...
+    return manager;
 }
 ```
 

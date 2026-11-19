@@ -16,7 +16,13 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+
 import io.modelcontextprotocol.client.McpClient;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
@@ -28,13 +34,43 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeS
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
+import org.springframework.boot.security.oauth2.client.autoconfigure.servlet.OAuth2ClientWebSecurityAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.FormHttpMessageConverter;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.oauth2.client.ClientCredentialsOAuth2AuthorizedClientProvider;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.RefreshTokenOAuth2AuthorizedClientProvider;
+import org.springframework.security.oauth2.client.endpoint.AbstractRestClientOAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2ClientCredentialsGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.RestClientClientCredentialsTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.RestClientRefreshTokenTokenResponseClient;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.core.http.converter.OAuth2AccessTokenResponseHttpMessageConverter;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 /**
  * Tests for {@link McpOAuth2ClientAutoConfiguration}.
@@ -45,6 +81,10 @@ class McpOAuth2ClientAutoConfigurationTests {
 
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class));
+
+	private final WebApplicationContextRunner securityContextRunner = this.contextRunner.withConfiguration(
+			AutoConfigurations.of(OAuth2ClientAutoConfiguration.class, OAuth2ClientWebSecurityAutoConfiguration.class,
+					SecurityAutoConfiguration.class, ServletWebSecurityAutoConfiguration.class));
 
 	@Test
 	void autoConfigurationRegistersProperties() {
@@ -164,6 +204,153 @@ class McpOAuth2ClientAutoConfigurationTests {
 	}
 
 	@Test
+	void refreshTokenResponseClientSendsResource() {
+		this.contextRunner.run(context -> {
+			var registration = addMcpRegistration(context, AuthorizationGrantType.AUTHORIZATION_CODE);
+			var client = context.getBean("mcpRefreshTokenResponseClient",
+					RestClientRefreshTokenTokenResponseClient.class);
+			var server = mockTokenEndpoint(client, "refresh_token");
+
+			var accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "access-token", null, null);
+			var refreshToken = new OAuth2RefreshToken("refresh-token", null);
+			var response = client
+				.getTokenResponse(new OAuth2RefreshTokenGrantRequest(registration, accessToken, refreshToken));
+
+			assertThat(response.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+			server.verify();
+		});
+	}
+
+	@Test
+	void clientCredentialsTokenResponseClientSendsResource() {
+		this.contextRunner.run(context -> {
+			var registration = addMcpRegistration(context, AuthorizationGrantType.CLIENT_CREDENTIALS);
+			var client = context.getBean("mcpClientCredentialsTokenResponseClient",
+					RestClientClientCredentialsTokenResponseClient.class);
+			var server = mockTokenEndpoint(client, "client_credentials");
+
+			var response = client.getTokenResponse(new OAuth2ClientCredentialsGrantRequest(registration));
+
+			assertThat(response.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+			server.verify();
+		});
+	}
+
+	@Test
+	void authorizedClientManagerRefreshSendsResource() {
+		this.securityContextRunner.run(context -> {
+			var registration = addMcpRegistration(context, AuthorizationGrantType.AUTHORIZATION_CODE);
+			var server = mockTokenEndpoint(
+					context.getBean("mcpRefreshTokenResponseClient", RestClientRefreshTokenTokenResponseClient.class),
+					"refresh_token");
+			var expiredAccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "access-token",
+					Instant.now().minus(Duration.ofHours(2)), Instant.now().minus(Duration.ofHours(1)));
+			var authorizedClient = new OAuth2AuthorizedClient(registration, "user", expiredAccessToken,
+					new OAuth2RefreshToken("refresh-token", null));
+
+			var refreshed = context.getBean(OAuth2AuthorizedClientManager.class)
+				.authorize(authorizeRequest(OAuth2AuthorizeRequest.withAuthorizedClient(authorizedClient)));
+
+			assertThat(refreshed).isNotNull();
+			assertThat(refreshed.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+			server.verify();
+		});
+	}
+
+	@Test
+	void authorizedClientManagerClientCredentialsSendsResource() {
+		this.securityContextRunner.run(context -> {
+			addMcpRegistration(context, AuthorizationGrantType.CLIENT_CREDENTIALS);
+			var server = mockTokenEndpoint(context.getBean("mcpClientCredentialsTokenResponseClient",
+					RestClientClientCredentialsTokenResponseClient.class), "client_credentials");
+
+			var authorized = context.getBean(OAuth2AuthorizedClientManager.class)
+				.authorize(authorizeRequest(OAuth2AuthorizeRequest.withClientRegistrationId("mcp-server")));
+
+			assertThat(authorized).isNotNull();
+			assertThat(authorized.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+			server.verify();
+		});
+	}
+
+	@Test
+	void registersTokenResponseClients() {
+		this.contextRunner.run(context -> assertThat(context).getBeans(OAuth2AccessTokenResponseClient.class)
+			.containsOnlyKeys("mcpRefreshTokenResponseClient", "mcpClientCredentialsTokenResponseClient"));
+	}
+
+	@Test
+	void backsOffRefreshTokenResponseClient() {
+		this.contextRunner.withUserConfiguration(CustomRefreshTokenResponseClientConfiguration.class)
+			.run(context -> assertThat(context).getBeans(OAuth2AccessTokenResponseClient.class)
+				.containsOnlyKeys("refreshTokenResponseClient", "mcpClientCredentialsTokenResponseClient"));
+	}
+
+	@Test
+	void backsOffRefreshTokenResponseClientWithCustomRefreshTokenProvider() {
+		this.contextRunner.withUserConfiguration(CustomRefreshTokenProviderConfiguration.class)
+			.run(context -> assertThat(context).getBeans(OAuth2AccessTokenResponseClient.class)
+				.containsOnlyKeys("mcpClientCredentialsTokenResponseClient"));
+	}
+
+	@Test
+	void backsOffClientCredentialsTokenResponseClient() {
+		this.contextRunner.withUserConfiguration(CustomClientCredentialsResponseClientConfiguration.class)
+			.run(context -> assertThat(context).getBeans(OAuth2AccessTokenResponseClient.class)
+				.containsOnlyKeys("clientCredentialsResponseClient", "mcpRefreshTokenResponseClient"));
+	}
+
+	@Test
+	void backsOffClientCredentialsTokenResponseClientWithCustomClientCredentialsProvider() {
+		this.contextRunner.withUserConfiguration(CustomClientCredentialsProviderConfiguration.class)
+			.run(context -> assertThat(context).getBeans(OAuth2AccessTokenResponseClient.class)
+				.containsOnlyKeys("mcpRefreshTokenResponseClient"));
+	}
+
+	@Test
+	void noTokenResponseClientsWithoutMcpClientRegistrationRepository() {
+		this.contextRunner.withUserConfiguration(CustomClientRegistrationRepositoryConfiguration.class)
+			.run(context -> assertThat(context).doesNotHaveBean(OAuth2AccessTokenResponseClient.class));
+	}
+
+	private static ClientRegistration addMcpRegistration(ApplicationContext context, AuthorizationGrantType grantType) {
+		var builder = ClientRegistration.withRegistrationId("mcp-server")
+			.clientId("client-id")
+			.authorizationGrantType(grantType)
+			.tokenUri("https://auth.example.com/token");
+		if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(grantType)) {
+			builder.redirectUri("http://localhost/callback").authorizationUri("https://auth.example.com/authorize");
+		}
+		var registration = builder.build();
+		context.getBean(McpClientRegistrationRepository.class)
+			.addClientRegistration(registration, "https://mcp.example.com/mcp");
+		return registration;
+	}
+
+	private static OAuth2AuthorizeRequest authorizeRequest(OAuth2AuthorizeRequest.Builder builder) {
+		return builder.principal("user")
+			.attribute(HttpServletRequest.class.getName(), new MockHttpServletRequest())
+			.attribute(HttpServletResponse.class.getName(), new MockHttpServletResponse())
+			.build();
+	}
+
+	private static MockRestServiceServer mockTokenEndpoint(AbstractRestClientOAuth2AccessTokenResponseClient<?> client,
+			String grantType) {
+		var restClient = RestClient.builder()
+			.configureMessageConverters(converters -> converters.addCustomConverter(new FormHttpMessageConverter())
+				.addCustomConverter(new OAuth2AccessTokenResponseHttpMessageConverter()));
+		var server = MockRestServiceServer.bindTo(restClient).build();
+		client.setRestClient(restClient.build());
+		server.expect(request -> assertThat(request.getURI()).hasToString("https://auth.example.com/token"))
+			.andExpect(content()
+				.formDataContains(Map.of("grant_type", grantType, "resource", "https://mcp.example.com/mcp")))
+			.andRespond(withSuccess("""
+					{"access_token": "new-access-token", "token_type": "Bearer"}
+					""", MediaType.APPLICATION_JSON));
+		return server;
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void registersMcpClientTransportContextProviderCustomizer() {
 		this.contextRunner.run(context -> {
@@ -238,6 +425,46 @@ class McpOAuth2ClientAutoConfigurationTests {
 		@Bean
 		DynamicClientRegistrationService dynamicClientRegistrationService() {
 			return this.customService;
+		}
+
+	}
+
+	@Configuration
+	static class CustomRefreshTokenResponseClientConfiguration {
+
+		@Bean
+		OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshTokenResponseClient() {
+			return new RestClientRefreshTokenTokenResponseClient();
+		}
+
+	}
+
+	@Configuration
+	static class CustomRefreshTokenProviderConfiguration {
+
+		@Bean
+		RefreshTokenOAuth2AuthorizedClientProvider refreshTokenProvider() {
+			return new RefreshTokenOAuth2AuthorizedClientProvider();
+		}
+
+	}
+
+	@Configuration
+	static class CustomClientCredentialsResponseClientConfiguration {
+
+		@Bean
+		OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> clientCredentialsResponseClient() {
+			return new RestClientClientCredentialsTokenResponseClient();
+		}
+
+	}
+
+	@Configuration
+	static class CustomClientCredentialsProviderConfiguration {
+
+		@Bean
+		ClientCredentialsOAuth2AuthorizedClientProvider clientCredentialsProvider() {
+			return new ClientCredentialsOAuth2AuthorizedClientProvider();
 		}
 
 	}

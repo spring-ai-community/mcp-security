@@ -39,12 +39,10 @@ import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.client.OAuth2ClientConfigurer;
-import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
 import org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -55,12 +53,18 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.access.ExceptionTranslationFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
 /**
  * Configurer for OAuth2 support for MCP clients.
+ * <p>
+ * Adds the RFC 8707 {@code resource} parameter to authorization requests and
+ * authorization code token requests. Refresh token requests are made by the
+ * {@link org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager} bean,
+ * which this configurer does not control: provide an
+ * {@code OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>} bean with a
+ * {@link McpResourceParametersConverter}, or use {@code mcp-client-security-spring-boot},
+ * which provides one.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -104,7 +108,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 					authorizationCode.authorizationRequestResolver(authRequestResolver);
 					var tokenResponseClient = new RestClientAuthorizationCodeTokenResponseClient();
 					tokenResponseClient
-						.addParametersConverter(mcpTokenRequestParametersConverter(mcpClientRegistrationRepository));
+						.addParametersConverter(new McpResourceParametersConverter<>(mcpClientRegistrationRepository));
 					authorizationCode.accessTokenResponseClient(tokenResponseClient);
 				});
 			}
@@ -232,11 +236,6 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 				.authorizationCode(baseUrl + "/authorize/oauth2/code/" + registrationId);
 			clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
 		}
-	}
-
-	private static Converter<OAuth2AuthorizationCodeGrantRequest, MultiValueMap<String, String>> mcpTokenRequestParametersConverter(
-			McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return new McpResourceParametersConverter<>(mcpClientRegistrationRepository);
 	}
 
 	private static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(

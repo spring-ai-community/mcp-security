@@ -31,6 +31,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
 
 /**
  * {@link AutoConfiguration Auto-configuration} for MCP OAuth2 Client support. Registers
@@ -40,6 +42,9 @@ import org.springframework.context.annotation.Import;
  * <li>{@link DynamicClientRegistrationService}
  * <li>{@link McpMetadataDiscoveryService}
  * <li>{@link McpOAuth2DcrClientManager}
+ * <li>{@link OAuth2AccessTokenResponseClient} beans for refresh token and client
+ * credentials requests, which add the MCP server's {@code resource} parameter. Spring
+ * Security's default {@link OAuth2AuthorizedClientManager} picks them up.
  * <li>A {@link McpClientCustomizer} to add
  * {@link AuthenticationMcpTransportContextProvider} to all sync clients.
  * </ul>
@@ -53,6 +58,8 @@ import org.springframework.context.annotation.Import;
 @Import({ McpOAuth2ClientConfigurations.ClientRegistrationRepositoryConfiguration.class,
 		McpOAuth2ClientConfigurations.DynamicClientRegistrationConfiguration.class,
 		McpOAuth2ClientConfigurations.OAuth2ClientManagerConfiguration.class,
+		McpOAuth2ClientConfigurations.RefreshTokenConfiguration.class,
+		McpOAuth2ClientConfigurations.ClientCredentialsConfiguration.class,
 		McpOAuth2ClientConfigurations.McpClientConfiguration.class })
 @ConditionalOnProperty(prefix = McpClientCommonProperties.CONFIG_PREFIX, name = "type", havingValue = "SYNC",
 		matchIfMissing = true)
