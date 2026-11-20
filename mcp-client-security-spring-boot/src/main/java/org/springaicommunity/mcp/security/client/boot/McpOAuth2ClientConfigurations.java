@@ -56,9 +56,9 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false}.
  * <p>
  * If client registrations are found under
- * {@code spring.security.oauth2.client.registration}, they are add to the
- * {@link McpClientRegistrationRepository}, but the OAuth2 resource identifier associated
- * will be null.
+ * {@code spring.security.oauth2.client.registration}, they are added to the
+ * {@link McpClientRegistrationRepository}, along with any {@code resource} identifier
+ * configured under {@code spring.ai.mcp.client.authorization.registration.<id>.resource}.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
@@ -72,11 +72,14 @@ class McpOAuth2ClientConfigurations {
 	static class ClientRegistrationRepositoryConfiguration {
 
 		@Bean
-		McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProperties properties) {
+		McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProperties properties,
+				McpOAuth2ClientProperties mcpProperties) {
 			var repo = new InMemoryMcpClientRegistrationRepository();
-			new OAuth2ClientPropertiesMapper(properties).asClientRegistrations()
-				.values()
-				.forEach(reg -> repo.addClientRegistration(reg, null));
+			new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().forEach((registrationId, reg) -> {
+				var mcpRegistration = mcpProperties.getRegistration().get(registrationId);
+				var resource = (mcpRegistration != null) ? mcpRegistration.getResource() : null;
+				repo.addClientRegistration(reg, resource);
+			});
 			return repo;
 		}
 

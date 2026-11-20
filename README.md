@@ -799,14 +799,26 @@ refresh token configuration.
 
 #### Pre-registered clients
 
-⚠️ With `mcp-client-security-spring-boot`, the auto-configured `McpClientRegistrationRepository` stores the clients
-declared under `spring.security.oauth2.client.registration` without an MCP resource identifier. These clients do not
-send a `resource=` parameter in authorization requests, nor in token requests for any grant: authorization code,
-refresh token or client credentials. Clients obtained through Dynamic Client Registration, Client ID Metadata
-Documents or `registerMcpOAuth2Client` are not affected.
+With `mcp-client-security-spring-boot`, clients declared under `spring.security.oauth2.client.registration.<id>` do
+not send a `resource=` parameter unless you configure an MCP resource identifier for them:
 
-To send `resource=` for a pre-registered client, define your own `McpClientRegistrationRepository` bean and associate
-each registration with the MCP server's resource identifier, usually its URL:
+```properties
+spring.security.oauth2.client.registration.my-mcp-server.client-id=my-client
+spring.security.oauth2.client.registration.my-mcp-server.client-secret=my-secret
+spring.security.oauth2.client.registration.my-mcp-server.authorization-grant-type=authorization_code
+spring.security.oauth2.client.registration.my-mcp-server.provider=authserver
+
+spring.ai.mcp.client.authorization.registration.my-mcp-server.resource=http://localhost:8090/mcp
+```
+
+When `spring.ai.mcp.client.authorization.registration.<id>.resource` is set, the auto-configured
+`McpClientRegistrationRepository` associates that resource identifier with the registration so authorization requests
+and token requests (`authorization_code`, `refresh_token`, and `client_credentials`) include `resource=`. Clients
+obtained through Dynamic Client Registration, Client ID Metadata Documents or `registerMcpOAuth2Client` obtain their
+resource identifier automatically.
+
+If you are not using Spring Boot auto-configuration or prefer programmatic setup, define your own
+`McpClientRegistrationRepository` bean and associate each registration with the MCP server's resource identifier:
 
 ```java
 @Bean
