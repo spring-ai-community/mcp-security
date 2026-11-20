@@ -147,8 +147,8 @@ public class McpAuthorizationServerConfigurer
 			}
 		}).oauth2AuthorizationServer(authServer -> {
 			authServer.addObjectPostProcessor(McpNoScopeClientConsentNotRequired.postProcessor());
-			authServer.addObjectPostProcessor(
-					new McpAuthorizationCodeRequestValidatorPostProcessor(this.authorizationCodeRequestValidator));
+			authServer.authorizationEndpoint(authorizationEndpoint -> authorizationEndpoint
+				.authorizationCodeRequestAuthenticationValidator(this.authorizationCodeRequestValidator));
 			authServer.addObjectPostProcessor(
 					new McpClientRegistrationValidatorPostProcessor(this.clientRegistrationValidator));
 			authServer.authorizationServerMetadataEndpoint(metadataEndpoint -> {
