@@ -18,11 +18,11 @@ package org.springaicommunity.mcp.security.client.sync.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceAuthorizationRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
@@ -48,8 +48,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
-import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.access.ExceptionTranslationFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
@@ -103,7 +101,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 							mcpClientRegistrationRepository,
 							OAuth2AuthorizationRequestRedirectFilter.DEFAULT_AUTHORIZATION_REQUEST_BASE_URI);
 					authRequestResolver.setAuthorizationRequestCustomizer(
-							mcpAuthorizationRequestCustomizer(mcpClientRegistrationRepository));
+							new McpResourceAuthorizationRequestCustomizer(mcpClientRegistrationRepository));
 
 					authorizationCode.authorizationRequestResolver(authRequestResolver);
 					var tokenResponseClient = new RestClientAuthorizationCodeTokenResponseClient();
@@ -236,18 +234,6 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 				.authorizationCode(baseUrl + "/authorize/oauth2/code/" + registrationId);
 			clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
 		}
-	}
-
-	private static Consumer<OAuth2AuthorizationRequest.Builder> mcpAuthorizationRequestCustomizer(
-			McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return req -> {
-			var baseRequest = req.build();
-			var registrationIdAttr = baseRequest.getAttributes().get(OAuth2ParameterNames.REGISTRATION_ID);
-			if (registrationIdAttr instanceof String registrationId) {
-				req.additionalParameters(params -> params.put("resource",
-						mcpClientRegistrationRepository.findResourceIdByRegistrationId(registrationId)));
-			}
-		};
 	}
 
 	private ClientRegistrationRepository getClientRegistrationRepository(HttpSecurity http) {
