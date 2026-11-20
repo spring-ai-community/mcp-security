@@ -22,6 +22,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.IssuerValidatingAuthorizationCodeAuthenticationProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceAuthorizationRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
@@ -82,6 +83,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 
 	private boolean cimdEnabled = true;
 
+	private boolean issParameterValidation = true;
+
 	public McpClientOAuth2Configurer() {
 		this.canListenForWebServerInitialized = ClassUtils.isPresent(
 				"org.springframework.boot.web.server.servlet.context.ServletWebServerInitializedEvent",
@@ -95,6 +98,10 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		registerMcpClients(http, clientRegistrationRepository, clientManager);
 
 		http.oauth2Client(oauth2Client -> {
+			if (this.issParameterValidation) {
+				oauth2Client
+					.withObjectPostProcessor(IssuerValidatingAuthorizationCodeAuthenticationProvider.postProcessor());
+			}
 			if (clientRegistrationRepository instanceof McpClientRegistrationRepository mcpClientRegistrationRepository) {
 				oauth2Client.authorizationCodeGrant(authorizationCode -> {
 					var authRequestResolver = new DefaultOAuth2AuthorizationRequestResolver(
@@ -178,6 +185,25 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 */
 	public McpClientOAuth2Configurer cimd(boolean cimdEnabled) {
 		this.cimdEnabled = cimdEnabled;
+		return this;
+	}
+
+	/**
+	 * Validate the RFC 9207 {@code iss} parameter of authorization responses, to protect
+	 * against mix-up attacks. Enabled by default.
+	 * <p>
+	 * Disabling it is NOT recommended: it removes the mix-up attack protection. Prefer
+	 * configuring the issuer of the client registration, for example with
+	 * {@code spring.security.oauth2.client.provider.<id>.issuer-uri}. Only disable it as
+	 * a last resort, for authorization servers that send an {@code iss} parameter when
+	 * the client registration has no issuer and the issuer cannot be configured.
+	 * @param issParameterValidation {@code iss} validation enabled if true, disabled
+	 * otherwise.
+	 * @return The {@link McpClientOAuth2Configurer} for further configuration
+	 * @see IssuerValidatingAuthorizationCodeAuthenticationProvider
+	 */
+	public McpClientOAuth2Configurer issParameterValidation(boolean issParameterValidation) {
+		this.issParameterValidation = issParameterValidation;
 		return this;
 	}
 
