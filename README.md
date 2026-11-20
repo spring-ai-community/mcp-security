@@ -715,13 +715,16 @@ token and client credentials requests. `McpClientOAuth2Configurer` only covers t
 authorization code token request. Spring Security performs the `refresh_token` and `client_credentials` grants in the
 `OAuth2AuthorizedClientManager`, which is a bean, outside of `HttpSecurity`.
 
-With `mcp-client-security-spring-boot`, there is nothing to do: the auto-configuration provides
+With `mcp-client-security-spring-boot`, the auto-configuration provides
 `OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>` and
 `OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest>` beans that add the `resource=` parameter, and
-the `OAuth2AuthorizedClientManager` that Spring Security creates picks them up. Each bean backs off if you provide your
-own, or if you define the matching `RefreshTokenOAuth2AuthorizedClientProvider` or
-`ClientCredentialsOAuth2AuthorizedClientProvider` bean. In that case, configure the response client on your provider
-with `McpResourceParametersConverter`, as shown below.
+the `OAuth2AuthorizedClientManager` that Spring Security creates picks them up. There is nothing to do, unless you use
+the machine-to-machine customizers (see
+[Client credentials with `AuthorizedClientServiceOAuth2AuthorizedClientManager`](#client-credentials-with-authorizedclientserviceoauth2authorizedclientmanager))
+or pre-registered clients from `application.properties` (see
+[Pre-registered clients](#pre-registered-clients)). Each bean backs off if you provide your own, or if you define the
+matching `RefreshTokenOAuth2AuthorizedClientProvider` or `ClientCredentialsOAuth2AuthorizedClientProvider` bean. In
+that case, configure the response client on your provider with `McpResourceParametersConverter`, as shown below.
 
 Without Spring Boot, define the beans yourself:
 
@@ -765,6 +768,60 @@ OAuth2AuthorizedClientManager authorizedClientManager(McpClientRegistrationRepos
     return manager;
 }
 ```
+
+#### Client credentials with `AuthorizedClientServiceOAuth2AuthorizedClientManager`
+
+`OAuth2ClientCredentialsSyncHttpRequestCustomizer`, `OAuth2HybridSyncHttpRequestCustomizer` and
+`McpOAuth2HybridExchangeFilterFunction` obtain `client_credentials` tokens through an
+`AuthorizedClientServiceOAuth2AuthorizedClientManager` that you create yourself, even with Spring Boot. Its default
+provider does not use the `OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest>` bean, so token
+requests do not carry `resource=` unless you configure the provider:
+
+```java
+@Bean
+OAuth2ClientCredentialsSyncHttpRequestCustomizer requestCustomizer(
+        McpClientRegistrationRepository repository,
+        OAuth2AuthorizedClientService authorizedClientService,
+        OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> clientCredentialsTokenResponseClient) {
+    var manager = new AuthorizedClientServiceOAuth2AuthorizedClientManager(repository, authorizedClientService);
+    manager.setAuthorizedClientProvider(OAuth2AuthorizedClientProviderBuilder.builder()
+            .clientCredentials(clientCredentials -> clientCredentials
+                    .accessTokenResponseClient(clientCredentialsTokenResponseClient))
+            .build());
+    return new OAuth2ClientCredentialsSyncHttpRequestCustomizer(manager, "my-mcp-server");
+}
+```
+
+The `clientCredentialsTokenResponseClient` is the auto-configured bean with Spring Boot, or the one you defined above
+without it. Do not expose the `AuthorizedClientServiceOAuth2AuthorizedClientManager` as a bean: any
+`OAuth2AuthorizedClientManager` bean stops Spring Security from creating its default manager, which then loses the
+refresh token configuration.
+
+#### Pre-registered clients
+
+⚠️ With `mcp-client-security-spring-boot`, the auto-configured `McpClientRegistrationRepository` stores the clients
+declared under `spring.security.oauth2.client.registration` without an MCP resource identifier. These clients do not
+send a `resource=` parameter in authorization requests, nor in token requests for any grant: authorization code,
+refresh token or client credentials. Clients obtained through Dynamic Client Registration, Client ID Metadata
+Documents or `registerMcpOAuth2Client` are not affected.
+
+To send `resource=` for a pre-registered client, define your own `McpClientRegistrationRepository` bean and associate
+each registration with the MCP server's resource identifier, usually its URL:
+
+```java
+@Bean
+McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProperties properties) {
+    var repo = new InMemoryMcpClientRegistrationRepository();
+    new OAuth2ClientPropertiesMapper(properties).asClientRegistrations()
+            .values()
+            .forEach(registration -> repo.addClientRegistration(registration, "http://localhost:8090/mcp"));
+    return repo;
+}
+```
+
+Declare the bean method's return type as `McpClientRegistrationRepository`, not `ClientRegistrationRepository`: the
+auto-configuration only registers the refresh token and client credentials response clients when it finds a bean of
+that type.
 
 ### Use with `spring-ai-starter-mcp-client` (HttpClient-based)
 
