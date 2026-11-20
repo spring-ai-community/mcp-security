@@ -16,6 +16,10 @@
 
 package org.springaicommunity.mcp.security.client.boot;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -33,12 +37,36 @@ public class McpOAuth2ClientProperties {
 
 	private DynamicClientRegistration dynamicClientRegistration = new DynamicClientRegistration();
 
+	private final Map<String, Registration> registration = new HashMap<>();
+
 	public DynamicClientRegistration getDynamicClientRegistration() {
 		return dynamicClientRegistration;
 	}
 
 	public void setDynamicClientRegistration(DynamicClientRegistration dynamicClientRegistration) {
 		this.dynamicClientRegistration = dynamicClientRegistration;
+	}
+
+	public Map<String, Registration> getRegistration() {
+		return this.registration;
+	}
+
+	public static class Registration {
+
+		/**
+		 * RFC 8707 {@code resource} identifier (typically the MCP server URL) to attach
+		 * to authorization and token requests for this client registration.
+		 */
+		private @Nullable String resource;
+
+		public @Nullable String getResource() {
+			return this.resource;
+		}
+
+		public void setResource(@Nullable String resource) {
+			this.resource = resource;
+		}
+
 	}
 
 	public static class DynamicClientRegistration {

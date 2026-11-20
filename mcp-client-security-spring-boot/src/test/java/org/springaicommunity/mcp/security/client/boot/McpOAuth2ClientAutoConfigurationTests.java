@@ -160,6 +160,39 @@ class McpOAuth2ClientAutoConfigurationTests {
 				var repo = context.getBean(McpClientRegistrationRepository.class);
 				assertThat(repo.findByRegistrationId("test")).isNotNull();
 				assertThat(repo.findByRegistrationId("test").getClientId()).isEqualTo("test-client-id");
+				assertThat(repo.findResourceIdByRegistrationId("test")).isNull();
+			});
+	}
+
+	@Test
+	void clientRegistrationRepositoryLoadsResourceFromProperties() {
+		this.contextRunner
+			.withPropertyValues("spring.security.oauth2.client.registration.first.client-id=first-client-id",
+					"spring.security.oauth2.client.registration.first.client-secret=first-client-secret",
+					"spring.security.oauth2.client.registration.first.authorization-grant-type=client_credentials",
+					"spring.security.oauth2.client.provider.first.token-uri=https://auth.example.com/token",
+					"spring.ai.mcp.client.authorization.registration.first.resource=https://mcp.example.com/mcp",
+					"spring.security.oauth2.client.registration.second.client-id=second-client-id",
+					"spring.security.oauth2.client.registration.second.client-secret=second-client-secret",
+					"spring.security.oauth2.client.registration.second.authorization-grant-type=client_credentials",
+					"spring.security.oauth2.client.provider.second.token-uri=https://auth.example.com/token",
+					"spring.security.oauth2.client.registration.blank.client-id=blank-client-id",
+					"spring.security.oauth2.client.registration.blank.client-secret=blank-client-secret",
+					"spring.security.oauth2.client.registration.blank.authorization-grant-type=client_credentials",
+					"spring.security.oauth2.client.provider.blank.token-uri=https://auth.example.com/token",
+					"spring.ai.mcp.client.authorization.registration.blank.resource=   ",
+					"spring.ai.mcp.client.authorization.registration.unknown.resource=https://unused.example.com/mcp")
+			.run(context -> {
+				assertThat(context).hasSingleBean(McpClientRegistrationRepository.class);
+				var repo = context.getBean(McpClientRegistrationRepository.class);
+				assertThat(repo.findByRegistrationId("first")).isNotNull();
+				assertThat(repo.findResourceIdByRegistrationId("first")).isEqualTo("https://mcp.example.com/mcp");
+				assertThat(repo.findByRegistrationId("second")).isNotNull();
+				assertThat(repo.findResourceIdByRegistrationId("second")).isNull();
+				assertThat(repo.findByRegistrationId("blank")).isNotNull();
+				assertThat(repo.findResourceIdByRegistrationId("blank")).isNull();
+				assertThat(repo.findByRegistrationId("unknown")).isNull();
+				assertThat(repo.findResourceIdByRegistrationId("unknown")).isNull();
 			});
 	}
 
@@ -271,6 +304,57 @@ class McpOAuth2ClientAutoConfigurationTests {
 			assertThat(authorized.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
 			server.verify();
 		});
+	}
+
+	@Test
+	void propertiesBasedRefreshTokenSendsResource() {
+		this.securityContextRunner.withPropertyValues(
+				"spring.security.oauth2.client.registration.mcp-server.client-id=client-id",
+				"spring.security.oauth2.client.registration.mcp-server.client-secret=client-secret",
+				"spring.security.oauth2.client.registration.mcp-server.authorization-grant-type=authorization_code",
+				"spring.security.oauth2.client.registration.mcp-server.redirect-uri=http://localhost/callback",
+				"spring.security.oauth2.client.provider.mcp-server.authorization-uri=https://auth.example.com/authorize",
+				"spring.security.oauth2.client.provider.mcp-server.token-uri=https://auth.example.com/token",
+				"spring.ai.mcp.client.authorization.registration.mcp-server.resource=https://mcp.example.com/mcp")
+			.run(context -> {
+				var registration = context.getBean(McpClientRegistrationRepository.class)
+					.findByRegistrationId("mcp-server");
+				assertThat(registration).isNotNull();
+				var server = mockTokenEndpoint(context.getBean("mcpRefreshTokenResponseClient",
+						RestClientRefreshTokenTokenResponseClient.class), "refresh_token");
+				var expiredAccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "access-token",
+						Instant.now().minus(Duration.ofHours(2)), Instant.now().minus(Duration.ofHours(1)));
+				var authorizedClient = new OAuth2AuthorizedClient(registration, "user", expiredAccessToken,
+						new OAuth2RefreshToken("refresh-token", null));
+
+				var refreshed = context.getBean(OAuth2AuthorizedClientManager.class)
+					.authorize(authorizeRequest(OAuth2AuthorizeRequest.withAuthorizedClient(authorizedClient)));
+
+				assertThat(refreshed).isNotNull();
+				assertThat(refreshed.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+				server.verify();
+			});
+	}
+
+	@Test
+	void propertiesBasedClientCredentialsSendsResource() {
+		this.securityContextRunner
+			.withPropertyValues("spring.security.oauth2.client.registration.mcp-server.client-id=client-id",
+					"spring.security.oauth2.client.registration.mcp-server.client-secret=client-secret",
+					"spring.security.oauth2.client.registration.mcp-server.authorization-grant-type=client_credentials",
+					"spring.security.oauth2.client.provider.mcp-server.token-uri=https://auth.example.com/token",
+					"spring.ai.mcp.client.authorization.registration.mcp-server.resource=https://mcp.example.com/mcp")
+			.run(context -> {
+				var server = mockTokenEndpoint(context.getBean("mcpClientCredentialsTokenResponseClient",
+						RestClientClientCredentialsTokenResponseClient.class), "client_credentials");
+
+				var authorized = context.getBean(OAuth2AuthorizedClientManager.class)
+					.authorize(authorizeRequest(OAuth2AuthorizeRequest.withClientRegistrationId("mcp-server")));
+
+				assertThat(authorized).isNotNull();
+				assertThat(authorized.getAccessToken().getTokenValue()).isEqualTo("new-access-token");
+				server.verify();
+			});
 	}
 
 	@Test
