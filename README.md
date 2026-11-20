@@ -823,6 +823,48 @@ Declare the bean method's return type as `McpClientRegistrationRepository`, not 
 auto-configuration only registers the refresh token and client credentials response clients when it finds a bean of
 that type.
 
+### Authorization response `iss` validation
+
+`McpClientOAuth2Configurer` validates the [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) `iss` parameter of
+authorization responses, before the authorization code is sent to the token endpoint. This protects against mix-up
+attacks, where an authorization response comes from another authorization server than the one the request was sent to.
+
+The expected issuer comes from the client registration: its issuer URI, and whether the authorization server metadata
+advertises `authorization_response_iss_parameter_supported`.
+
+| Client registration                                    | `iss` in the response | Result                        |
+|--------------------------------------------------------|-----------------------|-------------------------------|
+| Has an issuer                                          | equal to the issuer   | accepted                      |
+| Has an issuer                                          | different             | rejected                      |
+| Has an issuer, the AS advertises `iss` support         | absent                | rejected                      |
+| Has an issuer, the AS does not advertise `iss` support | absent                | accepted                      |
+| Has no issuer                                          | present               | rejected                      |
+| Has no issuer                                          | absent                | accepted, `iss` not validated |
+
+Values are compared as strings, without URL normalization: `http://localhost:8080/` does not match
+`http://localhost:8080`. Rejected responses redirect to the redirect URI with `error=invalid_iss_parameter` and a
+generic `error_description`. The reason is logged at `DEBUG` level by
+`org.springaicommunity.mcp.security.client.sync.oauth2.IssuerValidatingAuthorizationCodeAuthenticationProvider`.
+
+Dynamically registered clients and CIMD clients are built from the authorization server metadata, and have an issuer.
+With Spring Boot properties, set `issuer-uri` on the provider: Spring Boot then discovers the metadata.
+
+```properties
+spring.security.oauth2.client.provider.my-auth-server.issuer-uri=https://auth.example.com
+```
+
+⚠️ Providers that set the endpoints by hand (`authorization-uri`, `token-uri`, ...) without `issuer-uri` have no
+issuer, so authorization responses that include `iss` are rejected. If you build a `ClientRegistration` in code
+without metadata, set its `issuerUri(...)`.
+
+If you can't configure the issuer, turn off `iss` validation. This removes the mix-up attack protection:
+
+```java
+http.with(McpClientOAuth2Configurer.mcpClientOAuth2(), mcp -> mcp.issParameterValidation(false));
+```
+
+Only the `query` response mode is supported: the `iss` parameter is read from the query string of the redirect URI.
+
 ### Use with `spring-ai-starter-mcp-client` (HttpClient-based)
 
 When using `spring-ai-starter-mcp-client`, the underlying MCP client transport is based on the JDK's
