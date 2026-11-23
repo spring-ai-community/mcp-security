@@ -43,6 +43,7 @@ public class InMemoryMcpClientRegistrationRepository
 	private final Map<String, String> resources = new ConcurrentHashMap<>();
 
 	@Override
+	@Deprecated(since = "0.1.15")
 	public void addClientRegistration(ClientRegistration clientRegistration, @Nullable String resourceId) {
 		this.registrations.computeIfAbsent(clientRegistration.getRegistrationId(), id -> {
 			if (StringUtils.hasText(resourceId)) {
@@ -50,6 +51,18 @@ public class InMemoryMcpClientRegistrationRepository
 			}
 			return clientRegistration;
 		});
+	}
+
+	@Override
+	public void save(ClientRegistration clientRegistration, @Nullable String resourceId) {
+		var id = clientRegistration.getRegistrationId();
+		this.registrations.put(id, clientRegistration);
+		if (StringUtils.hasText(resourceId)) {
+			this.resources.put(id, resourceId);
+		}
+		else {
+			this.resources.remove(id);
+		}
 	}
 
 	@Override

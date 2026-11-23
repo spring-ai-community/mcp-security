@@ -146,7 +146,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		var clientRegistration = toClientRegistration(registrationId, registrationRequest, registrationResponse,
 				autoconfiguredRegistration);
 		validateClientRegistration(clientRegistration);
-		this.repository.addClientRegistration(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
+		this.repository.save(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
 	}
 
 	/**

@@ -76,7 +76,7 @@ class McpOAuth2ClientConfigurations {
 			var repo = new InMemoryMcpClientRegistrationRepository();
 			new OAuth2ClientPropertiesMapper(properties).asClientRegistrations()
 				.values()
-				.forEach(reg -> repo.addClientRegistration(reg, null));
+				.forEach(reg -> repo.save(reg, null));
 			return repo;
 		}
 

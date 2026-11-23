@@ -67,7 +67,7 @@ public class McpClientConfiguration {
 			@Value("${mcp.server.url:}") String mcpServerUrl) {
 		var repo = new InMemoryMcpClientRegistrationRepository();
 		new ArrayList<>(new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().values())
-			.forEach(reg -> repo.addClientRegistration(reg, mcpServerUrl));
+			.forEach(reg -> repo.save(reg, mcpServerUrl));
 		return repo;
 	}
 

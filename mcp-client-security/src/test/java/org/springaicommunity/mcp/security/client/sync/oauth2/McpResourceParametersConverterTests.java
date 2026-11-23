@@ -46,7 +46,7 @@ class McpResourceParametersConverterTests {
 
 	@Test
 	void addsResource() {
-		this.repository.addClientRegistration(this.registration, "https://mcp.example.com/mcp");
+		this.repository.save(this.registration, "https://mcp.example.com/mcp");
 
 		var parameters = this.converter.convert(new OAuth2ClientCredentialsGrantRequest(this.registration));
 
@@ -56,7 +56,7 @@ class McpResourceParametersConverterTests {
 
 	@Test
 	void noResourceWhenRegistrationHasNoResource() {
-		this.repository.addClientRegistration(this.registration, null);
+		this.repository.save(this.registration, null);
 
 		var parameters = this.converter.convert(new OAuth2ClientCredentialsGrantRequest(this.registration));
 

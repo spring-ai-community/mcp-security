@@ -814,7 +814,7 @@ McpClientRegistrationRepository mcpClientRegistrationRepository(OAuth2ClientProp
     var repo = new InMemoryMcpClientRegistrationRepository();
     new OAuth2ClientPropertiesMapper(properties).asClientRegistrations()
             .values()
-            .forEach(registration -> repo.addClientRegistration(registration, "http://localhost:8090/mcp"));
+            .forEach(registration -> repo.save(registration, "http://localhost:8090/mcp"));
     return repo;
 }
 ```

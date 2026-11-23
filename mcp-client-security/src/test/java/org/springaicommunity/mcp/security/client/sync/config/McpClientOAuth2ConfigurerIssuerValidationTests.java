@@ -256,10 +256,10 @@ class McpClientOAuth2ConfigurerIssuerValidationTests {
 
 		static InMemoryMcpClientRegistrationRepository clientRegistrationRepositoryWithRegistrations() {
 			var repository = new InMemoryMcpClientRegistrationRepository();
-			repository.addClientRegistration(registration("advertised", true), "http://localhost:2/mcp");
-			repository.addClientRegistration(registration("not-advertised", false), "http://localhost:2/mcp");
+			repository.save(registration("advertised", true), "http://localhost:2/mcp");
+			repository.save(registration("not-advertised", false), "http://localhost:2/mcp");
 			// Like a Spring Boot registration that configures the endpoints by hand
-			repository.addClientRegistration(registrationWithoutIssuer("no-issuer"), "http://localhost:2/mcp");
+			repository.save(registrationWithoutIssuer("no-issuer"), "http://localhost:2/mcp");
 			return repository;
 		}
 

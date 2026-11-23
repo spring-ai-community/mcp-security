@@ -50,8 +50,21 @@ public interface McpClientRegistrationRepository extends ClientRegistrationRepos
 	 * information in ClientRegistration.ClientSettings (#18863)</a>
 	 * @param clientRegistration the client
 	 * @param resourceId the MCP server's associated resource ID
+	 * @deprecated in favor of {@link #save(ClientRegistration, String)}, which replaces
+	 * an existing registration instead of ignoring the new one
 	 */
+	@Deprecated(since = "0.1.15")
 	void addClientRegistration(ClientRegistration clientRegistration, @Nullable String resourceId);
+
+	/**
+	 * Save a client registration, along with the associated Resource ID from the upstream
+	 * MCP server. Replaces any existing registration with the same ID, for example when
+	 * the MCP server moves to another authorization server and the client registers there
+	 * again.
+	 * @param clientRegistration the client
+	 * @param resourceId the MCP server's associated resource ID
+	 */
+	void save(ClientRegistration clientRegistration, @Nullable String resourceId);
 
 	/**
 	 * Update an existing {@link ClientRegistration} if it exists. Otherwise, this method

@@ -38,6 +38,7 @@ class InMemoryMcpClientRegistrationRepositoryTests {
 		this.repository = new InMemoryMcpClientRegistrationRepository();
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	void addClientRegistrationWhenNewThenAdded() {
 		ClientRegistration registration = createRegistration("test-client");
@@ -47,6 +48,7 @@ class InMemoryMcpClientRegistrationRepositoryTests {
 		assertThat(this.repository.findResourceIdByRegistrationId("test-client")).isEqualTo("test-resource");
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	void addClientRegistrationWhenExistingThenIgnored() {
 		ClientRegistration registration1 = createRegistration("test-client");
@@ -59,6 +61,7 @@ class InMemoryMcpClientRegistrationRepositoryTests {
 		assertThat(this.repository.findResourceIdByRegistrationId("test-client")).isEqualTo("resource-1");
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	void addClientRegistrationWhenNullResourceIdThenNotStored() {
 		ClientRegistration registration = createRegistration("test-client");
@@ -69,9 +72,40 @@ class InMemoryMcpClientRegistrationRepositoryTests {
 	}
 
 	@Test
+	void saveClientRegistrationWhenNewThenAdded() {
+		ClientRegistration registration = createRegistration("test-client");
+
+		this.repository.save(registration, "test-resource");
+
+		assertThat(this.repository.findByRegistrationId("test-client")).isSameAs(registration);
+		assertThat(this.repository.findResourceIdByRegistrationId("test-client")).isEqualTo("test-resource");
+	}
+
+	@Test
+	void saveClientRegistrationWhenExistingThenReplaced() {
+		ClientRegistration registration1 = createRegistration("test-client");
+		ClientRegistration registration2 = createRegistration("test-client");
+
+		this.repository.save(registration1, "resource-1");
+		this.repository.save(registration2, "resource-2");
+
+		assertThat(this.repository.findByRegistrationId("test-client")).isSameAs(registration2);
+		assertThat(this.repository.findResourceIdByRegistrationId("test-client")).isEqualTo("resource-2");
+	}
+
+	@Test
+	void saveClientRegistrationWhenExistingAndNullResourceIdThenResourceRemoved() {
+		this.repository.save(createRegistration("test-client"), "resource-1");
+
+		this.repository.save(createRegistration("test-client"), null);
+
+		assertThat(this.repository.findResourceIdByRegistrationId("test-client")).isNull();
+	}
+
+	@Test
 	void updateClientRegistrationWhenExistingThenUpdated() {
 		ClientRegistration registration = createRegistration("test-client");
-		this.repository.addClientRegistration(registration, "test-resource");
+		this.repository.save(registration, "test-resource");
 
 		this.repository.updateClientRegistration("test-client", builder -> builder.clientId("updated-client-id"));
 
@@ -108,8 +142,8 @@ class InMemoryMcpClientRegistrationRepositoryTests {
 		ClientRegistration registration1 = createRegistration("client-1");
 		ClientRegistration registration2 = createRegistration("client-2");
 
-		this.repository.addClientRegistration(registration1, "resource-1");
-		this.repository.addClientRegistration(registration2, "resource-2");
+		this.repository.save(registration1, "resource-1");
+		this.repository.save(registration2, "resource-2");
 
 		assertThat(this.repository).containsExactlyInAnyOrder(registration1, registration2);
 	}

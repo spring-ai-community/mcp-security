@@ -88,9 +88,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 		var clientReg = this.clientRegistrationCustomizer
 			.apply(toClientRegistration(registrationId, metadata, baseUrl));
 		validateClientRegistration(clientReg);
-		log.debug("Adding client registration {}", clientReg);
-		this.clientRegistrationRepository.addClientRegistration(clientReg,
-				metadata.protectedResourceMetadata().resource());
+		log.debug("Saving client registration {}", clientReg);
+		this.clientRegistrationRepository.save(clientReg, metadata.protectedResourceMetadata().resource());
 	}
 
 	@Override

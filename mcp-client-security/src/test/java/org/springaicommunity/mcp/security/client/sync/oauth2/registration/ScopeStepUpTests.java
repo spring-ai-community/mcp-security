@@ -46,7 +46,7 @@ class ScopeStepUpTests {
 
 	@BeforeEach
 	void setUp() {
-		repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
+		repository.save(CLIENT_REGISTRATION, RESOURCE_ID);
 	}
 
 	@Test

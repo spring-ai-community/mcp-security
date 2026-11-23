@@ -50,7 +50,7 @@ class McpResourceAuthorizationRequestCustomizerTests {
 
 	@Test
 	void addsResource() {
-		this.repository.addClientRegistration(this.registration, "https://mcp.example.com/mcp");
+		this.repository.save(this.registration, "https://mcp.example.com/mcp");
 
 		var authorizationRequest = resolve();
 
@@ -61,7 +61,7 @@ class McpResourceAuthorizationRequestCustomizerTests {
 
 	@Test
 	void noResourceWhenRegistrationHasNoResource() {
-		this.repository.addClientRegistration(this.registration, null);
+		this.repository.save(this.registration, null);
 
 		var authorizationRequest = resolve();
 

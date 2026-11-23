@@ -322,8 +322,7 @@ class McpOAuth2ClientAutoConfigurationTests {
 			builder.redirectUri("http://localhost/callback").authorizationUri("https://auth.example.com/authorize");
 		}
 		var registration = builder.build();
-		context.getBean(McpClientRegistrationRepository.class)
-			.addClientRegistration(registration, "https://mcp.example.com/mcp");
+		context.getBean(McpClientRegistrationRepository.class).save(registration, "https://mcp.example.com/mcp");
 		return registration;
 	}
 

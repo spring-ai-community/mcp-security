@@ -45,6 +45,10 @@ public interface McpOAuth2DcrClientManager {
 	 * {@code WWW-Authenticate} header to discover the authorization server.
 	 * <p>
 	 * Used to dynamically register clients just in time, based on an MCP server response.
+	 * When the client is registered already, this is a no-op, unless the MCP server now
+	 * names another authorization server: credentials are bound to the authorization
+	 * server that issued them, so the client is registered again at the new one,
+	 * replacing the existing registration (SEP-2352).
 	 *
 	 * @see <a href=
 	 * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization#dynamic-client-registration">Dynamic
