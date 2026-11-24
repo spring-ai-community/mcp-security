@@ -24,6 +24,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.ClientAlreadyExistsException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.DefaultMcpOAuth2CimdClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
@@ -125,6 +126,10 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientTra
 		}
 		catch (ClientAlreadyExistsException e) {
 			log.debug("Client [{}] already exists, not expecting HTTP 401 from the server", this.registrationId);
+			return;
+		}
+		catch (CimdNotSupportedException e) {
+			log.debug("CIMD not supported for MCP server at {}", mcpServerUrl);
 			return;
 		}
 		log.debug("CIMD client created [{}] registered, triggering authorization", this.registrationId);

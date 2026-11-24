@@ -41,9 +41,11 @@ public interface McpOAuth2CimdClientManager {
 	 * response
 	 * @param baseUrl the base URL of the running application
 	 * @throws ClientAlreadyExistsException When creating a client that already exists.
+	 * @throws CimdNotSupportedException When the authorization server does not support
+	 * Client ID Metadata Documents.
 	 */
 	void createClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader, String baseUrl)
-			throws ClientAlreadyExistsException;
+			throws ClientAlreadyExistsException, CimdNotSupportedException;
 
 	/**
 	 * Update an existing OAuth2 client based on an HTTP 403 response from an MCP server.

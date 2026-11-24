@@ -56,6 +56,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 
 	private static final String DEFAULT_METADATA_DOCUMENT_URI_TEMPLATE = "{baseUrl}/{registrationId}/client-id-metadata.json";
 
+	private static final String CIMD_SUPPORTED = "client_id_metadata_document_supported";
+
 	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2CimdClientManager.class);
 
 	private final McpMetadataDiscoveryService discoveryService;
@@ -78,7 +80,7 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 
 	@Override
 	public void createClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader, String baseUrl)
-			throws ClientAlreadyExistsException {
+			throws ClientAlreadyExistsException, CimdNotSupportedException {
 		if (this.clientRegistrationRepository.findByRegistrationId(registrationId) != null) {
 			log.debug("Client already exists {}", registrationId);
 			throw new ClientAlreadyExistsException(registrationId);
@@ -103,7 +105,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 		this.clientRegistrationCustomizer = clientRegistrationCustomizer;
 	}
 
-	private ClientRegistration toClientRegistration(String registrationId, McpMetadata mcpMetadata, String baseUrl) {
+	private ClientRegistration toClientRegistration(String registrationId, McpMetadata mcpMetadata, String baseUrl)
+			throws CimdNotSupportedException {
 		Collection<String> scope = Collections.emptySet();
 		if (mcpMetadata.wwwAuthenticateParameters() != null
 				&& StringUtils.hasText(mcpMetadata.wwwAuthenticateParameters().getScope())) {
@@ -133,9 +136,13 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 				.replace("{registrationId}", registrationId))
 			.scope(scope)
 			.build();
+		var configurationMetadata = registration.getProviderDetails().getConfigurationMetadata();
+		if (!Boolean.TRUE.equals(configurationMetadata.get(CIMD_SUPPORTED))) {
+			log.debug("Authorization server {} does not advertise {}", issuerUrl, CIMD_SUPPORTED);
+			throw new CimdNotSupportedException(issuerUrl);
+		}
 		// "no scopes" implies requesting "default scopes": we don't add offline_access
-		if (scope.isEmpty()
-				|| !OfflineAccess.isSupported(registration.getProviderDetails().getConfigurationMetadata())) {
+		if (scope.isEmpty() || !OfflineAccess.isSupported(configurationMetadata)) {
 			return registration;
 		}
 		var scopes = new LinkedHashSet<>(scope);

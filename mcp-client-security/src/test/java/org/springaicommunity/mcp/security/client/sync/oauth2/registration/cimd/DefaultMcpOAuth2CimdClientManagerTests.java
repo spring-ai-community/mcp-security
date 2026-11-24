@@ -62,6 +62,8 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 
 	private static final String OFFLINE_ACCESS_ISSUER_URL = "https://offline.example.com";
 
+	private static final String NO_CIMD_ISSUER_URL = "https://no-cimd.example.com";
+
 	private static final String RESOURCE_ID = "https://mcp.example.com";
 
 	private static final String BASE_URL = "https://app.example.com";
@@ -91,13 +93,15 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 	static void beforeAll() {
 		DefaultMcpOAuth2CimdClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
 		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
-			.thenReturn(ClientRegistration.withRegistrationId("placeholder")
-				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-				.clientId("placeholder")
-				.tokenUri(ISSUER_URL + "/oauth2/token")
-				.authorizationUri(ISSUER_URL + "/oauth2/authorize")
-				.providerConfigurationMetadata(Map.of("token_endpoint", ISSUER_URL + "/oauth2/token",
-						"authorization_endpoint", ISSUER_URL + "/oauth2/authorize")));
+			.thenReturn(
+					ClientRegistration.withRegistrationId("placeholder")
+						.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+						.clientId("placeholder")
+						.tokenUri(ISSUER_URL + "/oauth2/token")
+						.authorizationUri(ISSUER_URL + "/oauth2/authorize")
+						.providerConfigurationMetadata(Map.of("token_endpoint", ISSUER_URL + "/oauth2/token",
+								"authorization_endpoint", ISSUER_URL + "/oauth2/authorize",
+								"client_id_metadata_document_supported", true)));
 		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(OFFLINE_ACCESS_ISSUER_URL))
 			.thenAnswer(invocation -> ClientRegistration.withRegistrationId("placeholder")
 				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
@@ -106,7 +110,15 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 				.authorizationUri(OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize")
 				.providerConfigurationMetadata(Map.of("token_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/token",
 						"authorization_endpoint", OFFLINE_ACCESS_ISSUER_URL + "/oauth2/authorize", "scopes_supported",
-						List.of("mcp:read", "offline_access"))));
+						List.of("mcp:read", "offline_access"), "client_id_metadata_document_supported", true)));
+		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(NO_CIMD_ISSUER_URL))
+			.thenAnswer(invocation -> ClientRegistration.withRegistrationId("placeholder")
+				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+				.clientId("placeholder")
+				.tokenUri(NO_CIMD_ISSUER_URL + "/oauth2/token")
+				.authorizationUri(NO_CIMD_ISSUER_URL + "/oauth2/authorize")
+				.providerConfigurationMetadata(Map.of("token_endpoint", NO_CIMD_ISSUER_URL + "/oauth2/token",
+						"authorization_endpoint", NO_CIMD_ISSUER_URL + "/oauth2/authorize")));
 	}
 
 	@AfterAll
@@ -130,7 +142,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void createClientSuccessfully() throws ClientAlreadyExistsException {
+		void createClientSuccessfully() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
@@ -152,7 +164,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void extractsScopesFromWwwAuthenticateHeader() throws ClientAlreadyExistsException {
+		void extractsScopesFromWwwAuthenticateHeader() throws Exception {
 			String headerWithScopes = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"mcp:read mcp:write\"";
 			var wwwAuthParams = WwwAuthenticateParameters.parse(headerWithScopes);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), List.of("mcp:delete"));
@@ -167,7 +179,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void extractsScopesFromProtectedResourceMetadata() throws ClientAlreadyExistsException {
+		void extractsScopesFromProtectedResourceMetadata() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL),
 					List.of("mcp:tools", "mcp:prompts"));
@@ -182,7 +194,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void addsOfflineAccessWhenSupportedByAuthorizationServer() throws ClientAlreadyExistsException {
+		void addsOfflineAccessWhenSupportedByAuthorizationServer() throws Exception {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(OFFLINE_ACCESS_ISSUER_URL),
 					List.of("mcp:tools", "mcp:prompts"));
 			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
@@ -196,7 +208,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void doesNotAddOfflineAccessWhenNoScopes() throws ClientAlreadyExistsException {
+		void doesNotAddOfflineAccessWhenNoScopes() throws Exception {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(OFFLINE_ACCESS_ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
@@ -206,6 +218,21 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
 			assertThat(registration.getScopes()).isEmpty();
+		}
+
+		@Test
+		void throwsWhenAuthorizationServerDoesNotSupportCimd() {
+			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(NO_CIMD_ISSUER_URL), null);
+			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
+
+			assertThatThrownBy(
+					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+				.isInstanceOf(CimdNotSupportedException.class)
+				.hasMessage("Issuer %s does not support CIMD".formatted(NO_CIMD_ISSUER_URL));
+
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID)).isNull();
 		}
 
 		@Test
@@ -242,7 +269,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void appliesClientRegistrationCustomizer() throws ClientAlreadyExistsException {
+		void appliesClientRegistrationCustomizer() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
