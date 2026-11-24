@@ -139,8 +139,7 @@ public class OAuth2CimdHttpClientTransportCustomizer
 
 		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.authorizedClientManager,
 				this.clientRegistrationRepository, registrationId);
-		var errorHandler = new OAuth2CimdSyncAuthorizationErrorHandler(this.mcpOAuth2CimdClientManager, registrationId,
-				mcpServerUrl);
+		var errorHandler = new OAuth2CimdSyncAuthorizationErrorHandler(this.mcpOAuth2CimdClientManager, registrationId);
 
 		transportBuilder.httpRequestCustomizer(requestCustomizer)
 			.authorizationErrorHandler(McpHttpClientTransportAuthorizationErrorHandler.fromSync(errorHandler));

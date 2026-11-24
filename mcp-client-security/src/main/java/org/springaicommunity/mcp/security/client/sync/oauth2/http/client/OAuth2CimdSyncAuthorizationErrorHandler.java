@@ -68,21 +68,31 @@ public class OAuth2CimdSyncAuthorizationErrorHandler implements McpHttpClientTra
 	 * @param mcpCimdClientManager the CIMD service
 	 * @param registrationId the registration ID that will be used to represent the client
 	 * registration associated with this handler
-	 * @param mcpServerUrl URL of the MCP server
 	 */
 	public OAuth2CimdSyncAuthorizationErrorHandler(McpOAuth2CimdClientManager mcpCimdClientManager,
-			String registrationId, String mcpServerUrl) {
+			String registrationId) {
+		Assert.notNull(mcpCimdClientManager, "mcpCimdClientManager must not be null");
+		Assert.hasText(registrationId, "registrationId must not be empty");
 		this.registrationId = registrationId;
 		this.mcpCimdClientManager = mcpCimdClientManager;
 	}
 
 	/**
-	 * The base URL of the MCP client, in case the URL of the current request is not
+	 * Set the base URL of the MCP client, used when the current servlet request is not
 	 * available in the {@link McpTransportContext}.
-	 * @param fallbackBaseUrl the URL
+	 * <p>
+	 * There is no default value. The base URL is used to build the {@code client_id},
+	 * which is the URL of the client ID metadata document, and the authorization server
+	 * must be able to fetch it. A default such as {@code http://localhost:8080} would
+	 * produce a {@code client_id} that the authorization server cannot resolve. When this
+	 * is not set and no servlet request is available, HTTP 401 responses are not handled.
+	 * <p>
+	 * This must match the base URL served by the
+	 * {@link org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter}.
+	 * @param fallbackBaseUrl the fallback base URL
 	 */
 	public void setFallbackBaseUrl(String fallbackBaseUrl) {
-		Assert.notNull(fallbackBaseUrl, "fallbackBaseUrl cannot be null");
+		Assert.hasText(fallbackBaseUrl, "fallbackBaseUrl must not be empty");
 		this.fallbackBaseUrl = fallbackBaseUrl;
 	}
 
