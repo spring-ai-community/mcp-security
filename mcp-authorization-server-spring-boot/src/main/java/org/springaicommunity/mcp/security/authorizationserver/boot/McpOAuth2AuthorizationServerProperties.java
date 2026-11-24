@@ -28,6 +28,8 @@ class McpOAuth2AuthorizationServerProperties {
 
 	private DynamicClientRegistration dynamicClientRegistration = new DynamicClientRegistration();
 
+	private PublicClientRefreshTokens publicClientRefreshTokens = new PublicClientRefreshTokens();
+
 	public DynamicClientRegistration getDynamicClientRegistration() {
 		return dynamicClientRegistration;
 	}
@@ -36,12 +38,37 @@ class McpOAuth2AuthorizationServerProperties {
 		this.dynamicClientRegistration = dynamicClientRegistration;
 	}
 
+	public PublicClientRefreshTokens getPublicClientRefreshTokens() {
+		return publicClientRefreshTokens;
+	}
+
+	public void setPublicClientRefreshTokens(PublicClientRefreshTokens publicClientRefreshTokens) {
+		this.publicClientRefreshTokens = publicClientRefreshTokens;
+	}
+
 	public static class DynamicClientRegistration {
 
 		/**
 		 * Enable dynamic client registration.
 		 */
 		private boolean enabled = true;
+
+		public boolean isEnabled() {
+			return enabled;
+		}
+
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+
+	}
+
+	public static class PublicClientRefreshTokens {
+
+		/**
+		 * Enable refresh token support for public clients.
+		 */
+		private boolean enabled = false;
 
 		public boolean isEnabled() {
 			return enabled;
