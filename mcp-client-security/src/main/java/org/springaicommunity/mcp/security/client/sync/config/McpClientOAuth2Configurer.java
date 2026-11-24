@@ -27,6 +27,7 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceAuthoriz
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
@@ -258,7 +259,13 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 			var mcpServerUrl = entry.getValue();
 			var registration = DynamicClientRegistrationRequest
 				.authorizationCode(baseUrl + "/authorize/oauth2/code/" + registrationId);
-			clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
+			try {
+				clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
+			}
+			catch (DcrNotSupportedException e) {
+				throw new IllegalStateException("Cannot register client [%s] for MCP server [%s]: %s"
+					.formatted(registrationId, mcpServerUrl, e.getMessage()), e);
+			}
 		}
 	}
 

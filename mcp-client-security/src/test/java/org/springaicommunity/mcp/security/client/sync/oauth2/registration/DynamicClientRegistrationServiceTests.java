@@ -88,7 +88,33 @@ class DynamicClientRegistrationServiceTests {
 	}
 
 	@Test
-	void convertHttpResponse() {
+	void registerThrowsWhenNoRegistrationEndpoint() {
+		var rcBuilder = RestClient.builder();
+		var mockServer = MockRestServiceServer.bindTo(rcBuilder).build();
+		var service = new DynamicClientRegistrationService(rcBuilder.build(), url -> {
+		});
+		var request = DynamicClientRegistrationRequest.builder().build();
+
+		try (MockedStatic<ClientRegistrations> clientRegistrationsMock = mockStatic(ClientRegistrations.class)) {
+			clientRegistrationsMock
+				.when(() -> ClientRegistrations.fromIssuerLocation("https://no-dcr-auth-server.example.com"))
+				.thenReturn(ClientRegistration.withRegistrationId("placeholder")
+					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+					.clientId("placeholder")
+					.tokenUri("https://no-dcr-auth-server.example.com/oauth2/token")
+					.providerConfigurationMetadata(
+							Map.of("token_endpoint", "https://no-dcr-auth-server.example.com/oauth2/token")));
+
+			assertThatThrownBy(() -> service.register(request, "https://no-dcr-auth-server.example.com"))
+				.isInstanceOf(DcrNotSupportedException.class)
+				.hasMessage("Issuer https://no-dcr-auth-server.example.com does not support DCR");
+		}
+
+		mockServer.verify();
+	}
+
+	@Test
+	void convertHttpResponse() throws Exception {
 		var rcBuilder = RestClient.builder();
 		var mockServer = MockRestServiceServer.bindTo(rcBuilder).build();
 		var client = rcBuilder.build();

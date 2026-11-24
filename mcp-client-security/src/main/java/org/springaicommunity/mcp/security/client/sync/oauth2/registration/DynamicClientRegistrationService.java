@@ -70,7 +70,7 @@ public class DynamicClientRegistrationService {
 	}
 
 	public DynamicClientRegistrationResponse register(DynamicClientRegistrationRequest registrationRequest,
-			String authServerUrl) {
+			String authServerUrl) throws DcrNotSupportedException {
 		var registrationEndpoint = findRegistrationEndpoint(authServerUrl);
 		try {
 			urlValidator.validateUrl(registrationEndpoint);
@@ -150,7 +150,7 @@ public class DynamicClientRegistrationService {
 		return parameters;
 	}
 
-	private String findRegistrationEndpoint(String authServerUrl) {
+	private String findRegistrationEndpoint(String authServerUrl) throws DcrNotSupportedException {
 		try {
 			urlValidator.validateUrl(authServerUrl);
 		}
@@ -161,8 +161,8 @@ public class DynamicClientRegistrationService {
 		var builder = ClientRegistrations.fromIssuerLocation(authServerUrl).clientId("~~~~ignored~~~~").build();
 		var registrationEndpoint = builder.getProviderDetails().getConfigurationMetadata().get("registration_endpoint");
 		if (registrationEndpoint == null) {
-			throw new IllegalStateException(
-					"No registration endpoint found for auth server [%s]".formatted(authServerUrl));
+			log.debug("No registration endpoint found for auth server [{}]", authServerUrl);
+			throw new DcrNotSupportedException(authServerUrl);
 		}
 		log.debug("Found registration endpoint [{}]", registrationEndpoint);
 		return registrationEndpoint.toString();

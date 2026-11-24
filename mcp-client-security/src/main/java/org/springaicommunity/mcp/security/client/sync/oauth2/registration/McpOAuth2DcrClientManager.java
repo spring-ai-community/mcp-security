@@ -36,9 +36,11 @@ public interface McpOAuth2DcrClientManager {
 	 * @param mcpServerUrl the URL of the MCP server
 	 * @param dynamicClientRegistrationRequest the request parameters for OAuth2 dynamic
 	 * client registration
+	 * @throws DcrNotSupportedException when the authorization server does not support
+	 * Dynamic Client Registration
 	 */
 	void registerMcpClient(String registrationId, String mcpServerUrl,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest);
+			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException;
 
 	/**
 	 * Register an OAuth2 client for the given MCP server, using a previously obtained
@@ -59,9 +61,11 @@ public interface McpOAuth2DcrClientManager {
 	 * response
 	 * @param dynamicClientRegistrationRequest the request parameters for OAuth2 dynamic
 	 * client registration
+	 * @throws DcrNotSupportedException when the authorization server does not support
+	 * Dynamic Client Registration
 	 */
 	void registerMcpClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest);
+			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException;
 
 	/**
 	 * Update an existing client registration's scopes based on an

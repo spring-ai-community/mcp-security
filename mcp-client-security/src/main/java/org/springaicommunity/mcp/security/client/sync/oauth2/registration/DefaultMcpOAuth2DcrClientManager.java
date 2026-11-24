@@ -92,7 +92,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 
 	@Override
 	public void registerMcpClient(String registrationId, String mcpServerUrl,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
+			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException {
 		Assert.hasText(registrationId, "registrationId cannot be empty");
 		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
 		Assert.notNull(dynamicClientRegistrationRequest, "dynamicClientRegistrationRequest cannot be null");
@@ -107,7 +107,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 
 	@Override
 	public void registerMcpClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
+			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException {
 		Assert.hasText(registrationId, "registrationId cannot be empty");
 		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
 		Assert.hasText(wwwAuthenticateHeader, "wwwAuthenticateHeader cannot be empty");
@@ -129,7 +129,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 
 	private void doRegisterMcpClient(String registrationId, String mcpServerUrl,
 			DynamicClientRegistrationRequest registrationRequest,
-			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters) {
+			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters) throws DcrNotSupportedException {
 		var mcpMetadata = this.discovery.getMcpMetadata(mcpServerUrl, wwwAuthenticateParameters);
 		Assert.notNull(mcpMetadata.protectedResourceMetadata().authorizationServers(),
 				"cannot find authorization_servers from MCP Server's protected resource metadata");

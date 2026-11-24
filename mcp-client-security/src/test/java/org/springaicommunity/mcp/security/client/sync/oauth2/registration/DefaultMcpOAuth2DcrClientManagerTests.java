@@ -123,7 +123,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 	class RegisterMcpClientWithDiscovery {
 
 		@Test
-		void skipsWhenRegistrationAlreadyExists() {
+		void skipsWhenRegistrationAlreadyExists() throws Exception {
 			repository.save(CLIENT_REGISTRATION, RESOURCE_ID);
 			var request = DynamicClientRegistrationRequest.builder().build();
 
@@ -134,7 +134,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
-		void register() {
+		void register() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters
 				.parse("Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
@@ -162,7 +162,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Registers scopes from WWW-Authenticate header when present")
-		void registerScopesFromWwwAuthenticateHeader() {
+		void registerScopesFromWwwAuthenticateHeader() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"mcp:read mcp:write\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), List.of("mcp:delete"));
@@ -178,7 +178,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Registers scopes from Protected Resource Metadata when absent from WWW-Authenticate header")
-		void registerScopesFromProtectedResourceMetadata() {
+		void registerScopesFromProtectedResourceMetadata() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters
 				.parse("Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL),
@@ -195,7 +195,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Registers scopes from user request")
-		void preservesRequestScopesWhenAlreadySet() {
+		void preservesRequestScopesWhenAlreadySet() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"mcp:admin\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), List.of("mcp:tools"));
@@ -211,7 +211,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Does not request offline_access for client_credentials clients")
-		void doesNotRequestOfflineAccessForClientCredentials() {
+		void doesNotRequestOfflineAccessForClientCredentials() throws Exception {
 			var originalRequest = DynamicClientRegistrationRequest.builder().build();
 			var request = registerWithOfflineAccessIssuer(originalRequest);
 
@@ -221,7 +221,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Requests offline_access and refresh_token for authorization_code clients")
-		void requestsOfflineAccessForAuthorizationCode() {
+		void requestsOfflineAccessForAuthorizationCode() throws Exception {
 			var originalRequest = DynamicClientRegistrationRequest.builder()
 				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN))
 				.redirectUris(List.of("https://client.example.com/callback"))
@@ -235,7 +235,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Adds offline_access to scopes set explicitly on the request")
-		void requestsOfflineAccessWithExplicitScopes() {
+		void requestsOfflineAccessWithExplicitScopes() throws Exception {
 			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
 				.scope("mcp:custom")
 				.build();
@@ -247,7 +247,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Does not duplicate offline_access when already requested")
-		void doesNotDuplicateOfflineAccess() {
+		void doesNotDuplicateOfflineAccess() throws Exception {
 			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
 				.scope("mcp:custom offline_access")
 				.build();
@@ -258,7 +258,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Does not request offline_access without the refresh_token grant")
-		void doesNotRequestOfflineAccessWithoutRefreshTokenGrant() {
+		void doesNotRequestOfflineAccessWithoutRefreshTokenGrant() throws Exception {
 			var originalRequest = DynamicClientRegistrationRequest.builder()
 				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE))
 				.redirectUris(List.of("https://client.example.com/callback"))
@@ -271,7 +271,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Does not request offline_access when the authorization server does not list it")
-		void doesNotRequestOfflineAccessWhenUnsupported() {
+		void doesNotRequestOfflineAccessWhenUnsupported() throws Exception {
 			var request = register(ISSUER_URL, "mcp:read", authorizationCodeRequest());
 
 			assertThat(request.getScope()).isEqualTo("mcp:read");
@@ -279,7 +279,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Does not request offline_access when no scopes are found")
-		void doesNotRequestOfflineAccessWithoutScopes() {
+		void doesNotRequestOfflineAccessWithoutScopes() throws Exception {
 			var request = register(OFFLINE_ACCESS_ISSUER_URL, null, authorizationCodeRequest());
 
 			assertThat(request.getScope()).isNull();
@@ -290,7 +290,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		private DynamicClientRegistrationRequest registerWithOfflineAccessIssuer(
-				DynamicClientRegistrationRequest request) {
+				DynamicClientRegistrationRequest request) throws Exception {
 			return register(OFFLINE_ACCESS_ISSUER_URL, "mcp:read", request);
 		}
 
@@ -299,7 +299,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		 * WWW-Authenticate header, and return the request sent to the DCR endpoint.
 		 */
 		private DynamicClientRegistrationRequest register(String issuerUrl, @Nullable String wwwAuthenticateScope,
-				DynamicClientRegistrationRequest request) {
+				DynamicClientRegistrationRequest request) throws Exception {
 			var header = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"";
 			if (wwwAuthenticateScope != null) {
 				header += ", scope=\"" + wwwAuthenticateScope + "\"";
@@ -317,7 +317,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 		@Test
 		@DisplayName("Throws when configuration metadata contains invalid URL")
-		void throwsWhenConfigurationMetadataContainsInvalidUrl() throws InvalidUrlException {
+		void throwsWhenConfigurationMetadataContainsInvalidUrl() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters
 				.parse("Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
@@ -331,8 +331,27 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 				.hasMessage("Invalid token_endpoint [value=%s]: Invalid test url".formatted(tokenUrl));
 		}
 
+		@Test
+		void throwsWhenDcrNotSupported() throws Exception {
+			var wwwAuthParams = WwwAuthenticateParameters
+				.parse("Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"");
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
+			when(discovery.getWwwAuthenticateParameters(MCP_SERVER_URL)).thenReturn(wwwAuthParams);
+			when(discovery.getMcpMetadata(MCP_SERVER_URL, wwwAuthParams))
+				.thenReturn(new McpMetadata(wwwAuthParams, prm));
+			when(clientRegistrationService.register(any(), eq(ISSUER_URL)))
+				.thenThrow(new DcrNotSupportedException(ISSUER_URL));
+
+			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
+					DynamicClientRegistrationRequest.builder().build()))
+				.isInstanceOf(DcrNotSupportedException.class)
+				.hasMessage("Issuer %s does not support DCR".formatted(ISSUER_URL));
+
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID)).isNull();
+		}
+
 		private void configureMocks(@Nullable WwwAuthenticateParameters wwwAuthParams,
-				ProtectedResourceMetadata protectedResourceMetadata, String dcrResponse) {
+				ProtectedResourceMetadata protectedResourceMetadata, String dcrResponse) throws Exception {
 			when(discovery.getWwwAuthenticateParameters(MCP_SERVER_URL)).thenReturn(wwwAuthParams);
 			var mcpMetadata = new McpMetadata(wwwAuthParams, protectedResourceMetadata);
 			when(discovery.getMcpMetadata(MCP_SERVER_URL, wwwAuthParams)).thenReturn(mcpMetadata);
@@ -349,7 +368,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		private static final String WWW_AUTHENTICATE_HEADER = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"";
 
 		@Test
-		void skipsWhenRegistrationAlreadyExists() {
+		void skipsWhenRegistrationAlreadyExists() throws Exception {
 			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
 			var request = DynamicClientRegistrationRequest.builder().build();
 
@@ -360,7 +379,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
-		void register() {
+		void register() throws Exception {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(null, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
@@ -395,13 +414,28 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			assertThat(registration.getClientName()).isEqualTo("MCP Client");
 		}
 
+		@Test
+		void throwsWhenDcrNotSupported() throws Exception {
+			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
+			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(new McpMetadata(null, prm));
+			when(clientRegistrationService.register(any(), eq(ISSUER_URL)))
+				.thenThrow(new DcrNotSupportedException(ISSUER_URL));
+
+			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER,
+					DynamicClientRegistrationRequest.builder().build()))
+				.isInstanceOf(DcrNotSupportedException.class)
+				.hasMessage("Issuer %s does not support DCR".formatted(ISSUER_URL));
+
+			assertThat(repository.findByRegistrationId(REGISTRATION_ID)).isNull();
+		}
+
 	}
 
 	@Nested
 	class UpdateMcpClient {
 
 		@BeforeEach
-		void setUp() {
+		void setUp() throws Exception {
 			repository.save(CLIENT_REGISTRATION, RESOURCE_ID);
 		}
 
@@ -411,7 +445,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		 * @see ScopeStepUpTests
 		 */
 		@Test
-		void updateScopes() {
+		void updateScopes() throws Exception {
 			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
 
 			boolean result = manager.updateMcpClient(REGISTRATION_ID,
@@ -429,7 +463,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 	class RegisterClientResponseHandling {
 
 		@Test
-		void usesResponseValuesOverRequestValues() {
+		void usesResponseValuesOverRequestValues() throws Exception {
 			configureMocks("""
 					{
 						"client_id": "response-client-id",
@@ -465,7 +499,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
-		void fallsBackToRequestValuesWhenResponseValuesAreNull() {
+		void fallsBackToRequestValuesWhenResponseValuesAreNull() throws Exception {
 			configureMocks(DCR_RESPONSE);
 
 			var request = DynamicClientRegistrationRequest.builder()
@@ -490,7 +524,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
-		void defaultsToClientCredentialsWhenNoGrantTypes() {
+		void defaultsToClientCredentialsWhenNoGrantTypes() throws Exception {
 			configureMocks(DCR_RESPONSE);
 
 			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
@@ -502,7 +536,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			assertThat(saved.getAuthorizationGrantType()).isEqualTo(AuthorizationGrantType.CLIENT_CREDENTIALS);
 		}
 
-		private void configureMocks(String dcrResponse) {
+		private void configureMocks(String dcrResponse) throws Exception {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(null, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);

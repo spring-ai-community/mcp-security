@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
@@ -180,7 +181,7 @@ class DynamicClientRegistrationTests {
 
 	@Test
 	@DisplayName("Use access token without offline_access in its scopes, without reauthorization")
-	void callsToolWhenOfflineAccessIsAbsentFromTokenScopes() throws IOException {
+	void callsToolWhenOfflineAccessIsAbsentFromTokenScopes() throws IOException, DcrNotSupportedException {
 		var registrationId = UUID.randomUUID().toString();
 		var clientName = "offline-access-client";
 		ensureAuthServerLogin();

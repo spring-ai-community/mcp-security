@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
@@ -257,7 +258,7 @@ public abstract class StreamableHttpAbstractTests {
 	@DisplayName("Enforces sessions binding")
 	// Stateless transport does not have session IDs
 	@EnabledIf(value = "#{'${mcp.server.protocol}'.equals('STREAMABLE')}", loadContext = true)
-	void sessionBinding() {
+	void sessionBinding() throws DcrNotSupportedException {
 		var firstRegistrationId = "first";
 		mcpClientManager.registerMcpClient(firstRegistrationId, mcpServerUrl + "/mcp",
 				DynamicClientRegistrationRequest.builder()

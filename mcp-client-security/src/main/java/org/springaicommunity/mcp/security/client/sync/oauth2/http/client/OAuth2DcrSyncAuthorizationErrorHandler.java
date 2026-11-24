@@ -25,6 +25,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 
@@ -133,8 +134,14 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 	private void handleUnauthorized(String mcpServerUrl, String wwwAuthenticateHeader, McpTransportContext context) {
 		log.debug("Handling 401 Unauthorized for client [{}]", this.registrationId);
 		var registrationRequest = resolveRegistrationRequest(context);
-		this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader,
-				registrationRequest);
+		try {
+			this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader,
+					registrationRequest);
+		}
+		catch (DcrNotSupportedException e) {
+			log.debug("DCR not supported for MCP server at {}", mcpServerUrl);
+			return;
+		}
 		log.debug("Client [{}] registered, triggering authorization", this.registrationId);
 		// client changed, retry
 		throw new ClientAuthorizationRequiredException(this.registrationId);
