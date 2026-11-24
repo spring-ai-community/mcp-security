@@ -43,6 +43,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationContext;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationValidator;
 import org.springframework.security.oauth2.server.authorization.mcp.token.ResourceIdentifierAudienceTokenCustomizer;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
@@ -73,6 +74,8 @@ public class McpAuthorizationServerConfigurer
 	private Consumer<OAuth2ClientRegistrationAuthenticationContext> clientRegistrationValidator = new OAuth2ClientRegistrationAuthenticationValidator();
 
 	private Consumer<OAuth2AuthorizationCodeRequestAuthenticationContext> authorizationCodeRequestValidator = new OAuth2AuthorizationCodeRequestAuthenticationValidator();
+
+	private @Nullable Consumer<TokenSettings.Builder> registeredClientTokenSettingsCustomizer;
 
 	public static McpAuthorizationServerConfigurer mcpAuthorizationServer() {
 		return new McpAuthorizationServerConfigurer();
@@ -139,8 +142,23 @@ public class McpAuthorizationServerConfigurer
 		return this;
 	}
 
+	/**
+	 * Customize the {@link TokenSettings} for dynamically registered clients.
+	 * @param registeredClientTokenSettingsCustomizer a {@link Consumer} of
+	 * {@link TokenSettings.Builder}
+	 * @return The {@link McpAuthorizationServerConfigurer} for further configuration.
+	 */
+	public McpAuthorizationServerConfigurer registeredClientTokenSettings(
+			Consumer<TokenSettings.Builder> registeredClientTokenSettingsCustomizer) {
+		Assert.notNull(registeredClientTokenSettingsCustomizer,
+				"registeredClientTokenSettingsCustomizer cannot be null");
+		this.registeredClientTokenSettingsCustomizer = registeredClientTokenSettingsCustomizer;
+		return this;
+	}
+
 	@Override
 	public void init(HttpSecurity http) {
+		var tokenSettingsCustomizer = this.registeredClientTokenSettingsCustomizer;
 		http.authorizeHttpRequests(authz -> {
 			if (this.supportDynamicClientRegistration) {
 				authz.withObjectPostProcessor(McpOpenClientRegistryAuthorizationManager.postProcessor());
@@ -151,6 +169,10 @@ public class McpAuthorizationServerConfigurer
 					new McpAuthorizationCodeRequestValidatorPostProcessor(this.authorizationCodeRequestValidator));
 			authServer.addObjectPostProcessor(
 					new McpClientRegistrationValidatorPostProcessor(this.clientRegistrationValidator));
+			if (tokenSettingsCustomizer != null) {
+				authServer.addObjectPostProcessor(
+						new McpClientRegistrationTokenSettingsPostProcessor(tokenSettingsCustomizer));
+			}
 			authServer.authorizationServerMetadataEndpoint(metadataEndpoint -> {
 				if (this.supportClientIdMetadataDocument) {
 					metadataEndpoint.authorizationServerMetadataCustomizer(

@@ -74,6 +74,8 @@ class McpAuthorizationServerAutoConfiguration {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
 			.with(mcpAuthorizationServer(), mcp -> {
 				mcp.dynamicClientRegistration(properties.getDynamicClientRegistration().isEnabled());
+				mcp.registeredClientTokenSettings(
+						OAuth2AuthorizationServerPropertiesMapper.asTokenSettingsCustomizer(properties.getToken()));
 				mcpCustomizers.orderedStream().forEach(customizer -> customizer.customize(mcp));
 				mcp.authorizationServer(authzServer -> {
 					http.securityMatcher(new OrRequestMatcher(authzServer.getEndpointsMatcher(),

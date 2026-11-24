@@ -1339,6 +1339,31 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) {
 }
 ```
 
+You can also customize the `TokenSettings` applied to dynamically registered clients. With Boot auto-configuration, set `spring.ai.mcp.authorizationserver.token.*` properties:
+
+```properties
+spring.ai.mcp.authorizationserver.token.access-token-time-to-live=10m
+spring.ai.mcp.authorizationserver.token.refresh-token-time-to-live=30d
+spring.ai.mcp.authorizationserver.token.reuse-refresh-tokens=false
+```
+
+Or configure it directly on `McpAuthorizationServerConfigurer`:
+
+```java
+@Bean
+SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    return http
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .with(McpAuthorizationServerConfigurer.mcpAuthorizationServer(), mcp -> {
+                mcp.registeredClientTokenSettings(tokenSettings -> tokenSettings
+                        .accessTokenTimeToLive(Duration.ofMinutes(10))
+                        .refreshTokenTimeToLive(Duration.ofDays(30))
+                        .reuseRefreshTokens(false));
+            })
+            .build();
+}
+```
+
 ### Client ID Metadata Document (CIMD)
 
 CIMD is an alternative to DCR where the client identifies itself with a URL pointing to a metadata document
