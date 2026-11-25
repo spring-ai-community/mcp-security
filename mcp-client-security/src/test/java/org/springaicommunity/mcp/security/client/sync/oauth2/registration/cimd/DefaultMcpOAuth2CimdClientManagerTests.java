@@ -148,6 +148,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			assertThat(savedRegistration.getClientAuthenticationMethod()).isEqualTo(ClientAuthenticationMethod.NONE);
 			assertThat(savedRegistration.getRedirectUri())
 				.isEqualTo("https://app.example.com/authorize/oauth2/code/test-registration");
+			assertThat(savedRegistration.getClientSettings().isRequireProofKey()).isTrue();
 			assertThat(repository.findResourceIdByRegistrationId(REGISTRATION_ID)).isEqualTo(RESOURCE_ID);
 		}
 
