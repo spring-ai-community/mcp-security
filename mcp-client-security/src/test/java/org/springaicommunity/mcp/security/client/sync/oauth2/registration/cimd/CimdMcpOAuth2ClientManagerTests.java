@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.ProtectedResourceMetadata;
@@ -52,7 +53,7 @@ import static org.mockito.Mockito.when;
 /**
  * @author Daniel Garnier-Moiroux
  */
-class DefaultMcpOAuth2CimdClientManagerTests {
+class CimdMcpOAuth2ClientManagerTests {
 
 	private static final String REGISTRATION_ID = "test-registration";
 
@@ -86,12 +87,12 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 
 	private final UrlValidator urlValidator = mock(UrlValidator.class);
 
-	private final DefaultMcpOAuth2CimdClientManager manager = new DefaultMcpOAuth2CimdClientManager(this.discovery,
-			this.repository, this.urlValidator);
+	private final CimdMcpOAuth2ClientManager manager = new CimdMcpOAuth2ClientManager(this.discovery, this.repository,
+			this.urlValidator);
 
 	@BeforeAll
 	static void beforeAll() {
-		DefaultMcpOAuth2CimdClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
+		CimdMcpOAuth2ClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
 		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
 			.thenReturn(
 					ClientRegistration.withRegistrationId("placeholder")
@@ -123,18 +124,18 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 
 	@AfterAll
 	static void afterAll() {
-		DefaultMcpOAuth2CimdClientManagerTests.clientRegistrationsMock.close();
+		CimdMcpOAuth2ClientManagerTests.clientRegistrationsMock.close();
 	}
 
 	@Nested
-	class CreateClient {
+	class RegisterClient {
 
 		@Test
 		void throwsWhenRegistrationAlreadyExists() {
 			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
 
 			assertThatThrownBy(
-					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(ClientAlreadyExistsException.class)
 				.hasMessageContaining(REGISTRATION_ID);
 
@@ -142,13 +143,13 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		}
 
 		@Test
-		void createClientSuccessfully() throws Exception {
+		void registerClientSuccessfully() throws Exception {
 			var wwwAuthParams = WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER);
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), null);
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var savedRegistration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(savedRegistration).isNotNull();
@@ -171,7 +172,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, headerWithScopes, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, headerWithScopes, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -186,7 +187,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -200,7 +201,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -213,7 +214,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var mcpMetadata = new McpMetadata(WwwAuthenticateParameters.parse(WWW_AUTHENTICATE_HEADER), prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -228,7 +229,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
 			assertThatThrownBy(
-					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(CimdNotSupportedException.class)
 				.hasMessage("Issuer %s does not support CIMD".formatted(NO_CIMD_ISSUER_URL));
 
@@ -246,7 +247,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			doThrow(new InvalidUrlException("Invalid test url", tokenUrl)).when(urlValidator).validateUrl(tokenUrl);
 
 			assertThatThrownBy(
-					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessage("Invalid token_endpoint [value=%s]: Invalid test url".formatted(tokenUrl));
 		}
@@ -261,7 +262,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			doThrow(new InvalidUrlException("Invalid test url", ISSUER_URL)).when(urlValidator).validateUrl(ISSUER_URL);
 
 			assertThatThrownBy(
-					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessage("Invalid authorization server URL: Invalid test url");
 
@@ -275,12 +276,9 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			var mcpMetadata = new McpMetadata(wwwAuthParams, prm);
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
-			manager.setClientRegistrationCustomizer(
-					clientRegistration -> ClientRegistration.withClientRegistration(clientRegistration)
-						.clientName("Custom Name")
-						.build());
+			manager.setClientRegistrationCustomizer(registration -> registration.clientName("Custom Name"));
 
-			manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -295,7 +293,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 			when(discovery.getMcpMetadata(eq(MCP_SERVER_URL), any())).thenReturn(mcpMetadata);
 
 			assertThatThrownBy(
-					() -> manager.createClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("Protected Resource Metadata must expose at least one authorization server");
 		}
@@ -314,7 +312,7 @@ class DefaultMcpOAuth2CimdClientManagerTests {
 		void updateScopes() {
 			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
 
-			boolean result = manager.updateClient(REGISTRATION_ID,
+			boolean result = manager.updateScopes(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();

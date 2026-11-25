@@ -32,6 +32,7 @@ import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
+import org.springframework.security.config.Customizer;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -41,19 +42,21 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * Default implementation of {@link McpOAuth2DcrClientManager} that delegates storage to a
- * {@link McpClientRegistrationRepository} and uses {@link McpMetadataDiscoveryService}
- * and {@link DynamicClientRegistrationService} to discover MCP server metadata and
- * perform dynamic client registration.
+ * An {@link McpOAuth2ClientManager} that obtains clients with OAuth2 Dynamic Client
+ * Registration. It delegates storage to a {@link McpClientRegistrationRepository} and
+ * uses {@link McpMetadataDiscoveryService} and {@link DynamicClientRegistrationService}
+ * to discover MCP server metadata and perform dynamic client registration.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManager {
+public class DcrMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 
-	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2DcrClientManager.class);
+	private static final Logger log = LoggerFactory.getLogger(DcrMcpOAuth2ClientManager.class);
+
+	private static final String DEFAULT_REDIRECT_URI_TEMPLATE = "{baseUrl}/authorize/oauth2/code/{registrationId}";
 
 	private final DynamicClientRegistrationService clientRegistrationService;
 
@@ -65,18 +68,23 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 
 	private final ScopeStepUp scopeStepUp;
 
+	private Customizer<DynamicClientRegistrationRequest.Builder> registrationRequestCustomizer = Customizer
+		.withDefaults();
+
+	private Customizer<ClientRegistration.Builder> clientRegistrationCustomizer = Customizer.withDefaults();
+
 	/**
-	 * @deprecated use {@link DefaultMcpOAuth2DcrClientManager
-	 * (McpClientRegistrationRepository, DynamicClientRegistrationService,
-	 * McpMetadataDiscoveryService, UrlValidator)} instead.
+	 * @deprecated use {@link DcrMcpOAuth2ClientManager (McpClientRegistrationRepository,
+	 * DynamicClientRegistrationService, McpMetadataDiscoveryService, UrlValidator)}
+	 * instead.
 	 */
 	@Deprecated
-	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
+	public DcrMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery) {
 		this(repository, clientRegistrationService, discovery, new DefaultUrlValidator());
 	}
 
-	public DefaultMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository,
+	public DcrMcpOAuth2ClientManager(McpClientRegistrationRepository repository,
 			DynamicClientRegistrationService clientRegistrationService, McpMetadataDiscoveryService discovery,
 			UrlValidator urlValidator) {
 		Assert.notNull(repository, "repository cannot be null");
@@ -90,46 +98,100 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		this.scopeStepUp = new ScopeStepUp(repository);
 	}
 
+	/**
+	 * Register an OAuth2 client for the given MCP server just in time, on a {@code 401}
+	 * response.
+	 * <p>
+	 * The registration request is an {@code authorization_code} request, see
+	 * {@link DynamicClientRegistrationRequest#authorizationCode(String)}, with the
+	 * redirect URI {@code {baseUrl}/authorize/oauth2/code/{registrationId}}. Change it
+	 * with {@link #setRegistrationRequestCustomizer(Customizer)}.
+	 *
+	 * @see <a href=
+	 * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization#dynamic-client-registration">Dynamic
+	 * client registration</a>
+	 */
 	@Override
-	public void registerMcpClient(String registrationId, String mcpServerUrl,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException {
-		Assert.hasText(registrationId, "registrationId cannot be empty");
-		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
-		Assert.notNull(dynamicClientRegistrationRequest, "dynamicClientRegistrationRequest cannot be null");
-		if (this.repository.findByRegistrationId(registrationId) != null) {
-			log.debug("Client registration [{}] already exists, skipping", registrationId);
-			return;
-		}
-		log.debug("Registering MCP client [{}] for server [{}] via metadata discovery", registrationId, mcpServerUrl);
-		var wwwAuthenticateParameters = this.discovery.getWwwAuthenticateParameters(mcpServerUrl);
-		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
-	}
-
-	@Override
-	public void registerMcpClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) throws DcrNotSupportedException {
-		Assert.hasText(registrationId, "registrationId cannot be empty");
-		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
+	public void registerClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader, String baseUrl)
+			throws ClientAlreadyExistsException, DcrNotSupportedException {
 		Assert.hasText(wwwAuthenticateHeader, "wwwAuthenticateHeader cannot be empty");
-		Assert.notNull(dynamicClientRegistrationRequest, "dynamicClientRegistrationRequest cannot be null");
-		if (this.repository.findByRegistrationId(registrationId) != null) {
-			log.debug("Client registration [{}] already exists, skipping", registrationId);
-			return;
-		}
 		log.debug("Registering MCP client [{}] for server [{}] from WWW-Authenticate header", registrationId,
 				mcpServerUrl);
-		var wwwAuthenticateParameters = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
-		doRegisterMcpClient(registrationId, mcpServerUrl, dynamicClientRegistrationRequest, wwwAuthenticateParameters);
+		Assert.hasText(registrationId, "registrationId cannot be empty");
+		Assert.hasText(baseUrl, "baseUrl cannot be empty");
+		doRegisterClient(registrationId, mcpServerUrl, registrationRequest(registrationId, baseUrl),
+				WwwAuthenticateParameters.parse(wwwAuthenticateHeader));
+	}
+
+	/**
+	 * Register an OAuth2 client for the given MCP server ahead of time, before calling
+	 * the MCP server. The authorization server is discovered by calling the MCP server's
+	 * resource metadata endpoint.
+	 * <p>
+	 * The registration request is sent as given: the customizer set with
+	 * {@link #setRegistrationRequestCustomizer(Customizer)} is not applied. When the
+	 * request has no scopes, they are discovered from the MCP server. The
+	 * {@code offline_access} scope may be added when the request has the
+	 * {@code refresh_token} grant and the authorization server supports it.
+	 * @param registrationId the unique identifier for this client registration
+	 * @param mcpServerUrl the URL of the MCP server
+	 * @param registrationRequest the Dynamic Client Registration request, for example
+	 * {@link DynamicClientRegistrationRequest#authorizationCode(String)}
+	 * @throws ClientAlreadyExistsException when a client with this registration ID exists
+	 * already
+	 * @throws DcrNotSupportedException when the authorization server does not support
+	 * Dynamic Client Registration
+	 */
+	public void registerClient(String registrationId, String mcpServerUrl,
+			DynamicClientRegistrationRequest registrationRequest)
+			throws ClientAlreadyExistsException, DcrNotSupportedException {
+		Assert.notNull(registrationRequest, "registrationRequest cannot be null");
+		log.debug("Registering MCP client [{}] for server [{}] via metadata discovery", registrationId, mcpServerUrl);
+		doRegisterClient(registrationId, mcpServerUrl, registrationRequest, null);
 	}
 
 	@Override
-	public boolean updateMcpClient(String registrationId, String wwwAuthenticateHeader) {
+	public boolean updateScopes(String registrationId, String wwwAuthenticateHeader) {
 		return scopeStepUp.updateOAuth2ClientScopes(registrationId, wwwAuthenticateHeader);
 	}
 
-	private void doRegisterMcpClient(String registrationId, String mcpServerUrl,
+	/**
+	 * Customize the Dynamic Client Registration request built by
+	 * {@link #registerClient(String, String, String, String)}, before it is sent. Scopes
+	 * set here take precedence over the scopes discovered from the MCP server. It does
+	 * not apply to
+	 * {@link #registerClient(String, String, DynamicClientRegistrationRequest)}.
+	 * @param registrationRequestCustomizer the customizer of the request
+	 */
+	public void setRegistrationRequestCustomizer(
+			Customizer<DynamicClientRegistrationRequest.Builder> registrationRequestCustomizer) {
+		Assert.notNull(registrationRequestCustomizer, "registrationRequestCustomizer cannot be null");
+		this.registrationRequestCustomizer = registrationRequestCustomizer;
+	}
+
+	/**
+	 * Customize the {@link ClientRegistration} built from the Dynamic Client Registration
+	 * response, before it is saved.
+	 * @param clientRegistrationCustomizer the customizer of the client registration
+	 */
+	public void setClientRegistrationCustomizer(Customizer<ClientRegistration.Builder> clientRegistrationCustomizer) {
+		Assert.notNull(clientRegistrationCustomizer, "clientRegistrationCustomizer cannot be null");
+		this.clientRegistrationCustomizer = clientRegistrationCustomizer;
+	}
+
+	private void doRegisterClient(String registrationId, String mcpServerUrl,
 			DynamicClientRegistrationRequest registrationRequest,
-			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters) throws DcrNotSupportedException {
+			@Nullable WwwAuthenticateParameters wwwAuthenticateParameters)
+			throws ClientAlreadyExistsException, DcrNotSupportedException {
+		Assert.hasText(registrationId, "registrationId cannot be empty");
+		Assert.hasText(mcpServerUrl, "mcpServerUrl cannot be empty");
+		if (this.repository.findByRegistrationId(registrationId) != null) {
+			log.debug("Client registration [{}] already exists", registrationId);
+			throw new ClientAlreadyExistsException(registrationId);
+		}
+		if (wwwAuthenticateParameters == null) {
+			wwwAuthenticateParameters = this.discovery.getWwwAuthenticateParameters(mcpServerUrl);
+		}
 		var mcpMetadata = this.discovery.getMcpMetadata(mcpServerUrl, wwwAuthenticateParameters);
 		Assert.notNull(mcpMetadata.protectedResourceMetadata().authorizationServers(),
 				"cannot find authorization_servers from MCP Server's protected resource metadata");
@@ -143,8 +205,10 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		var registrationResponse = this.clientRegistrationService.register(registrationRequest, issuerUrl);
 		log.debug("Dynamic client registration successful for registration [{}], clientId=[{}]", registrationId,
 				registrationResponse.clientId());
-		var clientRegistration = toClientRegistration(registrationId, registrationRequest, registrationResponse,
+		var clientRegistrationBuilder = toClientRegistration(registrationId, registrationRequest, registrationResponse,
 				autoconfiguredRegistration);
+		this.clientRegistrationCustomizer.customize(clientRegistrationBuilder);
+		var clientRegistration = clientRegistrationBuilder.build();
 		validateClientRegistration(clientRegistration);
 		this.repository.save(clientRegistration, mcpMetadata.protectedResourceMetadata().resource());
 	}
@@ -201,7 +265,17 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 		return String.join(" ", requestedScopes);
 	}
 
-	private static ClientRegistration toClientRegistration(String registrationId,
+	private DynamicClientRegistrationRequest registrationRequest(String registrationId, String baseUrl) {
+		var redirectUri = DEFAULT_REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
+			.replace("{registrationId}", registrationId);
+		var builder = DynamicClientRegistrationRequest.builder()
+			.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN))
+			.redirectUris(List.of(redirectUri));
+		this.registrationRequestCustomizer.customize(builder);
+		return builder.build();
+	}
+
+	private static ClientRegistration.Builder toClientRegistration(String registrationId,
 			DynamicClientRegistrationRequest registrationRequest,
 			DynamicClientRegistrationResponse registrationResponse, ClientRegistration originalRegistration) {
 		ClientRegistration.Builder registrationBuilder = ClientRegistration.withClientRegistration(originalRegistration)
@@ -247,7 +321,7 @@ public class DefaultMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManag
 			registrationBuilder.clientName(registrationRequest.getClientName());
 		}
 
-		return registrationBuilder.build();
+		return registrationBuilder;
 	}
 
 	private static final List<AuthorizationGrantType> GRANT_TYPE_PREFERENCE = List.of(

@@ -20,19 +20,22 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OfflineAccess;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUp;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
+import org.springframework.security.config.Customizer;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -42,15 +45,18 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * Default implementation for {@link McpOAuth2CimdClientManager}, storing clients in an
- * {@link McpClientRegistrationRepository}.
+ * An {@link McpOAuth2ClientManager} that registers clients with an OAuth2 Client ID
+ * Metadata Document, storing clients in an {@link McpClientRegistrationRepository}. The
+ * {@code client_id} is the URL of the document,
+ * {@code {baseUrl}/{registrationId}/client-id-metadata.json}, served by
+ * {@link OAuth2CimdEndpointFilter}.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP
  * Specification: authorization</a>
  */
-public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientManager {
+public class CimdMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 
 	private static final String DEFAULT_REDIRECT_URI_TEMPLATE = "{baseUrl}/authorize/oauth2/code/{registrationId}";
 
@@ -58,19 +64,19 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 
 	private static final String CIMD_SUPPORTED = "client_id_metadata_document_supported";
 
-	private static final Logger log = LoggerFactory.getLogger(DefaultMcpOAuth2CimdClientManager.class);
+	private static final Logger log = LoggerFactory.getLogger(CimdMcpOAuth2ClientManager.class);
 
 	private final McpMetadataDiscoveryService discoveryService;
 
 	private final McpClientRegistrationRepository clientRegistrationRepository;
 
-	private Function<ClientRegistration, ClientRegistration> clientRegistrationCustomizer = Function.identity();
+	private Customizer<ClientRegistration.Builder> clientRegistrationCustomizer = Customizer.withDefaults();
 
 	private final UrlValidator urlValidator;
 
 	private final ScopeStepUp scopeStepUp;
 
-	public DefaultMcpOAuth2CimdClientManager(McpMetadataDiscoveryService discoveryService,
+	public CimdMcpOAuth2ClientManager(McpMetadataDiscoveryService discoveryService,
 			McpClientRegistrationRepository clientRegistrationRepository, UrlValidator urlValidator) {
 		this.discoveryService = discoveryService;
 		this.clientRegistrationRepository = clientRegistrationRepository;
@@ -79,34 +85,38 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 	}
 
 	@Override
-	public void createClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader, String baseUrl)
+	public void registerClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader, String baseUrl)
 			throws ClientAlreadyExistsException, CimdNotSupportedException {
 		if (this.clientRegistrationRepository.findByRegistrationId(registrationId) != null) {
 			log.debug("Client already exists {}", registrationId);
 			throw new ClientAlreadyExistsException(registrationId);
 		}
-		var metadata = this.discoveryService.getMcpMetadata(mcpServerUrl,
-				WwwAuthenticateParameters.parse(wwwAuthenticateHeader));
-		var clientReg = this.clientRegistrationCustomizer
-			.apply(toClientRegistration(registrationId, metadata, baseUrl));
+		var wwwAuthParams = WwwAuthenticateParameters.parse(wwwAuthenticateHeader);
+		var metadata = this.discoveryService.getMcpMetadata(mcpServerUrl, wwwAuthParams);
+		var builder = toClientRegistration(registrationId, metadata, baseUrl);
+		this.clientRegistrationCustomizer.customize(builder);
+		var clientReg = builder.build();
 		validateClientRegistration(clientReg);
 		log.debug("Saving client registration {}", clientReg);
 		this.clientRegistrationRepository.save(clientReg, metadata.protectedResourceMetadata().resource());
 	}
 
 	@Override
-	public boolean updateClient(String registrationId, String wwwAuthenticateHeader) {
+	public boolean updateScopes(String registrationId, String wwwAuthenticateHeader) {
 		return scopeStepUp.updateOAuth2ClientScopes(registrationId, wwwAuthenticateHeader);
 	}
 
-	public void setClientRegistrationCustomizer(
-			Function<ClientRegistration, ClientRegistration> clientRegistrationCustomizer) {
+	/**
+	 * Customize the {@link ClientRegistration}, before it is saved.
+	 * @param clientRegistrationCustomizer the customizer of the client registration
+	 */
+	public void setClientRegistrationCustomizer(Customizer<ClientRegistration.Builder> clientRegistrationCustomizer) {
 		Assert.notNull(clientRegistrationCustomizer, "clientRegistrationCustomizer must not be null");
 		this.clientRegistrationCustomizer = clientRegistrationCustomizer;
 	}
 
-	private ClientRegistration toClientRegistration(String registrationId, McpMetadata mcpMetadata, String baseUrl)
-			throws CimdNotSupportedException {
+	private ClientRegistration.Builder toClientRegistration(String registrationId, McpMetadata mcpMetadata,
+			String baseUrl) throws CimdNotSupportedException {
 		Collection<String> scope = Collections.emptySet();
 		if (mcpMetadata.wwwAuthenticateParameters() != null
 				&& StringUtils.hasText(mcpMetadata.wwwAuthenticateParameters().getScope())) {
@@ -134,9 +144,8 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 			.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
 			.redirectUri(DEFAULT_REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
 				.replace("{registrationId}", registrationId))
-			.scope(scope)
-			.build();
-		var configurationMetadata = registration.getProviderDetails().getConfigurationMetadata();
+			.scope(scope);
+		var configurationMetadata = registration.build().getProviderDetails().getConfigurationMetadata();
 		if (!Boolean.TRUE.equals(configurationMetadata.get(CIMD_SUPPORTED))) {
 			log.debug("Authorization server {} does not advertise {}", issuerUrl, CIMD_SUPPORTED);
 			throw new CimdNotSupportedException(issuerUrl);
@@ -147,14 +156,11 @@ public class DefaultMcpOAuth2CimdClientManager implements McpOAuth2CimdClientMan
 		}
 		var scopes = new LinkedHashSet<>(scope);
 		scopes.add(OfflineAccess.OFFLINE_ACCESS);
-		return ClientRegistration.withClientRegistration(registration).scope(scopes).build();
+		return registration.scope(scopes);
 	}
 
 	private void validateClientRegistration(ClientRegistration clientRegistration) {
 		var configuration = clientRegistration.getProviderDetails().getConfigurationMetadata();
-		if (configuration == null) {
-			return;
-		}
 		var uris = List.of("authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri");
 		for (var uri : uris) {
 			var url = configuration.get(uri);

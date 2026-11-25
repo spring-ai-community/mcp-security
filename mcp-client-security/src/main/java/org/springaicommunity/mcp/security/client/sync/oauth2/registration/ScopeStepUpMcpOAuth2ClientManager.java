@@ -16,44 +16,40 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdMcpOAuth2ClientManager;
+
 /**
- * Partial implementation of {@link McpOAuth2DcrClientManager} that does not support
- * dynamic client registration. Delegates storage to a
- * {@link McpClientRegistrationRepository}. For full DCR support, see
- * {@link DefaultMcpOAuth2DcrClientManager}.
+ * Partial implementation of {@link McpOAuth2ClientManager} that only steps up scopes, and
+ * does not register clients. Delegates storage to a
+ * {@link McpClientRegistrationRepository}. For full support, see either
+ * {@link DcrMcpOAuth2ClientManager} or {@link CimdMcpOAuth2ClientManager}.
  * <p>
- * Other methods throw when called.
+ * {@link #registerClient(String, String, String, String)} throws when called.
  *
  * @author Daniel Garnier-Moiroux
  * @see <a href=
  * "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization">MCP -
  * Authorization</a>
  */
-public class ScopeStepUpMcpOAuth2DcrClientManager implements McpOAuth2DcrClientManager {
+public class ScopeStepUpMcpOAuth2ClientManager implements McpOAuth2ClientManager {
 
 	protected final McpClientRegistrationRepository repository;
 
 	private final ScopeStepUp scopeStepUp;
 
-	public ScopeStepUpMcpOAuth2DcrClientManager(McpClientRegistrationRepository repository) {
+	public ScopeStepUpMcpOAuth2ClientManager(McpClientRegistrationRepository repository) {
 		this.repository = repository;
 		this.scopeStepUp = new ScopeStepUp(repository);
 	}
 
 	@Override
-	public void registerMcpClient(String registrationId, String mcpServerUrl,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
-		throw new IllegalStateException("Dynamic client registration is not supported");
+	public void registerClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader,
+			String baseUrl) {
+		throw new IllegalStateException("Client registration is not supported");
 	}
 
 	@Override
-	public void registerMcpClient(String registrationId, String mcpServerUrl, String wwwAuthenticateHeader,
-			DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
-		throw new IllegalStateException("Dynamic client registration is not supported");
-	}
-
-	@Override
-	public boolean updateMcpClient(String registrationId, String wwwAuthenticateHeader) {
+	public boolean updateScopes(String registrationId, String wwwAuthenticateHeader) {
 		return this.scopeStepUp.updateOAuth2ClientScopes(registrationId, wwwAuthenticateHeader);
 	}
 

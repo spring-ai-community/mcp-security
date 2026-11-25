@@ -24,7 +24,7 @@ import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTranspor
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -38,8 +38,9 @@ import org.springframework.util.ReflectionUtils;
  * <p>
  * For each MCP client connection, this customizer applies an
  * {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer} (to attach a Bearer token to
- * outgoing requests) and an {@link OAuth2CimdSyncAuthorizationErrorHandler} (to handle
- * HTTP 401/403 responses and enable CIMD).
+ * outgoing requests) and an {@link OAuth2SyncAuthorizationErrorHandler} (to handle HTTP
+ * 401/403 responses, registering clients and stepping up scopes through an
+ * {@link McpOAuth2ClientManager}).
  * <p>
  * The OAuth2 client {@code registrationId} to use for each transport can be configured in
  * two ways:
@@ -56,18 +57,18 @@ import org.springframework.util.ReflectionUtils;
  *
  * @author Daniel Garnier-Moiroux
  * @see OAuth2AuthorizationCodeSyncHttpRequestCustomizer
- * @see OAuth2CimdSyncAuthorizationErrorHandler
+ * @see OAuth2SyncAuthorizationErrorHandler
  */
-public class OAuth2CimdHttpClientTransportCustomizer
+public class OAuth2HttpClientTransportCustomizer
 		implements McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> {
 
-	private static final Logger log = LoggerFactory.getLogger(OAuth2CimdHttpClientTransportCustomizer.class);
+	private static final Logger log = LoggerFactory.getLogger(OAuth2HttpClientTransportCustomizer.class);
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
 	private final ClientRegistrationRepository clientRegistrationRepository;
 
-	private final McpOAuth2CimdClientManager mcpOAuth2CimdClientManager;
+	private final McpOAuth2ClientManager mcpOAuth2ClientManager;
 
 	private final Function<String, @Nullable String> registrationIdResolver;
 
@@ -76,12 +77,12 @@ public class OAuth2CimdHttpClientTransportCustomizer
 	 * registration ID for each transport.
 	 * @param authorizedClientManager the authorized client manager
 	 * @param clientRegistrationRepository the client registration repository
-	 * @param mcpOAuth2CimdClientManager the MCP OAuth2 client manager for CIMD
+	 * @param mcpOAuth2ClientManager the MCP OAuth2 client manager that registers clients,
+	 * for example with dynamic client registration or CIMD
 	 */
-	public OAuth2CimdHttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
-			ClientRegistrationRepository clientRegistrationRepository,
-			McpOAuth2CimdClientManager mcpOAuth2CimdClientManager) {
-		this(authorizedClientManager, clientRegistrationRepository, mcpOAuth2CimdClientManager, Function.identity());
+	public OAuth2HttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
+			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager) {
+		this(authorizedClientManager, clientRegistrationRepository, mcpOAuth2ClientManager, Function.identity());
 	}
 
 	/**
@@ -89,14 +90,15 @@ public class OAuth2CimdHttpClientTransportCustomizer
 	 * client registration ID for all transports.
 	 * @param authorizedClientManager the authorized client manager
 	 * @param clientRegistrationRepository the client registration repository
-	 * @param mcpOAuth2CimdClientManager the MCP OAuth2 client manager for CIMD
+	 * @param mcpOAuth2ClientManager the MCP OAuth2 client manager that registers clients,
+	 * for example with dynamic client registration or CIMD
 	 * @param defaultRegistrationId the OAuth2 client registration ID to use for all
 	 * transports
 	 */
-	public OAuth2CimdHttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
-			ClientRegistrationRepository clientRegistrationRepository,
-			McpOAuth2CimdClientManager mcpOAuth2CimdClientManager, String defaultRegistrationId) {
-		this(authorizedClientManager, clientRegistrationRepository, mcpOAuth2CimdClientManager,
+	public OAuth2HttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
+			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager,
+			String defaultRegistrationId) {
+		this(authorizedClientManager, clientRegistrationRepository, mcpOAuth2ClientManager,
 				(name) -> defaultRegistrationId);
 		Assert.hasText(defaultRegistrationId, "defaultRegistrationId must not be empty");
 	}
@@ -107,21 +109,21 @@ public class OAuth2CimdHttpClientTransportCustomizer
 	 * connection name and must return the registration ID to use.
 	 * @param authorizedClientManager the authorized client manager
 	 * @param clientRegistrationRepository the client registration repository
-	 * @param mcpOAuth2CimdClientManager the MCP OAuth2 client manager for CIMD
+	 * @param mcpOAuth2ClientManager the MCP OAuth2 client manager that registers clients,
+	 * for example with dynamic client registration or CIMD
 	 * @param registrationIdResolver a function mapping transport names to OAuth2 client
 	 * registration IDs
 	 */
-	public OAuth2CimdHttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
-			ClientRegistrationRepository clientRegistrationRepository,
-			McpOAuth2CimdClientManager mcpOAuth2CimdClientManager,
+	public OAuth2HttpClientTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
+			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager,
 			Function<String, @Nullable String> registrationIdResolver) {
 		Assert.notNull(authorizedClientManager, "authorizedClientManager must not be null");
 		Assert.notNull(clientRegistrationRepository, "clientRegistrationRepository must not be null");
-		Assert.notNull(mcpOAuth2CimdClientManager, "mcpOAuth2CimdClientManager must not be null");
+		Assert.notNull(mcpOAuth2ClientManager, "mcpOAuth2ClientManager must not be null");
 		Assert.notNull(registrationIdResolver, "registrationIdResolver must not be null");
 		this.authorizedClientManager = authorizedClientManager;
 		this.clientRegistrationRepository = clientRegistrationRepository;
-		this.mcpOAuth2CimdClientManager = mcpOAuth2CimdClientManager;
+		this.mcpOAuth2ClientManager = mcpOAuth2ClientManager;
 		this.registrationIdResolver = registrationIdResolver;
 	}
 
@@ -139,7 +141,8 @@ public class OAuth2CimdHttpClientTransportCustomizer
 
 		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.authorizedClientManager,
 				this.clientRegistrationRepository, registrationId);
-		var errorHandler = new OAuth2CimdSyncAuthorizationErrorHandler(this.mcpOAuth2CimdClientManager, registrationId);
+		// TODO: make manager nullable...?
+		var errorHandler = new OAuth2SyncAuthorizationErrorHandler(this.mcpOAuth2ClientManager, registrationId);
 
 		transportBuilder.httpRequestCustomizer(requestCustomizer)
 			.authorizationErrorHandler(McpHttpClientTransportAuthorizationErrorHandler.fromSync(errorHandler));

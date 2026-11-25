@@ -40,7 +40,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  * See {@link OAuth2AuthorizationCodeAccessTokenResolver} for behavior details.
  *
  * @author Daniel Garnier-Moiroux
- * @see OAuth2DcrSyncAuthorizationErrorHandler
+ * @see OAuth2SyncAuthorizationErrorHandler
  * @see OAuth2AuthorizationCodeAccessTokenResolver
  */
 public class OAuth2AuthorizationCodeSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {

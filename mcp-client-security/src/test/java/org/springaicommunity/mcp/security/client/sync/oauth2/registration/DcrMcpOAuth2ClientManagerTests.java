@@ -38,6 +38,7 @@ import org.springaicommunity.mcp.security.common.url.UrlValidator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
+import org.springframework.security.config.Customizer;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -57,7 +58,7 @@ import static org.mockito.Mockito.when;
 /**
  * @author Daniel Garnier-Moiroux
  */
-class DefaultMcpOAuth2DcrClientManagerTests {
+class DcrMcpOAuth2ClientManagerTests {
 
 	private static final String REGISTRATION_ID = "test-registration";
 
@@ -75,6 +76,13 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 	private static final String RESOURCE_ID = "https://mcp.example.com";
 
+	private static final String BASE_URL = "https://app.example.com";
+
+	private static final String REDIRECT_URI = BASE_URL + "/authorize/oauth2/code/" + REGISTRATION_ID;
+
+	private static final DynamicClientRegistrationRequest REGISTRATION_REQUEST = DynamicClientRegistrationRequest
+		.authorizationCode(REDIRECT_URI);
+
 	private static final String DCR_RESPONSE = "{\"client_id\": \"client-id-123\"}\n";
 
 	private static MockedStatic<ClientRegistrations> clientRegistrationsMock;
@@ -88,12 +96,12 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 	private final UrlValidator urlValidator = mock(UrlValidator.class);
 
-	private final DefaultMcpOAuth2DcrClientManager manager = new DefaultMcpOAuth2DcrClientManager(this.repository,
+	private final DcrMcpOAuth2ClientManager manager = new DcrMcpOAuth2ClientManager(this.repository,
 			this.clientRegistrationService, this.discovery, this.urlValidator);
 
 	@BeforeAll
 	static void beforeAll() {
-		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock = mockStatic(ClientRegistrations.class);
+		clientRegistrationsMock = mockStatic(ClientRegistrations.class);
 		clientRegistrationsMock.when(() -> ClientRegistrations.fromIssuerLocation(ISSUER_URL))
 			.thenReturn(ClientRegistration.withRegistrationId("placeholder")
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
@@ -116,18 +124,18 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 
 	@AfterAll
 	static void afterAll() {
-		DefaultMcpOAuth2DcrClientManagerTests.clientRegistrationsMock.close();
+		clientRegistrationsMock.close();
 	}
 
 	@Nested
-	class RegisterMcpClientWithDiscovery {
+	class RegisterClientWithRequest {
 
 		@Test
-		void skipsWhenRegistrationAlreadyExists() throws Exception {
+		void throwsWhenRegistrationAlreadyExists() {
 			repository.save(CLIENT_REGISTRATION, RESOURCE_ID);
-			var request = DynamicClientRegistrationRequest.builder().build();
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
+			assertThatThrownBy(() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST))
+				.isInstanceOf(ClientAlreadyExistsException.class);
 
 			verifyNoInteractions(discovery);
 			verifyNoInteractions(clientRegistrationService);
@@ -148,8 +156,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 					""";
 			configureMocks(wwwAuthParams, prm, dcrResponse);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					DynamicClientRegistrationRequest.builder().build());
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST);
 
 			var savedRegistration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(savedRegistration).isNotNull();
@@ -168,8 +175,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), List.of("mcp:delete"));
 			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					DynamicClientRegistrationRequest.builder().build());
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -185,8 +191,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 					List.of("mcp:tools", "mcp:prompts"));
 			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					DynamicClientRegistrationRequest.builder().build());
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -200,9 +205,9 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"mcp:admin\"");
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(ISSUER_URL), List.of("mcp:tools"));
 			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
-			var request = DynamicClientRegistrationRequest.builder().scope("mcp:custom").build();
+			var request = DynamicClientRegistrationRequest.from(REGISTRATION_REQUEST).scope("mcp:custom").build();
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, request);
 
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(registration).isNotNull();
@@ -210,10 +215,21 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
+		@DisplayName("Does not apply the registration request customizer")
+		void doesNotApplyRegistrationRequestCustomizer() throws Exception {
+			manager.setRegistrationRequestCustomizer(builder -> builder.clientName("customized"));
+
+			var request = register(ISSUER_URL, null, Customizer.withDefaults());
+
+			assertThat(request.getClientName()).isNull();
+			assertThat(request.getRedirectUris()).containsExactly(REDIRECT_URI);
+		}
+
+		@Test
 		@DisplayName("Does not request offline_access for client_credentials clients")
 		void doesNotRequestOfflineAccessForClientCredentials() throws Exception {
-			var originalRequest = DynamicClientRegistrationRequest.builder().build();
-			var request = registerWithOfflineAccessIssuer(originalRequest);
+			var request = registerWithOfflineAccessIssuer(
+					builder -> builder.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS)));
 
 			assertThat(request.getScope()).isEqualTo("mcp:read");
 			assertThat(request.getGrantTypes()).containsExactly("client_credentials");
@@ -222,11 +238,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Requests offline_access and refresh_token for authorization_code clients")
 		void requestsOfflineAccessForAuthorizationCode() throws Exception {
-			var originalRequest = DynamicClientRegistrationRequest.builder()
-				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN))
-				.redirectUris(List.of("https://client.example.com/callback"))
-				.build();
-			var request = registerWithOfflineAccessIssuer(originalRequest);
+			var request = registerWithOfflineAccessIssuer(Customizer.withDefaults());
 
 			assertThat(request.getScope()).isNotNull();
 			assertThat(request.getScope().split(" ")).containsExactlyInAnyOrder("mcp:read", "offline_access");
@@ -236,10 +248,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Adds offline_access to scopes set explicitly on the request")
 		void requestsOfflineAccessWithExplicitScopes() throws Exception {
-			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
-				.scope("mcp:custom")
-				.build();
-			var request = registerWithOfflineAccessIssuer(originalRequest);
+			var request = registerWithOfflineAccessIssuer(builder -> builder.scope("mcp:custom"));
 
 			assertThat(request.getScope()).isNotNull();
 			assertThat(request.getScope().split(" ")).containsExactlyInAnyOrder("mcp:custom", "offline_access");
@@ -248,10 +257,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Does not duplicate offline_access when already requested")
 		void doesNotDuplicateOfflineAccess() throws Exception {
-			var originalRequest = DynamicClientRegistrationRequest.from(authorizationCodeRequest())
-				.scope("mcp:custom offline_access")
-				.build();
-			var request = registerWithOfflineAccessIssuer(originalRequest);
+			var request = registerWithOfflineAccessIssuer(builder -> builder.scope("mcp:custom offline_access"));
 
 			assertThat(request.getScope()).isEqualTo("mcp:custom offline_access");
 		}
@@ -259,11 +265,8 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Does not request offline_access without the refresh_token grant")
 		void doesNotRequestOfflineAccessWithoutRefreshTokenGrant() throws Exception {
-			var originalRequest = DynamicClientRegistrationRequest.builder()
-				.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE))
-				.redirectUris(List.of("https://client.example.com/callback"))
-				.build();
-			var request = registerWithOfflineAccessIssuer(originalRequest);
+			var request = registerWithOfflineAccessIssuer(
+					builder -> builder.grantTypes(List.of(AuthorizationGrantType.AUTHORIZATION_CODE)));
 
 			assertThat(request.getScope()).isEqualTo("mcp:read");
 			assertThat(request.getGrantTypes()).containsExactly("authorization_code");
@@ -272,7 +275,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Does not request offline_access when the authorization server does not list it")
 		void doesNotRequestOfflineAccessWhenUnsupported() throws Exception {
-			var request = register(ISSUER_URL, "mcp:read", authorizationCodeRequest());
+			var request = register(ISSUER_URL, "mcp:read", Customizer.withDefaults());
 
 			assertThat(request.getScope()).isEqualTo("mcp:read");
 		}
@@ -280,18 +283,14 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		@Test
 		@DisplayName("Does not request offline_access when no scopes are found")
 		void doesNotRequestOfflineAccessWithoutScopes() throws Exception {
-			var request = register(OFFLINE_ACCESS_ISSUER_URL, null, authorizationCodeRequest());
+			var request = register(OFFLINE_ACCESS_ISSUER_URL, null, Customizer.withDefaults());
 
 			assertThat(request.getScope()).isNull();
 		}
 
-		private static DynamicClientRegistrationRequest authorizationCodeRequest() {
-			return DynamicClientRegistrationRequest.authorizationCode("https://client.example.com/callback");
-		}
-
 		private DynamicClientRegistrationRequest registerWithOfflineAccessIssuer(
-				DynamicClientRegistrationRequest request) throws Exception {
-			return register(OFFLINE_ACCESS_ISSUER_URL, "mcp:read", request);
+				Customizer<DynamicClientRegistrationRequest.Builder> requestCustomizer) throws Exception {
+			return register(OFFLINE_ACCESS_ISSUER_URL, "mcp:read", requestCustomizer);
 		}
 
 		/**
@@ -299,7 +298,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		 * WWW-Authenticate header, and return the request sent to the DCR endpoint.
 		 */
 		private DynamicClientRegistrationRequest register(String issuerUrl, @Nullable String wwwAuthenticateScope,
-				DynamicClientRegistrationRequest request) throws Exception {
+				Customizer<DynamicClientRegistrationRequest.Builder> requestCustomizer) throws Exception {
 			var header = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"";
 			if (wwwAuthenticateScope != null) {
 				header += ", scope=\"" + wwwAuthenticateScope + "\"";
@@ -308,7 +307,9 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			var prm = new ProtectedResourceMetadata(RESOURCE_ID, List.of(issuerUrl), null);
 			configureMocks(wwwAuthParams, prm, DCR_RESPONSE);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, request);
+			var requestBuilder = DynamicClientRegistrationRequest.from(REGISTRATION_REQUEST);
+			requestCustomizer.customize(requestBuilder);
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, requestBuilder.build());
 
 			var captor = ArgumentCaptor.forClass(DynamicClientRegistrationRequest.class);
 			verify(clientRegistrationService).register(captor.capture(), eq(issuerUrl));
@@ -325,8 +326,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			var tokenUrl = ISSUER_URL + "/oauth2/token";
 			doThrow(new InvalidUrlException("Invalid test url", tokenUrl)).when(urlValidator).validateUrl(tokenUrl);
 
-			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					DynamicClientRegistrationRequest.builder().build()))
+			assertThatThrownBy(() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessage("Invalid token_endpoint [value=%s]: Invalid test url".formatted(tokenUrl));
 		}
@@ -342,8 +342,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			when(clientRegistrationService.register(any(), eq(ISSUER_URL)))
 				.thenThrow(new DcrNotSupportedException(ISSUER_URL));
 
-			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					DynamicClientRegistrationRequest.builder().build()))
+			assertThatThrownBy(() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, REGISTRATION_REQUEST))
 				.isInstanceOf(DcrNotSupportedException.class)
 				.hasMessage("Issuer %s does not support DCR".formatted(ISSUER_URL));
 
@@ -363,16 +362,18 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 	}
 
 	@Nested
-	class RegisterMcpClientWithWwwAuthenticateHeader {
+	class RegisterClient {
 
 		private static final String WWW_AUTHENTICATE_HEADER = "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"";
 
 		@Test
-		void skipsWhenRegistrationAlreadyExists() throws Exception {
+		void throwsWhenRegistrationAlreadyExists() {
 			repository.addClientRegistration(CLIENT_REGISTRATION, RESOURCE_ID);
-			var request = DynamicClientRegistrationRequest.builder().build();
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, request);
+			assertThatThrownBy(
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
+				.isInstanceOf(ClientAlreadyExistsException.class)
+				.hasMessageContaining(REGISTRATION_ID);
 
 			verifyNoInteractions(discovery);
 			verifyNoInteractions(clientRegistrationService);
@@ -397,8 +398,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 					""");
 			when(clientRegistrationService.register(any(), eq(ISSUER_URL))).thenReturn(registrationResponse);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER,
-					DynamicClientRegistrationRequest.builder().build());
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
 
 			verify(discovery, never()).getWwwAuthenticateParameters(any());
 			var registration = repository.findByRegistrationId(REGISTRATION_ID);
@@ -421,8 +421,8 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 			when(clientRegistrationService.register(any(), eq(ISSUER_URL)))
 				.thenThrow(new DcrNotSupportedException(ISSUER_URL));
 
-			assertThatThrownBy(() -> manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER,
-					DynamicClientRegistrationRequest.builder().build()))
+			assertThatThrownBy(
+					() -> manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL))
 				.isInstanceOf(DcrNotSupportedException.class)
 				.hasMessage("Issuer %s does not support DCR".formatted(ISSUER_URL));
 
@@ -448,7 +448,7 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		void updateScopes() throws Exception {
 			repository.updateClientRegistration(REGISTRATION_ID, existing -> existing.scope("mcp:read"));
 
-			boolean result = manager.updateMcpClient(REGISTRATION_ID,
+			boolean result = manager.updateScopes(REGISTRATION_ID,
 					"Bearer resource_metadata=\"https://example.com/\", error=\"insufficient_scope\", scope=\"mcp:read mcp:write\"");
 
 			assertThat(result).isTrue();
@@ -475,16 +475,13 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 						"scope": "response:scope"
 					}
 					""");
-			var request = DynamicClientRegistrationRequest.builder()
-				.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
-				.tokenEndpointAuthMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-				.clientName("Request Client Name")
-				.scope("request:scope")
-				.build();
+			manager.setRegistrationRequestCustomizer(
+					request -> request.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
+						.tokenEndpointAuthMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+						.clientName("Request Client Name")
+						.scope("request:scope"));
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
-					request);
+			registerClient();
 
 			var saved = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(saved).isNotNull();
@@ -502,17 +499,14 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		void fallsBackToRequestValuesWhenResponseValuesAreNull() throws Exception {
 			configureMocks(DCR_RESPONSE);
 
-			var request = DynamicClientRegistrationRequest.builder()
-				.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
-				.tokenEndpointAuthMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-				.redirectUris(List.of("https://request.example.com/callback"))
-				.clientName("Request Client Name")
-				.scope("request:scope")
-				.build();
+			manager.setRegistrationRequestCustomizer(
+					request -> request.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
+						.tokenEndpointAuthMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+						.redirectUris(List.of("https://request.example.com/callback"))
+						.clientName("Request Client Name")
+						.scope("request:scope"));
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
-					request);
+			registerClient();
 
 			var saved = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(saved).isNotNull();
@@ -524,16 +518,38 @@ class DefaultMcpOAuth2DcrClientManagerTests {
 		}
 
 		@Test
-		void defaultsToClientCredentialsWhenNoGrantTypes() throws Exception {
+		void defaultsToAuthorizationCodeRequest() throws Exception {
 			configureMocks(DCR_RESPONSE);
 
-			manager.registerMcpClient(REGISTRATION_ID, MCP_SERVER_URL,
-					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
-					DynamicClientRegistrationRequest.builder().build());
+			registerClient();
+
+			var captor = ArgumentCaptor.forClass(DynamicClientRegistrationRequest.class);
+			verify(clientRegistrationService).register(captor.capture(), eq(ISSUER_URL));
+			assertThat(captor.getValue().getGrantTypes()).containsExactly("authorization_code", "refresh_token");
+			assertThat(captor.getValue().getRedirectUris()).containsExactly(REDIRECT_URI);
+			var saved = repository.findByRegistrationId(REGISTRATION_ID);
+			assertThat(saved).isNotNull();
+			assertThat(saved.getAuthorizationGrantType()).isEqualTo(AuthorizationGrantType.AUTHORIZATION_CODE);
+			assertThat(saved.getRedirectUri()).isEqualTo(REDIRECT_URI);
+		}
+
+		@Test
+		void customizesClientRegistration() throws Exception {
+			configureMocks(DCR_RESPONSE);
+			manager.setClientRegistrationCustomizer(registration -> registration.clientName("Customized"));
+
+			registerClient();
 
 			var saved = repository.findByRegistrationId(REGISTRATION_ID);
 			assertThat(saved).isNotNull();
-			assertThat(saved.getAuthorizationGrantType()).isEqualTo(AuthorizationGrantType.CLIENT_CREDENTIALS);
+			assertThat(saved.getClientId()).isEqualTo("client-id-123");
+			assertThat(saved.getClientName()).isEqualTo("Customized");
+		}
+
+		private void registerClient() throws Exception {
+			manager.registerClient(REGISTRATION_ID, MCP_SERVER_URL,
+					"Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\"",
+					BASE_URL);
 		}
 
 		private void configureMocks(String dcrResponse) throws Exception {

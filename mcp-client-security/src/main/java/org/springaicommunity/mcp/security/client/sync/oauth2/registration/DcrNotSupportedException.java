@@ -21,10 +21,17 @@ package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
  *
  * @author Daniel Garnier-Moiroux
  */
-public class DcrNotSupportedException extends Exception {
+public class DcrNotSupportedException extends ClientRegistrationNotSupportedException {
+
+	private final String issuerUrl;
 
 	public DcrNotSupportedException(String issuerUrl) {
 		super("Issuer %s does not support DCR".formatted(issuerUrl));
+		this.issuerUrl = issuerUrl;
+	}
+
+	public String getIssuerUrl() {
+		return issuerUrl;
 	}
 
 }

@@ -27,15 +27,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
@@ -94,16 +93,13 @@ class DynamicClientRegistrationTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private OAuth2DcrHttpClientTransportCustomizer transportCustomizer;
+	private OAuth2HttpClientTransportCustomizer transportCustomizer;
 
 	@Autowired
 	private McpClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
 	private RecordingOAuth2AuthorizedClientRepository authorizedClientRepository;
-
-	@Autowired
-	private McpOAuth2DcrClientManager clientManager;
 
 	@BeforeEach
 	void setUp() {
@@ -181,17 +177,20 @@ class DynamicClientRegistrationTests {
 
 	@Test
 	@DisplayName("Use access token without offline_access in its scopes, without reauthorization")
-	void callsToolWhenOfflineAccessIsAbsentFromTokenScopes() throws IOException, DcrNotSupportedException {
+	void callsToolWhenOfflineAccessIsAbsentFromTokenScopes() throws Exception {
 		var registrationId = UUID.randomUUID().toString();
 		var clientName = "offline-access-client";
 		ensureAuthServerLogin();
 
+		var validator = new DefaultUrlValidator(true);
+		var clientManager = new DcrMcpOAuth2ClientManager(clientRegistrationRepository,
+				new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator), validator);
+		var redirectUri = "http://localhost:" + port + "/authorize/oauth2/code/" + registrationId;
 		var request = DynamicClientRegistrationRequest
-			.from(DynamicClientRegistrationRequest
-				.authorizationCode("http://localhost:" + port + "/authorize/oauth2/code/" + registrationId))
+			.from(DynamicClientRegistrationRequest.authorizationCode(redirectUri))
 			.scope("mcp:read")
 			.build();
-		clientManager.registerMcpClient(registrationId, mcpServerBaseUrl + "/mcp", request);
+		clientManager.registerClient(registrationId, mcpServerBaseUrl + "/mcp", request);
 		var registration = clientRegistrationRepository.findByRegistrationId(registrationId);
 		assertThat(registration).isNotNull();
 		assertThat(registration.getScopes()).containsExactlyInAnyOrder("mcp:read", "offline_access");
@@ -258,12 +257,12 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
-		OAuth2DcrHttpClientTransportCustomizer clientTransportCustomizer(
+		OAuth2HttpClientTransportCustomizer clientTransportCustomizer(
 				OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager,
 				ClientRegistrationRepository clientRegistrationRepository,
-				McpOAuth2DcrClientManager mcpOAuth2ClientManager) {
-			return new OAuth2DcrHttpClientTransportCustomizer(oAuth2AuthorizedClientManager,
-					clientRegistrationRepository, mcpOAuth2ClientManager);
+				McpOAuth2ClientManager mcpOAuth2ClientManager) {
+			return new OAuth2HttpClientTransportCustomizer(oAuth2AuthorizedClientManager, clientRegistrationRepository,
+					mcpOAuth2ClientManager);
 		}
 
 		@Bean
@@ -276,10 +275,9 @@ class DynamicClientRegistrationTests {
 		}
 
 		@Bean
-		McpOAuth2DcrClientManager mcpOAuth2ClientManager(
-				McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			var validator = new DefaultUrlValidator(true);
-			return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
+			return new DcrMcpOAuth2ClientManager(mcpClientRegistrationRepository,
 					new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator),
 					validator);
 		}

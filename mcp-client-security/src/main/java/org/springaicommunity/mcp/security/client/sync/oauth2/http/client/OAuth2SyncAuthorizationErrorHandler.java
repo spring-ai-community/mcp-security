@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
 import java.net.http.HttpResponse;
@@ -25,9 +24,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientRegistrationNotSupportedException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
@@ -38,12 +37,13 @@ import org.springframework.web.util.UriComponentsBuilder;
 /**
  * A {@link McpHttpClientTransportAuthorizationErrorHandler.Sync} synchronous
  * authorization error handler that handles HTTP 401 and 403 responses from an MCP server
- * by performing OAuth2 dynamic client registration and scope updates through
- * {@link McpOAuth2DcrClientManager}.
+ * by registering clients and updating scopes through an {@link McpOAuth2ClientManager}.
  *
  * <p>
- * On a 401 Unauthorized response, the handler performs dynamic client registration using
- * the {@code WWW-Authenticate} header. On a 403 Forbidden response with an
+ * On a 401 Unauthorized response, the handler registers a client with information from
+ * the {@code WWW-Authenticate} header. How the client is registered depends on the
+ * {@link McpOAuth2ClientManager}: for example dynamic client registration, or a client ID
+ * metadata document (CIMD). On a 403 Forbidden response with an
  * {@code insufficient_scope} error, it updates the client registration with the required
  * scopes.
  *
@@ -53,60 +53,46 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * @author Daniel Garnier-Moiroux
  * @see McpHttpClientTransportAuthorizationErrorHandler
- * @see McpOAuth2DcrClientManager
+ * @see McpOAuth2ClientManager
  */
-public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTransportAuthorizationErrorHandler.Sync {
+public class OAuth2SyncAuthorizationErrorHandler implements McpHttpClientTransportAuthorizationErrorHandler.Sync {
 
-	private static final Logger log = LoggerFactory.getLogger(OAuth2DcrSyncAuthorizationErrorHandler.class);
+	private static final Logger log = LoggerFactory.getLogger(OAuth2SyncAuthorizationErrorHandler.class);
 
-	private static final String DEFAULT_REDIRECT_URI_TEMPLATE = "{baseUrl}/authorize/oauth2/code/{registrationId}";
-
-	private final McpOAuth2DcrClientManager mcpOAuth2ClientManager;
+	private final McpOAuth2ClientManager mcpOAuth2ClientManager;
 
 	private final String registrationId;
 
-	public @Nullable final DynamicClientRegistrationRequest dynamicClientRegistrationRequest;
-
-	private String fallbackBaseUrl = "http://localhost:8080";
+	private @Nullable String fallbackBaseUrl = null;
 
 	/**
-	 * Create an {@code OAuth2SyncAuthorizationErrorHandler} that will perform dynamic
-	 * client registration with the {@code authorization_code} and {@code refresh_token}
-	 * grant types and a default redirect URI template.
-	 * @param mcpOAuth2ClientManager the manager to delegate registration and updates to
-	 * @param registrationId the client registration identifier
-	 * @param mcpServerUrl the MCP server URL
+	 * Create an {@code OAuth2SyncAuthorizationErrorHandler}.
+	 * @param mcpOAuth2ClientManager the manager to delegate registration and scope
+	 * updates to
+	 * @param registrationId the registration ID that will be used to represent the client
+	 * registration associated with this handler
 	 */
-	public OAuth2DcrSyncAuthorizationErrorHandler(McpOAuth2DcrClientManager mcpOAuth2ClientManager,
-			String registrationId, String mcpServerUrl) {
-		this(mcpOAuth2ClientManager, registrationId, mcpServerUrl, null);
-	}
-
-	/**
-	 * Create an {@code OAuth2SyncAuthorizationErrorHandler} with a custom
-	 * {@link DynamicClientRegistrationRequest}. When {@code null}, a default request with
-	 * the {@code authorization_code} and {@code refresh_token} grant types will be used,
-	 * and the redirect URI will be derived from the current servlet request.
-	 * @param mcpOAuth2ClientManager the manager to delegate registration and updates to
-	 * @param registrationId the client registration identifier
-	 * @param mcpServerUrl the MCP server URL
-	 * @param dynamicClientRegistrationRequest the dynamic client registration request, or
-	 * {@code null} for a default request
-	 */
-	public OAuth2DcrSyncAuthorizationErrorHandler(McpOAuth2DcrClientManager mcpOAuth2ClientManager,
-			String registrationId, String mcpServerUrl,
-			@Nullable DynamicClientRegistrationRequest dynamicClientRegistrationRequest) {
+	public OAuth2SyncAuthorizationErrorHandler(McpOAuth2ClientManager mcpOAuth2ClientManager, String registrationId) {
 		Assert.notNull(mcpOAuth2ClientManager, "mcpOAuth2ClientManager must not be null");
 		Assert.hasText(registrationId, "registrationId must not be empty");
-		Assert.hasText(mcpServerUrl, "mcpServerUrl must not be empty");
 		this.mcpOAuth2ClientManager = mcpOAuth2ClientManager;
 		this.registrationId = registrationId;
-		this.dynamicClientRegistrationRequest = dynamicClientRegistrationRequest;
 	}
 
 	/**
-	 * Set the fallback base URL to use when the current servlet request is not available.
-	 * Defaults to {@code http://localhost:8080}.
+	 * Set the base URL of the MCP client, used when the current servlet request is not
+	 * available in the {@link McpTransportContext}. The base URL is passed to the
+	 * {@link McpOAuth2ClientManager}, which uses it to build the redirect URI and, with
+	 * CIMD, the {@code client_id}.
+	 * <p>
+	 * There is no default value. With CIMD, the {@code client_id} is the URL of the
+	 * client ID metadata document, and the authorization server must be able to fetch it.
+	 * A default such as {@code http://localhost:8080} would produce a {@code client_id}
+	 * that the authorization server cannot resolve. When this is not set and no servlet
+	 * request is available, HTTP 401 responses are not handled.
+	 * <p>
+	 * With CIMD, this must match the base URL served by the
+	 * {@link org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter}.
 	 * @param fallbackBaseUrl the fallback base URL
 	 */
 	public void setFallbackBaseUrl(String fallbackBaseUrl) {
@@ -133,13 +119,22 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 
 	private void handleUnauthorized(String mcpServerUrl, String wwwAuthenticateHeader, McpTransportContext context) {
 		log.debug("Handling 401 Unauthorized for client [{}]", this.registrationId);
-		var registrationRequest = resolveRegistrationRequest(context);
-		try {
-			this.mcpOAuth2ClientManager.registerMcpClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader,
-					registrationRequest);
+		var baseUrl = resolveBaseUrl(context);
+		if (baseUrl == null) {
+			log.debug("Could not determine base URL for request");
+			return;
 		}
-		catch (DcrNotSupportedException e) {
-			log.debug("DCR not supported for MCP server at {}", mcpServerUrl);
+		try {
+			this.mcpOAuth2ClientManager.registerClient(this.registrationId, mcpServerUrl, wwwAuthenticateHeader,
+					baseUrl);
+		}
+		catch (ClientAlreadyExistsException e) {
+			log.debug("Client [{}] already exists, not expecting HTTP 401 from the server", this.registrationId);
+			return;
+		}
+		catch (ClientRegistrationNotSupportedException e) {
+			log.debug("Client [{}] not registered for MCP server at {}: {}", this.registrationId, mcpServerUrl,
+					e.getMessage());
 			return;
 		}
 		log.debug("Client [{}] registered, triggering authorization", this.registrationId);
@@ -149,24 +144,14 @@ public class OAuth2DcrSyncAuthorizationErrorHandler implements McpHttpClientTran
 
 	private void handleForbidden(String wwwAuthenticateHeader) {
 		log.debug("Handling 403 Forbidden for client [{}]", this.registrationId);
-		if (this.mcpOAuth2ClientManager.updateMcpClient(this.registrationId, wwwAuthenticateHeader)) {
+		if (this.mcpOAuth2ClientManager.updateScopes(this.registrationId, wwwAuthenticateHeader)) {
 			log.debug("Client [{}] scopes updated, triggering re-authorization", this.registrationId);
 			// client changed, retry
 			throw new ClientAuthorizationRequiredException(this.registrationId);
 		}
 	}
 
-	private DynamicClientRegistrationRequest resolveRegistrationRequest(McpTransportContext context) {
-		if (this.dynamicClientRegistrationRequest != null) {
-			return this.dynamicClientRegistrationRequest;
-		}
-		var baseUrl = resolveBaseUrl(context);
-		var redirectUri = DEFAULT_REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
-			.replace("{registrationId}", this.registrationId);
-		return DynamicClientRegistrationRequest.authorizationCode(redirectUri);
-	}
-
-	private String resolveBaseUrl(McpTransportContext context) {
+	private @Nullable String resolveBaseUrl(McpTransportContext context) {
 		var requestAttributes = context.get(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY);
 		if (requestAttributes instanceof ServletRequestAttributes servletRequestAttributes) {
 			var baseUrl = UriComponentsBuilder

@@ -25,7 +25,7 @@ import io.modelcontextprotocol.client.transport.customizer.McpHttpClientTranspor
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -37,19 +37,19 @@ import static org.mockito.Mockito.mock;
 /**
  * @author Daniel Garnier-Moiroux
  */
-class OAuth2CimdHttpClientTransportCustomizerTests {
+class OAuth2HttpClientTransportCustomizerTests {
 
 	private final OAuth2AuthorizedClientManager authorizedClientManager = mock(OAuth2AuthorizedClientManager.class);
 
 	private final ClientRegistrationRepository clientRegistrationRepository = mock(ClientRegistrationRepository.class);
 
-	private final McpOAuth2CimdClientManager mcpOAuth2CimdClientManager = mock(McpOAuth2CimdClientManager.class);
+	private final McpOAuth2ClientManager mcpOAuth2ClientManager = mock(McpOAuth2ClientManager.class);
 
 	@Test
 	void constructorRejectsEmptyDefaultRegistrationId() {
 		assertThatIllegalArgumentException()
-			.isThrownBy(() -> new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager,
-					clientRegistrationRepository, mcpOAuth2CimdClientManager, ""));
+			.isThrownBy(() -> new OAuth2HttpClientTransportCustomizer(authorizedClientManager,
+					clientRegistrationRepository, mcpOAuth2ClientManager, ""));
 	}
 
 	@Nested
@@ -58,8 +58,8 @@ class OAuth2CimdHttpClientTransportCustomizerTests {
 		@Test
 		@DisplayName("Sets httpRequestCustomizer and authorizationErrorHandler on the builder")
 		void setsCustomizerAndErrorHandler() {
-			var customizer = new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager,
-					clientRegistrationRepository, mcpOAuth2CimdClientManager);
+			var customizer = new OAuth2HttpClientTransportCustomizer(authorizedClientManager,
+					clientRegistrationRepository, mcpOAuth2ClientManager);
 			var builder = HttpClientStreamableHttpTransport.builder("https://mcp.example.com");
 
 			customizer.customize("my-server", builder);
@@ -73,8 +73,8 @@ class OAuth2CimdHttpClientTransportCustomizerTests {
 		@Test
 		@DisplayName("With default registration ID, applies to all transports")
 		void defaultRegistrationId() {
-			var customizer = new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager,
-					clientRegistrationRepository, mcpOAuth2CimdClientManager, "authserver");
+			var customizer = new OAuth2HttpClientTransportCustomizer(authorizedClientManager,
+					clientRegistrationRepository, mcpOAuth2ClientManager, "authserver");
 			var builder1 = HttpClientStreamableHttpTransport.builder("https://mcp1.example.com");
 			var builder2 = HttpClientStreamableHttpTransport.builder("https://mcp2.example.com");
 
@@ -95,8 +95,8 @@ class OAuth2CimdHttpClientTransportCustomizerTests {
 		@DisplayName("With resolver function, uses resolved registration ID")
 		void resolverFunction() {
 			var mapping = Map.of("server-one", "reg-one");
-			var customizer = new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager,
-					clientRegistrationRepository, mcpOAuth2CimdClientManager, mapping::get);
+			var customizer = new OAuth2HttpClientTransportCustomizer(authorizedClientManager,
+					clientRegistrationRepository, mcpOAuth2ClientManager, mapping::get);
 			var builder1 = HttpClientStreamableHttpTransport.builder("https://mcp.example.com");
 			var builder2 = HttpClientStreamableHttpTransport.builder("https://mcp.example.com");
 

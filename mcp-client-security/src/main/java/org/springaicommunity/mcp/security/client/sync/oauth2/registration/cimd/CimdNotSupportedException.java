@@ -15,12 +15,14 @@
  */
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd;
 
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientRegistrationNotSupportedException;
+
 /**
  * Thrown when a given issuer does not support CIMD
  *
  * @author Daniel Garnier-Moiroux
  */
-public class CimdNotSupportedException extends Exception {
+public class CimdNotSupportedException extends ClientRegistrationNotSupportedException {
 
 	public CimdNotSupportedException(String issuerUrl) {
 		super("Issuer %s does not support CIMD".formatted(issuerUrl));

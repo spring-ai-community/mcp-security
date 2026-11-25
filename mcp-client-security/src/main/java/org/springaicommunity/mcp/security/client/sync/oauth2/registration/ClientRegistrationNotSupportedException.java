@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd;
+
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 /**
- * Thrown when a CIMD client already exists in the registration repository.
+ * Thrown by an {@link McpOAuth2ClientManager} when the authorization server does not
+ * support the way it obtains clients.
  *
  * @author Daniel Garnier-Moiroux
+ * @see DcrNotSupportedException
+ * @see org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdNotSupportedException
  */
-public class ClientAlreadyExistsException extends Exception {
+public class ClientRegistrationNotSupportedException extends Exception {
 
-	private final String registrationId;
-
-	public ClientAlreadyExistsException(String registrationId) {
-		super("Client with registration id [%s] already exists".formatted(registrationId));
-		this.registrationId = registrationId;
-	}
-
-	public String getRegistrationId() {
-		return registrationId;
+	public ClientRegistrationNotSupportedException(String message) {
+		super(message);
 	}
 
 }

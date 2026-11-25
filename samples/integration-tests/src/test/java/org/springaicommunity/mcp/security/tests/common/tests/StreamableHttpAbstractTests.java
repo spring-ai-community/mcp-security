@@ -18,9 +18,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
@@ -80,7 +83,7 @@ public abstract class StreamableHttpAbstractTests {
 	private InMemoryMcpClientRepository inMemoryMcpClientRepository;
 
 	@Autowired
-	private McpOAuth2DcrClientManager mcpClientManager;
+	private McpClientRegistrationRepository mcpClientRegistrationRepository;
 
 	protected AuthorizedClientServiceOAuth2AuthorizedClientManager clientCredentialsClientManager;
 
@@ -258,17 +261,17 @@ public abstract class StreamableHttpAbstractTests {
 	@DisplayName("Enforces sessions binding")
 	// Stateless transport does not have session IDs
 	@EnabledIf(value = "#{'${mcp.server.protocol}'.equals('STREAMABLE')}", loadContext = true)
-	void sessionBinding() throws DcrNotSupportedException {
+	void sessionBinding() throws Exception {
+		var validator = new DefaultUrlValidator(true);
+		var mcpClientManager = new DcrMcpOAuth2ClientManager(this.mcpClientRegistrationRepository,
+				new DynamicClientRegistrationService(validator), new McpMetadataDiscoveryService(validator), validator);
+		var request = DynamicClientRegistrationRequest.builder()
+			.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
+			.build();
 		var firstRegistrationId = "first";
-		mcpClientManager.registerMcpClient(firstRegistrationId, mcpServerUrl + "/mcp",
-				DynamicClientRegistrationRequest.builder()
-					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
-					.build());
+		mcpClientManager.registerClient(firstRegistrationId, mcpServerUrl + "/mcp", request);
 		var secondRegistrationId = "second";
-		mcpClientManager.registerMcpClient(secondRegistrationId, mcpServerUrl + "/mcp",
-				DynamicClientRegistrationRequest.builder()
-					.grantTypes(List.of(AuthorizationGrantType.CLIENT_CREDENTIALS))
-					.build());
+		mcpClientManager.registerClient(secondRegistrationId, mcpServerUrl + "/mcp", request);
 
 		var firstToken = this.clientCredentialsClientManager
 			.authorize(OAuth2AuthorizeRequest.withClientRegistrationId(firstRegistrationId)

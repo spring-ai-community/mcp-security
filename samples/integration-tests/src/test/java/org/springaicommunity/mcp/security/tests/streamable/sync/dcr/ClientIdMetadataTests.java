@@ -15,12 +15,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2CimdHttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.DefaultMcpOAuth2CimdClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.McpOAuth2CimdClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.tests.InMemoryMcpClientRepository;
 import org.springaicommunity.mcp.security.tests.McpController;
@@ -43,7 +43,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.client.metadata.ClientIdUrlValidator;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -79,7 +78,7 @@ class ClientIdMetadataTests {
 	private McpClientRegistrationRepository clientRegistrationRepository;
 
 	@Autowired
-	private OAuth2CimdHttpClientTransportCustomizer transportCustomizer;
+	private OAuth2HttpClientTransportCustomizer transportCustomizer;
 
 	@BeforeEach
 	void setUp() {
@@ -141,10 +140,10 @@ class ClientIdMetadataTests {
 		}
 
 		@Bean
-		McpOAuth2CimdClientManager mcpOAuth2CimdClientManager(
+		McpOAuth2ClientManager mcpOAuth2CimdClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository) {
 			var validator = new DefaultUrlValidator(true);
-			return new DefaultMcpOAuth2CimdClientManager(new McpMetadataDiscoveryService(validator),
+			return new CimdMcpOAuth2ClientManager(new McpMetadataDiscoveryService(validator),
 					mcpClientRegistrationRepository, new DefaultUrlValidator(true));
 		}
 
@@ -162,11 +161,10 @@ class ClientIdMetadataTests {
 		}
 
 		@Bean
-		OAuth2CimdHttpClientTransportCustomizer transportCustomizer(
-				OAuth2AuthorizedClientManager authorizedClientManager,
+		OAuth2HttpClientTransportCustomizer transportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
 				McpClientRegistrationRepository mcpClientRegistrationRepository,
-				McpOAuth2CimdClientManager mcpOAuth2CimdClientManager) {
-			return new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager, mcpClientRegistrationRepository,
+				McpOAuth2ClientManager mcpOAuth2CimdClientManager) {
+			return new OAuth2HttpClientTransportCustomizer(authorizedClientManager, mcpClientRegistrationRepository,
 					mcpOAuth2CimdClientManager);
 		}
 

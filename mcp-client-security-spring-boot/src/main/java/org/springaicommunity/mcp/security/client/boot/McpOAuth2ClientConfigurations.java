@@ -20,12 +20,12 @@ import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 
@@ -109,25 +109,25 @@ class McpOAuth2ClientConfigurations {
 
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnBean(McpClientRegistrationRepository.class)
-	@ConditionalOnMissingBean(McpOAuth2DcrClientManager.class)
+	@ConditionalOnMissingBean(McpOAuth2ClientManager.class)
 	static class OAuth2ClientManagerConfiguration {
 
 		@Bean
 		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class,
 				UrlValidator.class })
-		DefaultMcpOAuth2DcrClientManager mcpOAuth2ClientManager(
+		DcrMcpOAuth2ClientManager mcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository,
 				DynamicClientRegistrationService dynamicClientRegistrationService,
 				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
-			return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
-					dynamicClientRegistrationService, mcpMetadataDiscoveryService, urlValidator);
+			return new DcrMcpOAuth2ClientManager(mcpClientRegistrationRepository, dynamicClientRegistrationService,
+					mcpMetadataDiscoveryService, urlValidator);
 		}
 
 		@Bean
 		@ConditionalOnMissingBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class })
-		ScopeStepUpMcpOAuth2DcrClientManager scopeStepUpMcpOAuth2ClientManager(
+		ScopeStepUpMcpOAuth2ClientManager scopeStepUpMcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository) {
-			return new ScopeStepUpMcpOAuth2DcrClientManager(mcpClientRegistrationRepository);
+			return new ScopeStepUpMcpOAuth2ClientManager(mcpClientRegistrationRepository);
 		}
 
 	}

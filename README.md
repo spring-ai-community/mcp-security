@@ -657,24 +657,26 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
 This registers a filter that serves the client metadata document at `/{registrationId}/client-id-metadata.json`, valid for any `{registrationId}`.
 
-Then declare a `DefaultMcpOAuth2CimdClientManager` bean and use `OAuth2CimdHttpClientTransportCustomizer`
-instead of the DCR variant:
+Then declare a `CimdMcpOAuth2ClientManager` bean and pass it to `OAuth2HttpClientTransportCustomizer`,
+instead of a DCR manager. To use a client ID metadata document when the authorization server supports it, and
+Dynamic Client Registration otherwise, wrap both managers in a `DelegatingMcpOAuth2ClientManager`:
+`new DelegatingMcpOAuth2ClientManager(cimdClientManager, dcrClientManager)`.
 
 ```java
 @Bean
-McpOAuth2CimdClientManager cimdClientManager(
+McpOAuth2ClientManager cimdClientManager(
         McpMetadataDiscoveryService discoveryService,
         McpClientRegistrationRepository repo,
         UrlValidator urlValidator) {
-    return new DefaultMcpOAuth2CimdClientManager(discoveryService, repo, urlValidator);
+    return new CimdMcpOAuth2ClientManager(discoveryService, repo, urlValidator);
 }
 
 @Bean
 McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
         OAuth2AuthorizedClientManager authorizedClientManager,
         McpClientRegistrationRepository repo,
-        McpOAuth2CimdClientManager cimdClientManager) {
-    return new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager, repo, cimdClientManager);
+        McpOAuth2ClientManager cimdClientManager) {
+    return new OAuth2HttpClientTransportCustomizer(authorizedClientManager, repo, cimdClientManager);
 }
 ```
 
