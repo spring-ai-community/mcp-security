@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -24,6 +24,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationParameterNames;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;

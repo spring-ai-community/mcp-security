@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.util.List;
 import java.util.Map;
@@ -33,16 +33,19 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadat
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.ProtectedResourceMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
-
 import org.springframework.security.config.Customizer;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -441,8 +444,7 @@ class DcrMcpOAuth2ClientManagerTests {
 
 		/**
 		 * Updating a client registration in response to an insufficient_scope challenge
-		 * widens its scopes.
-		 * @see ScopeStepUpTests
+		 * widens its scopes. See {@code ScopeStepUpTests}.
 		 */
 		@Test
 		void updateScopes() throws Exception {

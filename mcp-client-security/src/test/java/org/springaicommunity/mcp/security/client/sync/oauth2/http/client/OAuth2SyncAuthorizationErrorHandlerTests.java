@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.mock.web.MockHttpServletRequest;

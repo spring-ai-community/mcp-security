@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.time.Instant;
 import java.util.List;

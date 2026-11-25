@@ -18,7 +18,7 @@ package org.springaicommunity.mcp.security.client.boot;
 
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 

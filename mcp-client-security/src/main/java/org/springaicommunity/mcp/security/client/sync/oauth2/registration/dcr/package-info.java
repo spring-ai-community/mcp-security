@@ -13,25 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
-/**
- * Thrown when a given issuer does not support Dynamic Client Registration, that is, when
- * its metadata has no {@code registration_endpoint}.
- *
- * @author Daniel Garnier-Moiroux
- */
-public class DcrNotSupportedException extends ClientRegistrationNotSupportedException {
+@NullMarked
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
-	private final String issuerUrl;
-
-	public DcrNotSupportedException(String issuerUrl) {
-		super("Issuer %s does not support DCR".formatted(issuerUrl));
-		this.issuerUrl = issuerUrl;
-	}
-
-	public String getIssuerUrl() {
-		return issuerUrl;
-	}
-
-}
+import org.jspecify.annotations.NullMarked;

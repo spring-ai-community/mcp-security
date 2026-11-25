@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
 
 /**
  * Partial implementation of {@link McpOAuth2ClientManager} that only steps up scopes, and

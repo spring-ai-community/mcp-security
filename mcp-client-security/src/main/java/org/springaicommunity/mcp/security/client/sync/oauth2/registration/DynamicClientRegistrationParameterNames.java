@@ -17,7 +17,8 @@
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
 /**
- * Parameter names for Dynamic Client Registration flows.
+ * Parameter names for Dynamic Client Registration flows. CIMD also uses these parameters
+ * as the Metadata Document properties
  *
  * @author Daniel Garnier-Moiroux
  */

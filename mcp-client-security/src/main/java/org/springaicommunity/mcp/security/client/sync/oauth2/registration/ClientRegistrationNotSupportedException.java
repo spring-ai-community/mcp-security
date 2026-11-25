@@ -16,6 +16,8 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
 
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrNotSupportedException;
+
 /**
  * Thrown by an {@link McpOAuth2ClientManager} when the authorization server does not
  * support the way it obtains clients.

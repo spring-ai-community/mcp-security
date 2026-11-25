@@ -1,8 +1,9 @@
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OidcApplicationType;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 

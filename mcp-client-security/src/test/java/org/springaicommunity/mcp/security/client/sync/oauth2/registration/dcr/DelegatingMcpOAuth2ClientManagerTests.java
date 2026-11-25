@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DelegatingMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdNotSupportedException;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -26,12 +26,12 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.IssuerValidatingAut
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceAuthorizationRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DcrNotSupportedException;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrNotSupportedException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationRequest;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter;

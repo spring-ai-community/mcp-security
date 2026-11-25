@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.util.Collections;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OidcApplicationType;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResponseType;

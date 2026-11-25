@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springaicommunity.mcp.security.client.sync.oauth2.registration;
+package org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -28,6 +28,11 @@ import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadata;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.WwwAuthenticateParameters;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.OfflineAccess;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUp;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.InvalidUrlException;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
