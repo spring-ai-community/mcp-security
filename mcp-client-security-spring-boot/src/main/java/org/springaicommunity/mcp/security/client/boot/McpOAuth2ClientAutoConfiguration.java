@@ -56,6 +56,7 @@ import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResp
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties({ McpOAuth2ClientProperties.class, OAuth2ClientProperties.class })
 @Import({ McpOAuth2ClientConfigurations.ClientRegistrationRepositoryConfiguration.class,
+		McpOAuth2ClientConfigurations.McpMetadataDiscoveryConfiguration.class,
 		McpOAuth2ClientConfigurations.DynamicClientRegistrationConfiguration.class,
 		McpOAuth2ClientConfigurations.OAuth2ClientManagerConfiguration.class,
 		McpOAuth2ClientConfigurations.RefreshTokenConfiguration.class,

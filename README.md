@@ -511,7 +511,7 @@ spring.ai.mcp.client.streamable-http.connections.my-mcp-server.url=http://localh
 # Enable Dynamic Client Registration (default: false)
 spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true
 # For development purposes, allow loopback addresses for MCP Servers and Auth Servers (default: false)
-spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
+spring.ai.mcp.client.authorization.allow-loopback-addresses=true
 ```
 
 Then, configure a `SecurityFilterChain` with the provided `McpClientOAuth2Configurer`:
@@ -631,7 +631,7 @@ explicitly allow HTTP for loopback addresses (like `localhost`, `127.0.0.1`, and
 property:
 
 ```properties
-spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
+spring.ai.mcp.client.authorization.allow-loopback-addresses=true
 ```
 
 ### Client ID Metadata Document (CIMD)

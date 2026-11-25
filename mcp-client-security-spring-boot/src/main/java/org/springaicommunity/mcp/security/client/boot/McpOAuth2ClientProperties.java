@@ -31,7 +31,25 @@ public class McpOAuth2ClientProperties {
 
 	public static final String CONFIG_PREFIX = "spring.ai.mcp.client.authorization";
 
+	/**
+	 * Allow communicating with MCP Servers and Authorization Servers on loopback
+	 * interfaces, including localhost, 127.0.0.1 and [::1].
+	 * <p>
+	 * For development use only.
+	 */
+	private boolean allowLoopbackAddresses = false;
+
 	private DynamicClientRegistration dynamicClientRegistration = new DynamicClientRegistration();
+
+	private Cimd cimd = new Cimd();
+
+	public boolean isAllowLoopbackAddresses() {
+		return allowLoopbackAddresses;
+	}
+
+	public void setAllowLoopbackAddresses(boolean allowLoopbackAddresses) {
+		this.allowLoopbackAddresses = allowLoopbackAddresses;
+	}
 
 	public DynamicClientRegistration getDynamicClientRegistration() {
 		return dynamicClientRegistration;
@@ -39,6 +57,14 @@ public class McpOAuth2ClientProperties {
 
 	public void setDynamicClientRegistration(DynamicClientRegistration dynamicClientRegistration) {
 		this.dynamicClientRegistration = dynamicClientRegistration;
+	}
+
+	public Cimd getCimd() {
+		return cimd;
+	}
+
+	public void setCimd(Cimd cimd) {
+		this.cimd = cimd;
 	}
 
 	public static class DynamicClientRegistration {
@@ -52,21 +78,25 @@ public class McpOAuth2ClientProperties {
 		 */
 		private boolean enabled = false;
 
+		public boolean isEnabled() {
+			return enabled;
+		}
+
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+
+	}
+
+	/**
+	 * Client ID Metadata Document (CIMD) configuration.
+	 */
+	public static class Cimd {
+
 		/**
-		 * Allow communicating with MCP Servers and Authorization Servers on loopback
-		 * interfaces, including localhost, 127.0.0.1 and [::1].
-		 * <p>
-		 * For development use only.
+		 * Enable Client ID Metadata Documents (CIMD) for client registration.
 		 */
-		private boolean allowLoopbackAddresses = false;
-
-		public boolean isAllowLoopbackAddresses() {
-			return allowLoopbackAddresses;
-		}
-
-		public void setAllowLoopbackAddresses(boolean allowLoopbackAddresses) {
-			this.allowLoopbackAddresses = allowLoopbackAddresses;
-		}
+		private boolean enabled = true;
 
 		public boolean isEnabled() {
 			return enabled;
