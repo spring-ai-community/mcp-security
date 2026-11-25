@@ -198,6 +198,22 @@ class McpAuthorizationServerConfigurerTest {
 			.isEqualTo("invalid_scope");
 	}
 
+	@Test
+	void authorizationRequestUsesCustomValidator() {
+		var resp = this.mvc.get()
+			.uri("/oauth2/authorize")
+			.queryParam("response_type", "code")
+			.queryParam("client_id", "localhost-client")
+			.queryParam("redirect_uri", "http://localhost:9999/callback")
+			.queryParam("scope", "test.scope")
+			.queryParam("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+			.queryParam("code_challenge_method", "S256")
+			.accept(MediaType.TEXT_HTML)
+			.exchange();
+		assertThat(resp).hasStatus(HttpStatus.FOUND);
+		assertThat(resp.getResponse().getHeader("Location")).endsWith("/login");
+	}
+
 	private MvcTestResult registerClient(String clientRegistration) {
 		return this.mvc.post()
 			.uri("/oauth2/register")
@@ -267,7 +283,14 @@ class McpAuthorizationServerConfigurerTest {
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 				.scope("test.scope")
 				.build();
-			return new InMemoryRegisteredClientRepository(registeredClient);
+			RegisteredClient localhostClient = RegisteredClient.withId(UUID.randomUUID().toString())
+				.clientId("localhost-client")
+				.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+				.redirectUri("http://localhost:8080/callback")
+				.scope("test.scope")
+				.build();
+			return new InMemoryRegisteredClientRepository(registeredClient, localhostClient);
 		}
 
 		@Bean
