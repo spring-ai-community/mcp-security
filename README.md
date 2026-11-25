@@ -614,7 +614,9 @@ When enabled, the flow works as follows:
 
 DCR is disabled by default in the `mcp-client-security-spring-boot` auto-configuration.
 To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
-When disabled, ensure you either have a single `ClientRegistration` registered under
+CIMD is enabled by default (`spring.ai.mcp.client.authorization.cimd.enabled=true`). When CIMD or DCR is enabled,
+each MCP client connection uses the client registration with the same name, and registers it if it does not exist.
+When both are disabled, ensure you either have a single `ClientRegistration` registered under
 `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
 Scope step-up is still supported when DCR is disabled.
 
