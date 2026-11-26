@@ -24,11 +24,11 @@
 
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>
-        <module>samples/sample-mcp-server</module>
-        <module>samples/sample-mcp-server-secured-tools</module>
-        <module>samples/sample-mcp-server-api-key</module>
-        <module>samples/sample-mcp-client</module>
-        <module>samples/sample-mcp-client-webclient</module>
+        <module>samples/legacy/sample-mcp-server</module>
+        <module>samples/legacy/sample-mcp-server-secured-tools</module>
+        <module>samples/legacy/sample-mcp-server-api-key</module>
+        <module>samples/legacy/sample-mcp-client</module>
+        <module>samples/legacy/sample-mcp-client-webclient</module>
         <module>samples/modern/sample-mcp-server-modern</module>
         <module>samples/modern/sample-mcp-client-modern</module>
         <module>samples/integration-tests</module>

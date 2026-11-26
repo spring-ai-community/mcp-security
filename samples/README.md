@@ -7,22 +7,22 @@ library. Each sample showcases a different aspect of securing MCP servers and cl
 
 Core samples are:
 
-| Sample                        | Description                                                                           | Port |
-|-------------------------------|---------------------------------------------------------------------------------------|------|
-| `sample-authorization-server` | OAuth 2.1 Authorization Server for issuing access tokens, compatible with MCP clients | 9000 |
-| `sample-mcp-server`           | OAuth 2.0-secured MCP server                                                          | 8090 |
-| `sample-mcp-client`           | MCP client using HttpClient transport with OAuth 2.0                                  | 8080 |
-| `sample-mcp-server-api-key`   | MCP server secured with API keys                                                      | 8092 |
+| Sample                             | Description                                                                           | Port |
+|------------------------------------|---------------------------------------------------------------------------------------|------|
+| `sample-authorization-server`      | OAuth 2.1 Authorization Server for issuing access tokens, compatible with MCP clients | 9000 |
+| `legacy/sample-mcp-server`         | OAuth 2.0-secured MCP server                                                          | 8090 |
+| `legacy/sample-mcp-client`         | MCP client using HttpClient transport with OAuth 2.0                                  | 8080 |
+| `legacy/sample-mcp-server-api-key` | MCP server secured with API keys                                                      | 8092 |
 
 Additional samples include:
 
-| Sample                            | Description                                                    | Port |
-|-----------------------------------|----------------------------------------------------------------|------|
-| `sample-mcp-server-secured-tools` | MCP server with method-level security on individual tools      | 8091 |
-| `sample-mcp-client-webclient`     | MCP client using WebClient (reactive) transport with OAuth 2.0 | 8081 |
-| `modern/sample-mcp-server-modern` | OAuth 2.0-secured MCP server, `2026-07-28` ("modern") protocol | 8093 |
-| `modern/sample-mcp-client-modern` | MCP client with OAuth 2.0, `2026-07-28` ("modern") protocol    | 8082 |
-| `integration-tests`               | Automated integration tests for all modules                    | N/A  |
+| Sample                                   | Description                                                    | Port |
+|------------------------------------------|----------------------------------------------------------------|------|
+| `legacy/sample-mcp-server-secured-tools` | MCP server with method-level security on individual tools      | 8091 |
+| `legacy/sample-mcp-client-webclient`     | MCP client using WebClient (reactive) transport with OAuth 2.0 | 8081 |
+| `modern/sample-mcp-server-modern`        | OAuth 2.0-secured MCP server, `2026-07-28` ("modern") protocol | 8093 |
+| `modern/sample-mcp-client-modern`        | MCP client with OAuth 2.0, `2026-07-28` ("modern") protocol    | 8082 |
+| `integration-tests`                      | Automated integration tests for all modules                    | N/A  |
 
 ---
 
@@ -51,7 +51,7 @@ The authorization server starts on http://localhost:9000. Credentials:
 ### Running the MCP Server
 
 ```shell
-./mvnw spring-boot:run -pl samples/sample-mcp-server
+./mvnw spring-boot:run -pl samples/legacy/sample-mcp-server
 ```
 
 The server starts on http://localhost:8090, with the MCP endpoint at http://localhost:8090/mcp.
@@ -131,12 +131,12 @@ Start all three applications in separate terminals, in the following order:
 
 2. MCP Server:
    ```shell
-   ./mvnw spring-boot:run -pl samples/sample-mcp-server
+   ./mvnw spring-boot:run -pl samples/legacy/sample-mcp-server
    ```
 
 3. MCP Client (HttpClient-based):
    ```shell
-   ./mvnw spring-boot:run -pl samples/sample-mcp-client
+   ./mvnw spring-boot:run -pl samples/legacy/sample-mcp-client
    ```
 
 ### Using the Application
@@ -153,7 +153,7 @@ You can also run the WebClient-based MCP client, which uses Spring's reactive `W
 the JDK's `HttpClient` for the MCP transport layer:
 
 ```shell
-./mvnw spring-boot:run -pl samples/sample-mcp-client-webclient
+./mvnw spring-boot:run -pl samples/legacy/sample-mcp-client-webclient
 ```
 
 This client runs on port 8081. The functionality is identical, demonstrating that both transport
@@ -171,7 +171,7 @@ is simpler and suitable for scenarios where OAuth 2.0 is not required.
 You do not need to run the authorization server for this sample.
 
 ```shell
-./mvnw spring-boot:run -pl samples/sample-mcp-server-api-key
+./mvnw spring-boot:run -pl samples/legacy/sample-mcp-server-api-key
 ```
 
 The server starts on http://localhost:8092.
@@ -241,7 +241,7 @@ Start both the authorization server and the secured tools server:
 
 ```shell
 ./mvnw spring-boot:run -pl samples/sample-authorization-server
-./mvnw spring-boot:run -pl samples/sample-mcp-server-secured-tools
+./mvnw spring-boot:run -pl samples/legacy/sample-mcp-server-secured-tools
 ```
 
 The server runs on http://localhost:8091.

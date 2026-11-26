@@ -80,7 +80,7 @@ That's it. When `spring.security.oauth2.resourceserver.jwt.issuer-uri` is set, t
 creates a `SecurityFilterChain` that secures all endpoints using the `McpServerOAuth2Configurer`.
 
 For a complete working example, see the
-[sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-server) module.
+[sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/legacy/sample-mcp-server) module.
 
 ### Manual setup with `mcp-server-security`
 
@@ -547,7 +547,7 @@ This is all you need. The auto-configuration module sets up the following beans:
 - Various `McpClientConfigurer` to update MCP transports and MCP clients so a token is added on every request
 
 For a complete working example, see the
-[sample-mcp-client](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-client) module.
+[sample-mcp-client](https://github.com/spring-ai-community/mcp-security/tree/main/samples/legacy/sample-mcp-client) module.
 
 ### Manual setup with `mcp-client-security`
 

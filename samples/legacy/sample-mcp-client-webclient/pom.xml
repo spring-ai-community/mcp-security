@@ -6,17 +6,16 @@
         <groupId>org.springaicommunity</groupId>
         <artifactId>mcp-security-parent</artifactId>
         <version>0.1.15-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../../../pom.xml</relativePath>
     </parent>
-
-    <artifactId>sample-mcp-server-api-key</artifactId>
-    <name>sample-mcp-server-api-key</name>
-    <description>Sample Streamable HTTP server, with API Key</description>
+    <artifactId>sample-mcp-client-webclient</artifactId>
+    <name>sample-mcp-client-webclient</name>
+    <description>Sample MCP client with Webflux, showcasing security</description>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -24,11 +23,15 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+            <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-anthropic</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springaicommunity</groupId>
-            <artifactId>mcp-server-security</artifactId>
+            <artifactId>mcp-client-security</artifactId>
             <version>0.1.15-SNAPSHOT</version>
         </dependency>
     </dependencies>
@@ -40,18 +43,6 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <skip>false</skip>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler-plugin.version}</version>
-                <configuration>
-                    <release>${java.version}</release>
-                    <compilerArgs>
-                        <compilerArg>-parameters</compilerArg>
-                    </compilerArgs>
-                    <annotationProcessorPaths/>
                 </configuration>
             </plugin>
         </plugins>
