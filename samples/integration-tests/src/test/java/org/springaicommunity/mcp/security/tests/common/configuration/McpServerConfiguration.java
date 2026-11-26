@@ -10,6 +10,7 @@ import org.springaicommunity.mcp.security.server.oauth2.jwt.AudienceValidationJw
 import org.springaicommunity.mcp.security.server.oauth2.metadata.ResourceIdentifier;
 import org.springaicommunity.mcp.security.server.session.McpSessionBindingRepository;
 import org.springaicommunity.mcp.security.tests.AllowAllCorsConfigurationSource;
+import org.springaicommunity.mcp.security.tests.streamable.sync.server.GreeterTool;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -53,6 +54,7 @@ public class McpServerConfiguration {
 				.entries(new ResourceClasspathEntry(mcpServerResourceName, mcpServerResourceName))
 				.classes(BearerResourceMetadataTokenAuthenticationEntryPoint.class)
 				.classes(AllowAllCorsConfigurationSource.class)
+				.classes(GreeterTool.class)
 				.scan(AudienceValidationJwtDecoder.class)
 				.scan(McpSessionBindingRepository.class)
 				.scan(McpServerOAuth2Configurer.class)
@@ -60,7 +62,7 @@ public class McpServerConfiguration {
 	}
 
 	public static MavenClasspathEntry springAiStarter(String starterName) {
-		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":2.0.0-M1",
+		return new MavenClasspathEntry("org.springframework.ai:spring-ai-starter-" + starterName + ":2.1.0",
 				List.of(newCentralRepository(), newSpringMilestoneRepository(), newSpringSnapshotRepository()));
 	}
 
