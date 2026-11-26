@@ -25,7 +25,6 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAu
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -38,9 +37,9 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 
 /**
  * {@link AutoConfiguration Auto-configuration} for MCP OAuth2 Client transport
- * customization when using {@link HttpClientStreamableHttpTransport}. Adds OAuth2
- * capabilities to the client transport, based on
- * {@code spring.ai.mcp.client.authorization.cimd.enabled} and
+ * customization for 2025-11-25 and earlier protocol revisions ("legacy") versions when
+ * using {@link HttpClientStreamableHttpTransport}. Adds OAuth2 capabilities to the client
+ * transport, based on {@code spring.ai.mcp.client.authorization.cimd.enabled} and
  * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled}, as well
  * as existing Spring Security OAuth2 client registrations.
  * <p>
@@ -55,6 +54,10 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
  * registered, and users should register their own customizer manually.
  * <p>
  * Only enabled for {@code SYNC} clients.
+ * <p>
+ * It is enabled even if there are no "legacy" clients and only "modern" clients. The
+ * Spring AI autoconfiguration picks up the appropriate customizers for whatever transport
+ * are being built.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -113,29 +116,6 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 			return (name, transport) -> {
 			};
 		}
-	}
-
-	/**
-	 * Matches when at least one client registration mechanism, CIMD or DCR, is enabled.
-	 */
-	static class ClientRegistrationEnabledCondition extends AnyNestedCondition {
-
-		ClientRegistrationEnabledCondition() {
-			super(ConfigurationPhase.REGISTER_BEAN);
-		}
-
-		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "cimd.enabled",
-				havingValue = "true", matchIfMissing = true)
-		static class CimdEnabled {
-
-		}
-
-		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
-				name = "dynamic-client-registration.enabled", havingValue = "true")
-		static class DcrEnabled {
-
-		}
-
 	}
 
 }

@@ -952,6 +952,50 @@ class McpConfiguration {
 }
 ```
 
+#### Modern protocol (`2026-07-28`) connections
+
+Spring AI 2.1+ supports the `2026-07-28` ("modern") MCP protocol revision, enabled for each connection:
+
+```properties
+spring.ai.mcp.client.streamable-http.connections.my-server.url=https://mcp.example.com
+spring.ai.mcp.client.streamable-http.connections.my-server.protocol=MODERN
+```
+
+Modern connections use `HttpClientMcpTransport` instead of `HttpClientStreamableHttpTransport`. With
+`mcp-client-security-spring-boot`, the `OAuth2HttpClientMcpTransportCustomizer` is auto-configured for modern
+connections, next to the `OAuth2HttpClientTransportCustomizer` for legacy connections. An application can talk to
+legacy and modern servers at the same time. The modern auto-configuration backs off with Spring AI 2.0.
+
+To configure it manually, expose an `OAuth2HttpClientMcpTransportCustomizer` bean. It takes the same constructor
+arguments as `OAuth2HttpClientTransportCustomizer`. Without the Boot auto-configuration, also set the
+`AuthenticationMcpTransportContextProvider` on modern clients:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    OAuth2HttpClientMcpTransportCustomizer modernTransportCustomizer(
+            OAuth2AuthorizedClientManager clientManager,
+            ClientRegistrationRepository clientRegistrationRepository,
+            McpOAuth2ClientManager mcpOAuth2ClientManager
+    ) {
+        return new OAuth2HttpClientMcpTransportCustomizer(
+                clientManager,
+                clientRegistrationRepository,
+                mcpOAuth2ClientManager
+        );
+    }
+
+    @Bean
+    McpClientCustomizer<io.modelcontextprotocol.modern.client.McpClient.SyncBuilder> modernClientCustomizer() {
+        return (name, client) -> client.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+    }
+
+}
+```
+
 ### Use with `spring-ai-starter-mcp-client-webflux`
 
 When using `spring-ai-starter-mcp-client-webflux`, the underlying MCP client transport will be based on a Spring

@@ -17,6 +17,7 @@
 package org.springaicommunity.mcp.security.client.boot;
 
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.modern.OAuth2HttpClientMcpTransportCustomizer;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -98,8 +99,9 @@ public class McpOAuth2ClientProperties {
 		 * <li>There is a single {@link ClientRegistration} under
 		 * {@code spring.security.oauth2.client.registration}</li>
 		 * <li>OR {@link DynamicClientRegistration#setEnabled} is set to {@code true}</li>
-		 * <li>OR you provide your own {@link OAuth2HttpClientTransportCustomizer}
-		 * bean</li>
+		 * <li>OR you provide your own {@link OAuth2HttpClientTransportCustomizer} bean
+		 * for legacy connections, or {@link OAuth2HttpClientMcpTransportCustomizer} bean
+		 * for modern connections</li>
 		 * </ul>
 		 */
 		private boolean enabled = true;
