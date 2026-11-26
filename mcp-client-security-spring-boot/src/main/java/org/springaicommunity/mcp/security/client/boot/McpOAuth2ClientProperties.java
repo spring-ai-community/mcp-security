@@ -69,19 +69,15 @@ public class McpOAuth2ClientProperties {
 
 	public static class DynamicClientRegistration {
 
-		/**
-		 * Enable dynamic client registration.
-		 * <p>
-		 * If false, ensure you either have a single {@link ClientRegistration} registered
-		 * under {@code spring.security.oauth2.client.registration}, or you provide your
-		 * own {@link OAuth2HttpClientTransportCustomizer} bean.
-		 */
 		private boolean enabled = false;
 
 		public boolean isEnabled() {
 			return enabled;
 		}
 
+		/**
+		 * Enable dynamic client registration. Defaults to {@code false}.
+		 */
 		public void setEnabled(boolean enabled) {
 			this.enabled = enabled;
 		}
@@ -94,7 +90,17 @@ public class McpOAuth2ClientProperties {
 	public static class Cimd {
 
 		/**
-		 * Enable Client ID Metadata Documents (CIMD) for client registration.
+		 * Enable Client ID Metadata Documents (CIMD) for client registration. Defaults to
+		 * {@code true}.
+		 * <p>
+		 * If false, ensure one of the following is true:
+		 * <ul>
+		 * <li>There is a single {@link ClientRegistration} under
+		 * {@code spring.security.oauth2.client.registration}</li>
+		 * <li>OR {@link DynamicClientRegistration#setEnabled} is set to {@code true}</li>
+		 * <li>OR you provide your own {@link OAuth2HttpClientTransportCustomizer}
+		 * bean</li>
+		 * </ul>
 		 */
 		private boolean enabled = true;
 
