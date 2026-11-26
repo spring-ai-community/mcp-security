@@ -25,11 +25,14 @@ import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.modern.client.transport.McpHttpRequest;
 import io.modelcontextprotocol.modern.client.transport.McpHttpResponseInfo;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrNotSupportedException;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -58,12 +61,13 @@ class OAuth2AuthorizationErrorHandlerTests {
 	private final McpOAuth2ClientManager clientManager = mock(McpOAuth2ClientManager.class);
 
 	private final OAuth2AuthorizationErrorHandler handler = new OAuth2AuthorizationErrorHandler(this.clientManager,
-			REGISTRATION_ID, BASE_URL + "/");
+			REGISTRATION_ID);
 
 	private final McpHttpRequest request = mock(McpHttpRequest.class);
 
 	OAuth2AuthorizationErrorHandlerTests() {
 		when(this.request.uri()).thenReturn(URI.create(MCP_SERVER_URL));
+		this.handler.setFallbackBaseUrl(BASE_URL + "/");
 	}
 
 	@Test
@@ -74,6 +78,34 @@ class OAuth2AuthorizationErrorHandlerTests {
 			.satisfies(ex -> assertThat(ex.getClientRegistrationId()).isEqualTo(REGISTRATION_ID));
 
 		verify(this.clientManager).registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER, BASE_URL);
+	}
+
+	@Test
+	void unauthorizedUsesBaseUrlFromServletRequest() throws Exception {
+		var servletRequest = new MockHttpServletRequest("GET", "/ctx/some/path");
+		servletRequest.setScheme("https");
+		servletRequest.setServerName("servlet.example.com");
+		servletRequest.setServerPort(443);
+		servletRequest.setContextPath("/ctx");
+		var context = McpTransportContext
+			.create(Map.of(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY,
+					new ServletRequestAttributes(servletRequest)));
+
+		assertThatExceptionOfType(ClientAuthorizationRequiredException.class)
+			.isThrownBy(() -> this.handler.handle(this.request, response(401, WWW_AUTHENTICATE_HEADER), context));
+
+		verify(this.clientManager).registerClient(REGISTRATION_ID, MCP_SERVER_URL, WWW_AUTHENTICATE_HEADER,
+				"https://servlet.example.com/ctx");
+	}
+
+	@Test
+	void unauthorizedWithoutBaseUrl() {
+		var handler = new OAuth2AuthorizationErrorHandler(this.clientManager, REGISTRATION_ID);
+
+		var handled = handler.handle(this.request, response(401, WWW_AUTHENTICATE_HEADER), McpTransportContext.EMPTY);
+
+		assertThat(handled).isFalse();
+		verifyNoInteractions(this.clientManager);
 	}
 
 	@Test

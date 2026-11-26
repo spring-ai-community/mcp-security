@@ -159,7 +159,6 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 * <p>
 	 * This assumes that a {@link DcrMcpOAuth2ClientManager} is available. If not, a
 	 * short-lived instance will be created with the appropriate beans from the context.
-	 *
 	 * @param registrationId the id used for
 	 * {@link ClientRegistration#getRegistrationId()}
 	 * @param mcpServerUrl the URL of the MCP server
