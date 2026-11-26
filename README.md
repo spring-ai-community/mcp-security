@@ -180,6 +180,52 @@ class McpServerConfiguration {
 }
 ```
 
+### Multi-tenant OAuth2 resource servers
+
+For authorization servers that use a different issuer for each tenant, configure the lower-level
+`mcp-server-security` module manually. Supply Spring Security's tenant-aware
+`AuthenticationManagerResolver<HttpServletRequest>` and advertise every trusted issuer in the protected resource
+metadata:
+
+```java
+
+@Configuration
+@EnableWebSecurity
+class McpServerConfiguration {
+
+    private static final List<String> TRUSTED_ISSUERS = List.of(
+            "https://keycloak.example.com/realms/tenant-a",
+            "https://keycloak.example.com/realms/tenant-b"
+    );
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        var authenticationManagerResolver =
+                JwtIssuerAuthenticationManagerResolver.fromTrustedIssuers(TRUSTED_ISSUERS);
+
+        return http
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .with(
+                        McpServerOAuth2Configurer.mcpServerOAuth2(),
+                        (mcpAuthorization) -> mcpAuthorization
+                                .authorizationServers(TRUSTED_ISSUERS)
+                                .authenticationManagerResolver(authenticationManagerResolver)
+                )
+                .build();
+    }
+}
+```
+
+Only explicitly trusted issuers should be accepted. Using an unrestricted issuer predicate would allow arbitrary
+issuers to make the server contact attacker-controlled authorization-server endpoints.
+
+If the application already has a tenant-aware `JwtDecoder`—for example, one backed by a
+`JWTClaimsSetAwareJWSKeySelector`—pass it to `.jwtDecoder(...)` instead of configuring an
+`AuthenticationManagerResolver`.
+
+The `mcp-server-security-spring-boot` auto-configuration remains intended for the single-issuer case. Defining the
+`SecurityFilterChain` above makes Boot back off from its default security configuration.
+
 ### Special case: only secure tool calls with OAuth2
 
 It is also possible to secure the tools only, and not the rest of the MCP Server. For example, both `initialize` and
