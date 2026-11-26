@@ -24,6 +24,7 @@ import com.anthropic.models.messages.ContentBlockParam;
 import com.anthropic.models.messages.DirectCaller;
 import com.anthropic.models.messages.InputJsonDelta;
 import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.MessageContentParam;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.MessageDeltaUsage;
 import com.anthropic.models.messages.MessageParam;
@@ -120,6 +121,7 @@ class LlmTests {
 		.stopSequence("")
 		.usage(mock(Usage.class))
 		.stopDetails(Optional.empty())
+		.diagnostics(Optional.empty())
 		.build();
 
 	// LLM mock: First response, ask to call the "greeter" tool
@@ -289,8 +291,8 @@ class LlmTests {
 		return messageCreateParams != null && messageCreateParams.messages()
 			.stream()
 			.map(MessageParam::content)
-			.filter(MessageParam.Content::isBlockParams)
-			.map(MessageParam.Content::asBlockParams)
+			.filter(MessageContentParam::isContentBlockParams)
+			.map(MessageContentParam::asContentBlockParams)
 			.flatMap(Collection::stream)
 			.anyMatch(ContentBlockParam::isToolResult);
 	}
@@ -303,8 +305,8 @@ class LlmTests {
 		return messageCreateParams.messages()
 			.stream()
 			.map(MessageParam::content)
-			.filter(MessageParam.Content::isBlockParams)
-			.map(MessageParam.Content::asBlockParams)
+			.filter(MessageContentParam::isContentBlockParams)
+			.map(MessageContentParam::asContentBlockParams)
 			.flatMap(Collection::stream)
 			.filter(ContentBlockParam::isToolResult)
 			.map(ContentBlockParam::asToolResult)
