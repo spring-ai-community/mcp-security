@@ -55,7 +55,7 @@ class DemoController {
 						What is the current weather in %s?
 						Format the output in plain HTML, no CSS (it will be embedded, unescaped, in an HTML template)."""
 					.formatted(query))
-				.toolCallbacks(mcpToolCallbacks)
+				.tools(mcpToolCallbacks)
 				.call()
 				.content();
 

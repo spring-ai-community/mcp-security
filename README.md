@@ -1233,7 +1233,9 @@ You can then add it to the tools available to a chat client:
 
 ```java
 var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
-        .toolCallbacks(new SyncMcpToolCallbackProvider(mcpClient1, mcpClient2, mcpClient3))
+        .tools(SyncMcpToolCallbackProvider.builder()
+                .mcpClients(List.of(mcpClient1, mcpClient2, mcpClient3))
+                .build())
         .call()
         .content();
 ```

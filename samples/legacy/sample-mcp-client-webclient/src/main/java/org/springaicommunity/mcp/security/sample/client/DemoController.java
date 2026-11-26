@@ -53,7 +53,7 @@ class DemoController {
 			var chatResponse = chatClient.prompt("""
 					What is the current weather in %s?
 					Format the output in plain HTML, no CSS.""".formatted(query))
-				.toolCallbacks(mcpToolCallbacks)
+				.tools(mcpToolCallbacks)
 				.call()
 				.content();
 
