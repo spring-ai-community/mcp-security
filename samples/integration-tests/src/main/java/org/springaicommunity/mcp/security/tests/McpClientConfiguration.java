@@ -45,7 +45,8 @@ import org.springframework.security.web.SecurityFilterChain;
  * @author Daniel Garnier-Moiroux
  */
 @Configuration
-@Import({ InMemoryMcpClientRepository.class, McpController.class })
+@Import({ InMemoryMcpClientRepository.class, McpController.class, InMemoryModernMcpClientRepository.class,
+		ModernMcpController.class })
 @EnableWebSecurity
 @EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class McpClientConfiguration {

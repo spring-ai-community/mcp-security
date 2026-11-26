@@ -50,8 +50,7 @@ class StreamableHttpTests extends StreamableHttpAbstractTests {
 	@EnableWebMvc
 	@EnableWebSecurity
 	@EnableAutoConfiguration(exclude = { OAuth2AuthorizationServerAutoConfiguration.class,
-			OAuth2AuthorizationServerJwtAutoConfiguration.class, StreamableHttpWebFluxTransportAutoConfiguration.class,
-			AnthropicChatAutoConfiguration.class })
+			OAuth2AuthorizationServerJwtAutoConfiguration.class, AnthropicChatAutoConfiguration.class })
 	@Import({ AuthorizationServerConfiguration.class, McpServerConfiguration.class, McpClientConfiguration.class })
 	static class StreamableHttpConfig {
 
