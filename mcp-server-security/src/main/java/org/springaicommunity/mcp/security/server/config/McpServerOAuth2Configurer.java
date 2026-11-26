@@ -30,7 +30,12 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTypeValidator;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.OAuth2ProtectedResourceMetadata;
 import org.springframework.util.Assert;
@@ -188,14 +193,25 @@ public class McpServerOAuth2Configurer extends AbstractHttpConfigurer<McpServerO
 	}
 
 	private JwtDecoder getJwtDecoder(String issuerUri) {
-		var rawDecoder = this.jwtDecoder != null ? this.jwtDecoder
-				: NimbusJwtDecoder.withIssuerLocation(issuerUri).build();
+		var rawDecoder = this.jwtDecoder != null ? this.jwtDecoder : createJwtDecoder(issuerUri);
 
 		if (this.validateAudienceClaim) {
 			return new AudienceValidationJwtDecoder(rawDecoder, this.resourceIdentifier);
 		}
 
 		return rawDecoder;
+	}
+
+	private static JwtDecoder createJwtDecoder(String issuerUri) {
+		var decoder = NimbusJwtDecoder.withIssuerLocation(issuerUri).validateType(false).build();
+		decoder.setJwtValidator(createJwtValidator(issuerUri));
+		return decoder;
+	}
+
+	static OAuth2TokenValidator<Jwt> createJwtValidator(String issuerUri) {
+		var typeValidator = new JwtTypeValidator("JWT", "at+jwt");
+		typeValidator.setAllowEmpty(true);
+		return JwtValidators.createDefaultWithValidators(new JwtIssuerValidator(issuerUri), typeValidator);
 	}
 
 	private Consumer<OAuth2ProtectedResourceMetadata.Builder> getProtectedMetadataCustomizer(String issuerUri) {

@@ -78,6 +78,8 @@ spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:9000
 
 That's it. When `spring.security.oauth2.resourceserver.jwt.issuer-uri` is set, the auto-configuration
 creates a `SecurityFilterChain` that secures all endpoints using the `McpServerOAuth2Configurer`.
+The default JWT decoder accepts access tokens with a `typ` header of either `JWT` or `at+jwt`, as well as tokens
+without a `typ` header.
 
 For a complete working example, see the
 [sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-server) module.
