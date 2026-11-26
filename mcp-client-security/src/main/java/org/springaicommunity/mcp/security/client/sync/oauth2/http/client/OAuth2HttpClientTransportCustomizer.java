@@ -16,7 +16,6 @@
 
 package org.springaicommunity.mcp.security.client.sync.oauth2.http.client;
 
-import java.lang.reflect.Field;
 import java.util.function.Function;
 
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -25,12 +24,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
-
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.util.Assert;
-import org.springframework.util.ReflectionUtils;
 
 /**
  * A {@link McpClientCustomizer} for {@link HttpClientStreamableHttpTransport.Builder}
@@ -135,9 +132,6 @@ public class OAuth2HttpClientTransportCustomizer
 			return;
 		}
 		log.debug("Configuring OAuth2 for transport [{}] with registration ID [{}]", name, registrationId);
-		// This is a hack until the mcp server url is passed to the error handler.
-		String mcpServerUrl = extractMcpServerUrl(transportBuilder);
-		log.debug("Extracted MCP server URL [{}] for transport [{}]", mcpServerUrl, name);
 
 		var requestCustomizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.authorizedClientManager,
 				this.clientRegistrationRepository, registrationId);
@@ -147,28 +141,6 @@ public class OAuth2HttpClientTransportCustomizer
 		transportBuilder.httpRequestCustomizer(requestCustomizer)
 			.authorizationErrorHandler(McpHttpClientTransportAuthorizationErrorHandler.fromSync(errorHandler));
 		log.debug("OAuth2 request customizer and authorization error handler configured for transport [{}]", name);
-	}
-
-	private static String extractMcpServerUrl(HttpClientStreamableHttpTransport.Builder builder) {
-		String baseUri = extractField(builder, "baseUri", String.class);
-		String endpoint = extractField(builder, "endpoint", String.class);
-		if (baseUri.endsWith("/") && endpoint.startsWith("/")) {
-			return baseUri + endpoint.substring(1);
-		}
-		return baseUri + endpoint;
-	}
-
-	private static <T> T extractField(Object target, String fieldName, Class<T> type) {
-		Field field = ReflectionUtils.findField(target.getClass(), fieldName);
-		if (field == null) {
-			throw new IllegalStateException(
-					"Could not find field '%s' on %s".formatted(fieldName, target.getClass().getName()));
-		}
-		ReflectionUtils.makeAccessible(field);
-		Object value = ReflectionUtils.getField(field, target);
-		Assert.notNull(value,
-				() -> "Field '%s' on %s must not be null".formatted(fieldName, target.getClass().getName()));
-		return type.cast(value);
 	}
 
 }
