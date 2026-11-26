@@ -29,6 +29,8 @@
         <module>samples/sample-mcp-server-api-key</module>
         <module>samples/sample-mcp-client</module>
         <module>samples/sample-mcp-client-webclient</module>
+        <module>samples/modern/sample-mcp-server-modern</module>
+        <module>samples/modern/sample-mcp-client-modern</module>
         <module>samples/integration-tests</module>
     </modules>
 
@@ -362,7 +364,7 @@
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <excludeArtifacts>
-                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webclient,sample-mcp-server-secured-tools,sample-mcp-server-api-key,integration-tests
+                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webclient,sample-mcp-server-secured-tools,sample-mcp-server-api-key,sample-mcp-server-modern,sample-mcp-client-modern,sample-mcp-client-modern-conformance,integration-tests
                             </excludeArtifacts>
                             <autoPublish>true</autoPublish>
                         </configuration>

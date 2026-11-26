@@ -20,6 +20,8 @@ Additional samples include:
 |-----------------------------------|----------------------------------------------------------------|------|
 | `sample-mcp-server-secured-tools` | MCP server with method-level security on individual tools      | 8091 |
 | `sample-mcp-client-webclient`     | MCP client using WebClient (reactive) transport with OAuth 2.0 | 8081 |
+| `modern/sample-mcp-server-modern` | OAuth 2.0-secured MCP server, `2026-07-28` ("modern") protocol | 8093 |
+| `modern/sample-mcp-client-modern` | MCP client with OAuth 2.0, `2026-07-28` ("modern") protocol    | 8082 |
 | `integration-tests`               | Automated integration tests for all modules                    | N/A  |
 
 ---
@@ -254,3 +256,55 @@ for login, and there is no way to manually provide a token for tool calls.
 
 To test this scenario, use an MCP client application (like `sample-mcp-client`) that handles the
 OAuth 2.0 flow at the tool-call level, or use curl with a manually obtained token.
+
+---
+
+## 5. Modern Protocol (`2026-07-28`)
+
+This scenario is the same as the [end-to-end scenario](#2-end-to-end-scenario-with-authorization-server-mcp-server-and-mcp-client),
+but the client and the server speak the `2026-07-28` ("modern") revision of the MCP protocol, which has no
+initialization handshake and no sessions. It requires Spring AI 2.1 or later.
+
+The MCP server enables the modern protocol with:
+
+```properties
+spring.ai.mcp.server.protocol=MODERN
+```
+
+The MCP client enables it for each connection:
+
+```properties
+spring.ai.mcp.client.streamable-http.connections.current-weather.url=http://localhost:8093
+spring.ai.mcp.client.streamable-http.connections.current-weather.protocol=MODERN
+```
+
+Security is configured the same way as with the legacy protocol: `mcp-server-security-spring-boot` secures the
+server, and `mcp-client-security-spring-boot` adds OAuth 2.0 to every modern connection.
+
+### Running the Full Stack
+
+Set your Anthropic API key (see [AI model](#ai-model)), then start all three applications in separate
+terminals, in the following order:
+
+1. Authorization Server:
+   ```shell
+   ./mvnw spring-boot:run -pl samples/sample-authorization-server
+   ```
+
+2. MCP Server (modern protocol):
+   ```shell
+   ./mvnw spring-boot:run -pl samples/modern/sample-mcp-server-modern
+   ```
+
+3. MCP Client (modern protocol):
+   ```shell
+   ./mvnw spring-boot:run -pl samples/modern/sample-mcp-client-modern
+   ```
+
+### Using the Application
+
+1. Open http://localhost:8082 in your browser.
+2. Enter a city name (e.g., "Paris") and click "Ask the LLM".
+3. You will be redirected to the authorization server for login. Use `user` / `password`.
+4. After authentication, the LLM will use the MCP server's weather tool to fetch and display the
+   current temperature.
