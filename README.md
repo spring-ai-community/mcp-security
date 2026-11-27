@@ -80,7 +80,7 @@ That's it. When `spring.security.oauth2.resourceserver.jwt.issuer-uri` is set, t
 creates a `SecurityFilterChain` that secures all endpoints using the `McpServerOAuth2Configurer`.
 
 For a complete working example, see the
-[sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-server) module.
+[sample-mcp-server](https://github.com/spring-ai-community/mcp-security/tree/main/samples/legacy/sample-mcp-server) module.
 
 ### Manual setup with `mcp-server-security`
 
@@ -511,7 +511,7 @@ spring.ai.mcp.client.streamable-http.connections.my-mcp-server.url=http://localh
 # Enable Dynamic Client Registration (default: false)
 spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true
 # For development purposes, allow loopback addresses for MCP Servers and Auth Servers (default: false)
-spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
+spring.ai.mcp.client.authorization.allow-loopback-addresses=true
 ```
 
 Then, configure a `SecurityFilterChain` with the provided `McpClientOAuth2Configurer`:
@@ -547,7 +547,7 @@ This is all you need. The auto-configuration module sets up the following beans:
 - Various `McpClientConfigurer` to update MCP transports and MCP clients so a token is added on every request
 
 For a complete working example, see the
-[sample-mcp-client](https://github.com/spring-ai-community/mcp-security/tree/main/samples/sample-mcp-client) module.
+[sample-mcp-client](https://github.com/spring-ai-community/mcp-security/tree/main/samples/legacy/sample-mcp-client) module.
 
 ### Manual setup with `mcp-client-security`
 
@@ -614,7 +614,9 @@ When enabled, the flow works as follows:
 
 DCR is disabled by default in the `mcp-client-security-spring-boot` auto-configuration.
 To enable it, set `spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true`.
-When disabled, ensure you either have a single `ClientRegistration` registered under
+CIMD is enabled by default (`spring.ai.mcp.client.authorization.cimd.enabled=true`). When CIMD or DCR is enabled,
+each MCP client connection uses the client registration with the same name, and registers it if it does not exist.
+When both are disabled, ensure you either have a single `ClientRegistration` registered under
 `spring.security.oauth2.client.registration`, or provide your own `OAuth2HttpClientTransportCustomizer` bean.
 Scope step-up is still supported when DCR is disabled.
 
@@ -631,7 +633,7 @@ explicitly allow HTTP for loopback addresses (like `localhost`, `127.0.0.1`, and
 property:
 
 ```properties
-spring.ai.mcp.client.authorization.dynamic-client-registration.allow-loopback-addresses=true
+spring.ai.mcp.client.authorization.allow-loopback-addresses=true
 ```
 
 ### Client ID Metadata Document (CIMD)
@@ -657,24 +659,26 @@ SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
 This registers a filter that serves the client metadata document at `/{registrationId}/client-id-metadata.json`, valid for any `{registrationId}`.
 
-Then declare a `DefaultMcpOAuth2CimdClientManager` bean and use `OAuth2CimdHttpClientTransportCustomizer`
-instead of the DCR variant:
+Then declare a `CimdMcpOAuth2ClientManager` bean and pass it to `OAuth2HttpClientTransportCustomizer`,
+instead of a DCR manager. To use a client ID metadata document when the authorization server supports it, and
+Dynamic Client Registration otherwise, wrap both managers in a `DelegatingMcpOAuth2ClientManager`:
+`new DelegatingMcpOAuth2ClientManager(cimdClientManager, dcrClientManager)`.
 
 ```java
 @Bean
-McpOAuth2CimdClientManager cimdClientManager(
+McpOAuth2ClientManager cimdClientManager(
         McpMetadataDiscoveryService discoveryService,
         McpClientRegistrationRepository repo,
         UrlValidator urlValidator) {
-    return new DefaultMcpOAuth2CimdClientManager(discoveryService, repo, urlValidator);
+    return new CimdMcpOAuth2ClientManager(discoveryService, repo, urlValidator);
 }
 
 @Bean
 McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> transportCustomizer(
         OAuth2AuthorizedClientManager authorizedClientManager,
         McpClientRegistrationRepository repo,
-        McpOAuth2CimdClientManager cimdClientManager) {
-    return new OAuth2CimdHttpClientTransportCustomizer(authorizedClientManager, repo, cimdClientManager);
+        McpOAuth2ClientManager cimdClientManager) {
+    return new OAuth2HttpClientTransportCustomizer(authorizedClientManager, repo, cimdClientManager);
 }
 ```
 
@@ -948,6 +952,50 @@ class McpConfiguration {
 }
 ```
 
+#### Modern protocol (`2026-07-28`) connections
+
+Spring AI 2.1+ supports the `2026-07-28` ("modern") MCP protocol revision, enabled for each connection:
+
+```properties
+spring.ai.mcp.client.streamable-http.connections.my-server.url=https://mcp.example.com
+spring.ai.mcp.client.streamable-http.connections.my-server.protocol=MODERN
+```
+
+Modern connections use `HttpClientMcpTransport` instead of `HttpClientStreamableHttpTransport`. With
+`mcp-client-security-spring-boot`, the `OAuth2HttpClientMcpTransportCustomizer` is auto-configured for modern
+connections, next to the `OAuth2HttpClientTransportCustomizer` for legacy connections. An application can talk to
+legacy and modern servers at the same time. The modern auto-configuration backs off with Spring AI 2.0.
+
+To configure it manually, expose an `OAuth2HttpClientMcpTransportCustomizer` bean. It takes the same constructor
+arguments as `OAuth2HttpClientTransportCustomizer`. Without the Boot auto-configuration, also set the
+`AuthenticationMcpTransportContextProvider` on modern clients:
+
+```java
+
+@Configuration
+class McpConfiguration {
+
+    @Bean
+    OAuth2HttpClientMcpTransportCustomizer modernTransportCustomizer(
+            OAuth2AuthorizedClientManager clientManager,
+            ClientRegistrationRepository clientRegistrationRepository,
+            McpOAuth2ClientManager mcpOAuth2ClientManager
+    ) {
+        return new OAuth2HttpClientMcpTransportCustomizer(
+                clientManager,
+                clientRegistrationRepository,
+                mcpOAuth2ClientManager
+        );
+    }
+
+    @Bean
+    McpClientCustomizer<io.modelcontextprotocol.modern.client.McpClient.SyncBuilder> modernClientCustomizer() {
+        return (name, client) -> client.transportContextProvider(new AuthenticationMcpTransportContextProvider());
+    }
+
+}
+```
+
 ### Use with `spring-ai-starter-mcp-client-webflux`
 
 When using `spring-ai-starter-mcp-client-webflux`, the underlying MCP client transport will be based on a Spring
@@ -1185,7 +1233,9 @@ You can then add it to the tools available to a chat client:
 
 ```java
 var chatResponse = chatClient.prompt("Prompt the LLM to _do the thing_")
-        .toolCallbacks(new SyncMcpToolCallbackProvider(mcpClient1, mcpClient2, mcpClient3))
+        .tools(SyncMcpToolCallbackProvider.builder()
+                .mcpClients(List.of(mcpClient1, mcpClient2, mcpClient3))
+                .build())
         .call()
         .content();
 ```

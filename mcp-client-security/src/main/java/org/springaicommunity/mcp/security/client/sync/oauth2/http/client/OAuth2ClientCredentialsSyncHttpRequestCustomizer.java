@@ -21,13 +21,10 @@ import java.net.http.HttpRequest;
 
 import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequestCustomizer;
 import io.modelcontextprotocol.common.McpTransportContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.common.OAuth2ClientCredentialsAccessTokenResolver;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
 /**
  * Adds an OAuth2 access token to outgoing MCP client HTTP requests using the
@@ -48,32 +45,18 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
  */
 public class OAuth2ClientCredentialsSyncHttpRequestCustomizer implements McpSyncHttpClientRequestCustomizer {
 
-	private static final Logger log = LoggerFactory.getLogger(OAuth2ClientCredentialsSyncHttpRequestCustomizer.class);
-
-	private final AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager;
-
-	private final String clientRegistrationId;
+	private final OAuth2ClientCredentialsAccessTokenResolver accessTokenResolver;
 
 	public OAuth2ClientCredentialsSyncHttpRequestCustomizer(
 			AuthorizedClientServiceOAuth2AuthorizedClientManager authorizedClientManager, String clientRegistrationId) {
-		this.authorizedClientManager = authorizedClientManager;
-		this.clientRegistrationId = clientRegistrationId;
+		this.accessTokenResolver = new OAuth2ClientCredentialsAccessTokenResolver(authorizedClientManager,
+				clientRegistrationId);
 	}
 
 	@Override
 	public void customize(HttpRequest.Builder builder, String method, URI endpoint, String body,
 			McpTransportContext context) {
-		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
-			.withClientRegistrationId(this.clientRegistrationId)
-			.principal("mcp-client-service")
-			.build();
-		log.debug("Requesting access token");
-		var authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
-		if (authorizedClient == null) {
-			throw new IllegalArgumentException("Authorization not supported for " + this.clientRegistrationId);
-		}
-		OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
-		log.debug("Obtained access token");
+		var accessToken = this.accessTokenResolver.resolve();
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken.getTokenValue());
 	}
 

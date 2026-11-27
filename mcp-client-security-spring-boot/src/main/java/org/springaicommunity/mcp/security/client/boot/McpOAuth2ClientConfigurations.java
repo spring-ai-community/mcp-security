@@ -20,15 +20,16 @@ import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DelegatingMcpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
-
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -50,10 +51,14 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 /**
  * Configurations for MCP OAuth2 Client support. Creates an
  * {@link McpClientRegistrationRepository} for storing client registrations for MCP
- * clients, as well as the infrastructure to perform dynamic client registration (DCR).
+ * clients, as well as the infrastructure to register clients with Client ID Metadata
+ * Documents (CIMD) and dynamic client registration (DCR). When both are enabled, CIMD is
+ * tried first, then DCR.
  * <p>
- * DCR can be turned off via
- * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false}.
+ * CIMD is enabled by default, and can be turned off via
+ * {@code spring.ai.mcp.client.authorization.cimd.enabled=false}. DCR is disabled by
+ * default, and can be turned on via
+ * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true}.
  * <p>
  * If client registrations are found under
  * {@code spring.security.oauth2.client.registration}, they are add to the
@@ -83,14 +88,12 @@ class McpOAuth2ClientConfigurations {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
-			name = "dynamic-client-registration.enabled", havingValue = "true")
-	static class DynamicClientRegistrationConfiguration {
+	static class McpMetadataDiscoveryConfiguration {
 
 		@Bean
 		@ConditionalOnMissingBean
 		UrlValidator urlValidator(McpOAuth2ClientProperties properties) {
-			return new DefaultUrlValidator(properties.getDynamicClientRegistration().isAllowLoopbackAddresses());
+			return new DefaultUrlValidator(properties.isAllowLoopbackAddresses());
 		}
 
 		@Bean
@@ -98,6 +101,13 @@ class McpOAuth2ClientConfigurations {
 		McpMetadataDiscoveryService mcpMetadataDiscoveryService(UrlValidator urlValidator) {
 			return new McpMetadataDiscoveryService(urlValidator);
 		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+			name = "dynamic-client-registration.enabled", havingValue = "true")
+	static class DynamicClientRegistrationConfiguration {
 
 		@Bean
 		@ConditionalOnMissingBean
@@ -109,25 +119,65 @@ class McpOAuth2ClientConfigurations {
 
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnBean(McpClientRegistrationRepository.class)
-	@ConditionalOnMissingBean(McpOAuth2DcrClientManager.class)
+	@ConditionalOnMissingBean(McpOAuth2ClientManager.class)
 	static class OAuth2ClientManagerConfiguration {
 
 		@Bean
-		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class,
-				UrlValidator.class })
-		DefaultMcpOAuth2DcrClientManager mcpOAuth2ClientManager(
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "cimd.enabled",
+				havingValue = "true", matchIfMissing = true)
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+				name = "dynamic-client-registration.enabled", havingValue = "false", matchIfMissing = true)
+		@ConditionalOnBean({ McpMetadataDiscoveryService.class, UrlValidator.class })
+		@ConditionalOnMissingBean(McpOAuth2ClientManager.class)
+		CimdMcpOAuth2ClientManager cimdMcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository,
-				DynamicClientRegistrationService dynamicClientRegistrationService,
 				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
-			return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
-					dynamicClientRegistrationService, mcpMetadataDiscoveryService, urlValidator);
+			return new CimdMcpOAuth2ClientManager(mcpMetadataDiscoveryService, mcpClientRegistrationRepository,
+					urlValidator);
 		}
 
 		@Bean
-		@ConditionalOnMissingBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class })
-		ScopeStepUpMcpOAuth2DcrClientManager scopeStepUpMcpOAuth2ClientManager(
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "cimd.enabled",
+				havingValue = "false", matchIfMissing = false)
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+				name = "dynamic-client-registration.enabled", havingValue = "true", matchIfMissing = false)
+		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class,
+				UrlValidator.class })
+		DcrMcpOAuth2ClientManager dcrMcpOAuth2ClientManager(
+				McpClientRegistrationRepository mcpClientRegistrationRepository,
+				DynamicClientRegistrationService dynamicClientRegistrationService,
+				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
+			return new DcrMcpOAuth2ClientManager(mcpClientRegistrationRepository, dynamicClientRegistrationService,
+					mcpMetadataDiscoveryService, urlValidator);
+		}
+
+		@Bean
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "cimd.enabled",
+				havingValue = "true", matchIfMissing = true)
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+				name = "dynamic-client-registration.enabled", havingValue = "true", matchIfMissing = false)
+		@ConditionalOnBean({ DynamicClientRegistrationService.class, McpMetadataDiscoveryService.class,
+				UrlValidator.class })
+		DelegatingMcpOAuth2ClientManager defaultmcpOauth2ClientManager(
+				McpClientRegistrationRepository mcpClientRegistrationRepository,
+				DynamicClientRegistrationService dynamicClientRegistrationService,
+				McpMetadataDiscoveryService mcpMetadataDiscoveryService, UrlValidator urlValidator) {
+			var cimd = new CimdMcpOAuth2ClientManager(mcpMetadataDiscoveryService, mcpClientRegistrationRepository,
+					urlValidator);
+			var dcr = new DcrMcpOAuth2ClientManager(mcpClientRegistrationRepository, dynamicClientRegistrationService,
+					mcpMetadataDiscoveryService, urlValidator);
+			return new DelegatingMcpOAuth2ClientManager(cimd, dcr);
+		}
+
+		@Bean
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX, name = "cimd.enabled",
+				havingValue = "false", matchIfMissing = false)
+		@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
+				name = "dynamic-client-registration.enabled", havingValue = "false", matchIfMissing = true)
+		@ConditionalOnMissingBean({ DynamicClientRegistrationService.class })
+		ScopeStepUpMcpOAuth2ClientManager scopeStepUpMcpOAuth2ClientManager(
 				McpClientRegistrationRepository mcpClientRegistrationRepository) {
-			return new ScopeStepUpMcpOAuth2DcrClientManager(mcpClientRegistrationRepository);
+			return new ScopeStepUpMcpOAuth2ClientManager(mcpClientRegistrationRepository);
 		}
 
 	}

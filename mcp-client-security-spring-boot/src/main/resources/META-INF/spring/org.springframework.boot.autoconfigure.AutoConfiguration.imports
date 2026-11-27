@@ -1,2 +1,3 @@
 org.springaicommunity.mcp.security.client.boot.McpOAuth2ClientAutoConfiguration
 org.springaicommunity.mcp.security.client.boot.HttpClientStreamableHttpTransportAutoConfiguration
+org.springaicommunity.mcp.security.client.boot.HttpClientMcpTransportAutoConfiguration

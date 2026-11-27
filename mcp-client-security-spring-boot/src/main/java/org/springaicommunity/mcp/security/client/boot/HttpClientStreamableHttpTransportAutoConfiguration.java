@@ -19,8 +19,8 @@ import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTranspor
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2AuthorizationCodeSyncHttpRequestCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2DcrHttpClientTransportCustomizer;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.OAuth2HttpClientTransportCustomizer;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -31,23 +31,33 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 /**
  * {@link AutoConfiguration Auto-configuration} for MCP OAuth2 Client transport
- * customization when using {@link HttpClientStreamableHttpTransport}. Adds OAuth2
- * capabilities to the client transport, based on client
- * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled} as well
- * as existing Spring Security OAuth2 client registration.
+ * customization for 2025-11-25 and earlier protocol revisions ("legacy") versions when
+ * using {@link HttpClientStreamableHttpTransport}. Adds OAuth2 capabilities to the client
+ * transport, based on {@code spring.ai.mcp.client.authorization.cimd.enabled} and
+ * {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled}, as well
+ * as existing Spring Security OAuth2 client registrations.
  * <p>
- * If {@code spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false}
- * and there is a single client registration,
+ * If CIMD or DCR is enabled, and there is an {@link McpOAuth2ClientManager}, an
+ * {@link OAuth2HttpClientTransportCustomizer} is registered: each MCP client connection
+ * uses the client registration with the same name, and clients are registered through the
+ * {@link McpOAuth2ClientManager} when they do not exist.
+ * <p>
+ * Otherwise, if there is a single client registration,
  * {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer} uses that registration for all
  * OAuth2 enabled calls. In case there are multiple registrations, then no customizer is
  * registered, and users should register their own customizer manually.
  * <p>
  * Only enabled for {@code SYNC} clients.
+ * <p>
+ * It is enabled even if there are no "legacy" clients and only "modern" clients. The
+ * Spring AI autoconfiguration picks up the appropriate customizers for whatever transport
+ * are being built.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -61,22 +71,25 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	@ConditionalOnBean({ ClientRegistrationRepository.class, McpOAuth2DcrClientManager.class })
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
-			name = "dynamic-client-registration.enabled", havingValue = "true")
-	OAuth2DcrHttpClientTransportCustomizer dcrTransportCustomizer(OAuth2AuthorizedClientManager authorizedClientManager,
-			ClientRegistrationRepository clientRegistrationRepository,
-			McpOAuth2DcrClientManager mcpOAuth2ClientManager) {
-		log.debug("Configuring OAuth2 transport customizer with dynamic client registration support");
-		return new OAuth2DcrHttpClientTransportCustomizer(authorizedClientManager, clientRegistrationRepository,
+	@ConditionalOnBean({ ClientRegistrationRepository.class, McpOAuth2ClientManager.class })
+	@Conditional(ClientRegistrationEnabledCondition.class)
+	OAuth2HttpClientTransportCustomizer oauth2HttpClientTransportCustomizer(
+			OAuth2AuthorizedClientManager authorizedClientManager,
+			ClientRegistrationRepository clientRegistrationRepository, McpOAuth2ClientManager mcpOAuth2ClientManager) {
+		log.debug("Configuring OAuth2 transport customizer with client registration support");
+		return new OAuth2HttpClientTransportCustomizer(authorizedClientManager, clientRegistrationRepository,
 				mcpOAuth2ClientManager);
 	}
 
+	/**
+	 * Fallback when no {@link OAuth2HttpClientTransportCustomizer} is registered, for
+	 * example when both CIMD and DCR are disabled. Backs off when there is an
+	 * {@link OAuth2HttpClientTransportCustomizer}, or any other
+	 * {@code McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>}.
+	 */
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnBean({ ClientRegistrationRepository.class })
-	@ConditionalOnProperty(prefix = McpOAuth2ClientProperties.CONFIG_PREFIX,
-			name = "dynamic-client-registration.enabled", havingValue = "false", matchIfMissing = true)
 	McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> preRegisteredClientCustomizer(
 			ClientRegistrationRepository clientRegistrationRepository,
 			OAuth2ClientProperties clientRegistrationProperties,
@@ -99,8 +112,7 @@ class HttpClientStreamableHttpTransportAutoConfiguration {
 					"Found {} client registrations but expected exactly 1; "
 							+ "skipping OAuth2 transport customization. Consider registering your own {} bean. "
 							+ "Registrations found: {}",
-					registrationIds.size(), OAuth2DcrHttpClientTransportCustomizer.class.getSimpleName(),
-					registrationIds);
+					registrationIds.size(), OAuth2HttpClientTransportCustomizer.class.getSimpleName(), registrationIds);
 			return (name, transport) -> {
 			};
 		}

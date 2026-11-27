@@ -20,52 +20,30 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Set;
 
 import io.modelcontextprotocol.common.McpTransportContext;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springaicommunity.mcp.security.client.sync.oauth2.http.client.common.OAuth2AuthorizationCodeAccessTokenResolver;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.authentication.TestingAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.client.ClientAuthorizationRequiredException;
-import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProviderBuilder;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
-import org.springframework.security.oauth2.core.OAuth2RefreshToken;
-import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Tests for {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer}.
+ * Tests for {@link OAuth2AuthorizationCodeSyncHttpRequestCustomizer}. The token logic is
+ * tested in {@code OAuth2AuthorizationCodeAccessTokenResolverTests}.
  *
  * @author Daniel Garnier-Moiroux
  */
@@ -73,340 +51,64 @@ class OAuth2AuthorizationCodeSyncHttpRequestCustomizerTests {
 
 	private static final String REGISTRATION_ID = "test-registration";
 
-	private static final String TOKEN_VALUE = "test-access-token";
-
 	private static final URI ENDPOINT = URI.create("https://mcp.example.com");
 
-	private static final Authentication AUTHENTICATION = new TestingAuthenticationToken("user", "password");
+	private static final McpTransportContext CONTEXT = McpTransportContext.create(Map.of("test", "context"));
 
-	private final OAuth2AuthorizedClientManager authorizedClientManager = mock(OAuth2AuthorizedClientManager.class);
-
-	private final ClientRegistrationRepository clientRegistrationRepository = mock(ClientRegistrationRepository.class);
+	private final OAuth2AuthorizationCodeAccessTokenResolver accessTokenResolver = mock(
+			OAuth2AuthorizationCodeAccessTokenResolver.class);
 
 	private final HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(ENDPOINT);
 
 	private OAuth2AuthorizationCodeSyncHttpRequestCustomizer customizer;
 
-	private final ServletRequestAttributes requestAttributes = new ServletRequestAttributes(
-			mock(HttpServletRequest.class), mock(HttpServletResponse.class));
-
 	@BeforeEach
 	void setUp() {
-		this.customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(this.authorizedClientManager,
-				this.clientRegistrationRepository, REGISTRATION_ID);
+		this.customizer = new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(
+				mock(OAuth2AuthorizedClientManager.class), mock(ClientRegistrationRepository.class), REGISTRATION_ID);
+		ReflectionTestUtils.setField(this.customizer, "accessTokenResolver", this.accessTokenResolver);
 	}
 
 	@Test
-	@DisplayName("Adds Bearer token to Authorization header")
 	void addsBearerToken() {
-		var registration = clientRegistration().build();
-		given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-		given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-			.willReturn(authorizedClient(registration));
+		when(this.accessTokenResolver.resolve(CONTEXT)).thenReturn(accessToken());
 
-		customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
+		this.customizer.customize(this.requestBuilder, "POST", ENDPOINT, "{}", CONTEXT);
 
-		assertThat(requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
-			.hasValue("Bearer " + TOKEN_VALUE);
+		assertThat(this.requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
+			.hasValue("Bearer test-access-token");
 	}
 
 	@Test
-	@DisplayName("Throws IllegalArgumentException when authorizedClientManager returns null")
-	void authorizedClientManagerReturnsNull() {
-		var registration = clientRegistration().build();
-		given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-		given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class))).willReturn(null);
+	void noToken() {
+		when(this.accessTokenResolver.resolve(CONTEXT)).thenReturn(null);
 
-		assertThatIllegalArgumentException()
-			.isThrownBy(() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication()))
-			.withMessageContaining(REGISTRATION_ID);
+		this.customizer.customize(this.requestBuilder, "POST", ENDPOINT, "{}", CONTEXT);
+
+		assertThat(this.requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
 	}
 
-	@Nested
-	@DisplayName("Does not add authorization header")
-	class NoAuthorization {
+	@Test
+	void authorizationRequired() {
+		when(this.accessTokenResolver.resolve(CONTEXT))
+			.thenThrow(new ClientAuthorizationRequiredException(REGISTRATION_ID));
 
-		@Test
-		@DisplayName("when context is empty")
-		void emptyContext() {
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", McpTransportContext.EMPTY);
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-			verifyNoInteractions(authorizedClientManager);
-		}
-
-		@Test
-		@DisplayName("when context has no authentication key")
-		void contextWithRequestAttributesOnly() {
-			var context = McpTransportContext
-				.create(Map.of(AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY, requestAttributes));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", context);
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-			verifyNoInteractions(authorizedClientManager);
-		}
-
-		@Test
-		@DisplayName("when context has authentication but no request attributes")
-		void contextWithAuthenticationOnly() {
-			var context = McpTransportContext
-				.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY, AUTHENTICATION));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", context);
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-			verifyNoInteractions(authorizedClientManager);
-		}
-
-		@Test
-		@DisplayName("when authentication key is not an Authentication instance")
-		void contextWithNonAuthenticationValue() {
-			var context = McpTransportContext
-				.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY, "not-an-authentication",
-						AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY, requestAttributes));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", context);
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-			verifyNoInteractions(authorizedClientManager);
-		}
-
-		@Test
-		@DisplayName("when request attributes is not a ServletRequestAttributes")
-		void contextWithNonServletRequestAttributes() {
-			var context = McpTransportContext
-				.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY, AUTHENTICATION,
-						AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY, "not-request-attrs"));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", context);
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-			verifyNoInteractions(authorizedClientManager);
-		}
-
+		assertThatExceptionOfType(ClientAuthorizationRequiredException.class)
+			.isThrownBy(() -> this.customizer.customize(this.requestBuilder, "POST", ENDPOINT, "{}", CONTEXT));
+		assertThat(this.requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
 	}
 
-	@Nested
-	class DynamicClientRegistration {
+	@ParameterizedTest
+	@ValueSource(booleans = { true, false })
+	void failOnMissingClientRegistration(boolean failOnMissingClientRegistration) {
+		this.customizer.failOnMissingClientRegistration(failOnMissingClientRegistration);
 
-		@Test
-		@DisplayName("when client registration does not exist, skips authorization")
-		void registrationNotFound() {
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(null);
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
-
-			assertThat(requestBuilder.build().headers().map()).doesNotContainKey(HttpHeaders.AUTHORIZATION);
-		}
-
-		@Test
-		@DisplayName("when fail on missing client registration and registration does not exist, throws")
-		void disabledAndRegistrationNotFound() {
-			customizer.failOnMissingClientRegistration(true);
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(null);
-
-			assertThatIllegalArgumentException()
-				.isThrownBy(
-						() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication()))
-				.withMessageContaining(REGISTRATION_ID);
-		}
-
+		verify(this.accessTokenResolver).setFailOnMissingClientRegistration(failOnMissingClientRegistration);
 	}
 
-	@Nested
-	@DisplayName("Scope step up flow")
-	class ScopeStepUp {
-
-		@Test
-		@DisplayName("Adds Bearer token when registration has no scopes")
-		void noScopesInRegistration() {
-			var registration = clientRegistration().build();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("read", "write")));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
-
-			assertThat(requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
-				.hasValue("Bearer " + TOKEN_VALUE);
-		}
-
-		@Test
-		@DisplayName("Adds Bearer token when token scopes cover all registration scopes")
-		void tokenScopesCoverRegistrationScopes() {
-			var registration = clientRegistration().scope("read", "write").build();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("read", "write", "admin")));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
-
-			assertThat(requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
-				.hasValue("Bearer " + TOKEN_VALUE);
-		}
-
-		@Test
-		@DisplayName("Adds Bearer token when registration has null scopes")
-		void registrationHasNullScopes() {
-			var registration = clientRegistrationWithNullScopes();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("read")));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
-
-			assertThat(requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
-				.hasValue("Bearer " + TOKEN_VALUE);
-		}
-
-		@Test
-		@DisplayName("Adds Bearer token when token scopes exactly match registration scopes")
-		void tokenScopesExactlyMatchRegistrationScopes() {
-			var registration = clientRegistration().scope("read", "write").build();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("read", "write")));
-
-			customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication());
-
-			assertThat(requestBuilder.build().headers().firstValue(HttpHeaders.AUTHORIZATION))
-				.hasValue("Bearer " + TOKEN_VALUE);
-		}
-
-		@Test
-		@DisplayName("Throws ClientAuthorizationRequiredException when token is missing required scopes")
-		void scopeMismatch() {
-			var registration = clientRegistration().scope("read", "write").build();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("read")));
-
-			assertThatThrownBy(
-					() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication()))
-				.isInstanceOf(ClientAuthorizationRequiredException.class);
-		}
-
-		@Test
-		@DisplayName("Throws ClientAuthorizationRequiredException when token has completely different scopes")
-		void completelyDifferentScopes() {
-			var registration = clientRegistration().scope("read", "write").build();
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(registration);
-			given(authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
-				.willReturn(authorizedClient(registration, Set.of("admin")));
-
-			assertThatThrownBy(
-					() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", contextWithAuthentication()))
-				.isInstanceOf(ClientAuthorizationRequiredException.class);
-		}
-
-	}
-
-	@Nested
-	@DisplayName("Refresh token failure")
-	class RefreshTokenFailure {
-
-		private final MockHttpServletRequest request = new MockHttpServletRequest();
-
-		private final MockHttpServletResponse response = new MockHttpServletResponse();
-
-		private final HttpSessionOAuth2AuthorizedClientRepository authorizedClientRepository = new HttpSessionOAuth2AuthorizedClientRepository();
-
-		private final ClientRegistration registration = clientRegistration().build();
-
-		@Test
-		@DisplayName("Throws ClientAuthorizationRequiredException when the refresh token is rejected with invalid_grant")
-		void invalidGrant() {
-			var customizer = customizerWithRefreshFailingWith(OAuth2ErrorCodes.INVALID_GRANT);
-
-			assertThatExceptionOfType(ClientAuthorizationRequiredException.class)
-				.isThrownBy(() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", servletContext()))
-				.satisfies(ex -> assertThat(ex.getClientRegistrationId()).isEqualTo(REGISTRATION_ID));
-			// Spring Security's default failure handler removes the stale client, so
-			// the next authorize() call starts a fresh authorization_code flow
-			assertThat(this.authorizedClientRepository.<OAuth2AuthorizedClient>loadAuthorizedClient(REGISTRATION_ID,
-					AUTHENTICATION, this.request))
-				.isNull();
-		}
-
-		@Test
-		@DisplayName("Rethrows other refresh errors as-is")
-		void otherError() {
-			var customizer = customizerWithRefreshFailingWith(OAuth2ErrorCodes.INVALID_CLIENT);
-
-			assertThatExceptionOfType(ClientAuthorizationException.class)
-				.isThrownBy(() -> customizer.customize(requestBuilder, "POST", ENDPOINT, "{}", servletContext()))
-				.isNotInstanceOf(ClientAuthorizationRequiredException.class)
-				.satisfies(ex -> assertThat(ex.getError().getErrorCode()).isEqualTo(OAuth2ErrorCodes.INVALID_CLIENT));
-		}
-
-		/**
-		 * Real {@link DefaultOAuth2AuthorizedClientManager}, with a stored authorized
-		 * client whose access token is expired, and a token endpoint rejecting the
-		 * refresh token with the given error code.
-		 */
-		private OAuth2AuthorizationCodeSyncHttpRequestCustomizer customizerWithRefreshFailingWith(String errorCode) {
-			var authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
-				.authorizationCode()
-				.refreshToken(refresh -> refresh.accessTokenResponseClient(grantRequest -> {
-					throw new OAuth2AuthorizationException(new OAuth2Error(errorCode));
-				}))
-				.build();
-			var manager = new DefaultOAuth2AuthorizedClientManager(
-					new InMemoryClientRegistrationRepository(this.registration), this.authorizedClientRepository);
-			manager.setAuthorizedClientProvider(authorizedClientProvider);
-
-			var expiredAccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, TOKEN_VALUE,
-					Instant.now().minusSeconds(600), Instant.now().minusSeconds(300));
-			var refreshToken = new OAuth2RefreshToken("test-refresh-token", Instant.now().minusSeconds(600));
-			this.authorizedClientRepository.saveAuthorizedClient(
-					new OAuth2AuthorizedClient(this.registration, "user", expiredAccessToken, refreshToken),
-					AUTHENTICATION, this.request, this.response);
-
-			given(clientRegistrationRepository.findByRegistrationId(REGISTRATION_ID)).willReturn(this.registration);
-			return new OAuth2AuthorizationCodeSyncHttpRequestCustomizer(manager, clientRegistrationRepository,
-					REGISTRATION_ID);
-		}
-
-		private McpTransportContext servletContext() {
-			return McpTransportContext.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY,
-					AUTHENTICATION, AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY,
-					new ServletRequestAttributes(this.request, this.response)));
-		}
-
-	}
-
-	private McpTransportContext contextWithAuthentication() {
-		return McpTransportContext
-			.create(Map.of(AuthenticationMcpTransportContextProvider.AUTHENTICATION_KEY, AUTHENTICATION,
-					AuthenticationMcpTransportContextProvider.REQUEST_ATTRIBUTES_KEY, this.requestAttributes));
-	}
-
-	private static ClientRegistration.Builder clientRegistration() {
-		return ClientRegistration.withRegistrationId(REGISTRATION_ID)
-			.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-			.clientId("test-client-id")
-			.redirectUri("https://example.com/callback")
-			.authorizationUri("https://auth.example.com/authorize")
-			.tokenUri("https://auth.example.com/token");
-	}
-
-	private static OAuth2AuthorizedClient authorizedClient(ClientRegistration registration) {
-		return authorizedClient(registration, Set.of());
-	}
-
-	private static OAuth2AuthorizedClient authorizedClient(ClientRegistration registration, Set<String> scopes) {
-		var accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
-				OAuth2AuthorizationCodeSyncHttpRequestCustomizerTests.TOKEN_VALUE, Instant.now(),
-				Instant.now().plusSeconds(300), scopes);
-		return new OAuth2AuthorizedClient(registration, "user", accessToken);
-	}
-
-	private static ClientRegistration clientRegistrationWithNullScopes() {
-		ClientRegistration registration = mock(ClientRegistration.class);
-		given(registration.getRegistrationId()).willReturn(REGISTRATION_ID);
-		given(registration.getScopes()).willReturn(null);
-		return registration;
+	private static OAuth2AccessToken accessToken() {
+		return new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "test-access-token", Instant.now(),
+				Instant.now().plusSeconds(300));
 	}
 
 }

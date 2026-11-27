@@ -26,12 +26,14 @@ import org.springaicommunity.mcp.security.client.sync.oauth2.IssuerValidatingAut
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceAuthorizationRequestCustomizer;
 import org.springaicommunity.mcp.security.client.sync.oauth2.McpResourceParametersConverter;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationRequest;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ClientAlreadyExistsException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrNotSupportedException;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationRequest;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.web.OAuth2CimdEndpointFilter;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 import org.springaicommunity.mcp.security.common.url.UrlValidator;
@@ -71,6 +73,8 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 
 	private static final Logger log = LoggerFactory.getLogger(McpClientOAuth2Configurer.class);
 
+	private static final String REDIRECT_URI_TEMPLATE = "{baseUrl}/authorize/oauth2/code/{registrationId}";
+
 	private Customizer<OAuth2ClientConfigurer<HttpSecurity>> oauth2ClientCustomizer = Customizer.withDefaults();
 
 	private final Map<String, String> mcpRegistrations = new HashMap<>();
@@ -94,8 +98,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	@Override
 	public void init(HttpSecurity http) {
 		var clientRegistrationRepository = getClientRegistrationRepository(http);
-		var clientManager = getMcpOAuth2ClientManager(http, clientRegistrationRepository);
-		registerMcpClients(http, clientRegistrationRepository, clientManager);
+		registerMcpClients(http, clientRegistrationRepository);
 
 		http.oauth2Client(oauth2Client -> {
 			if (this.issParameterValidation) {
@@ -153,6 +156,9 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 * server starts. This is required to infer the correct base URL for all redirect URLs
 	 * when dynamically registering clients. This may lead to a race-condition if an MCP
 	 * Client is called before the dynamic clients are registered.
+	 * <p>
+	 * This assumes that a {@link DcrMcpOAuth2ClientManager} is available. If not, a
+	 * short-lived instance will be created with the appropriate beans from the context.
 	 * @param registrationId the id used for
 	 * {@link ClientRegistration#getRegistrationId()}
 	 * @param mcpServerUrl the URL of the MCP server
@@ -218,12 +224,11 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		return this;
 	}
 
-	private void registerMcpClients(HttpSecurity http, ClientRegistrationRepository repository,
-			McpOAuth2DcrClientManager clientManager) {
+	private void registerMcpClients(HttpSecurity http, ClientRegistrationRepository repository) {
 		if (this.mcpRegistrations.isEmpty()) {
 			return;
 		}
-		if (!(repository instanceof McpClientRegistrationRepository)) {
+		if (!(repository instanceof McpClientRegistrationRepository mcpClientRegistrationRepository)) {
 			throw new IllegalStateException(
 					"You can only register OAuth2 Clients for MCP Servers with an McpClientRegistrationRepository. "
 							+ "Found a bean of type [%s] instead. ".formatted(repository.getClass().getName())
@@ -231,6 +236,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 							+ "or by not using spring.security.oauth2.client.registration.* properties. "
 							+ "Alternatively, consider providing your own McpClientRegistrationRepository bean.");
 		}
+		var clientManager = getDcrClientManager(http, mcpClientRegistrationRepository);
 		if (this.baseUrl != null) {
 			doRegisterMcpClients(clientManager, this.baseUrl, this.mcpRegistrations);
 		}
@@ -251,14 +257,24 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		}
 	}
 
-	private static void doRegisterMcpClients(McpOAuth2DcrClientManager clientManager, String baseUrl,
+	private static void doRegisterMcpClients(DcrMcpOAuth2ClientManager clientManager, String baseUrl,
 			Map<String, String> registrations) {
 		for (var entry : registrations.entrySet()) {
 			var registrationId = entry.getKey();
 			var mcpServerUrl = entry.getValue();
-			var registration = DynamicClientRegistrationRequest
-				.authorizationCode(baseUrl + "/authorize/oauth2/code/" + registrationId);
-			clientManager.registerMcpClient(registrationId, mcpServerUrl, registration);
+			try {
+				var redirectUri = REDIRECT_URI_TEMPLATE.replace("{baseUrl}", baseUrl)
+					.replace("{registrationId}", registrationId);
+				clientManager.registerClient(registrationId, mcpServerUrl,
+						DynamicClientRegistrationRequest.authorizationCode(redirectUri));
+			}
+			catch (ClientAlreadyExistsException e) {
+				log.debug("Client registration [{}] already exists, skipping", registrationId);
+			}
+			catch (DcrNotSupportedException e) {
+				throw new IllegalStateException("Cannot register client [%s] for MCP server [%s]: %s"
+					.formatted(registrationId, mcpServerUrl, e.getMessage()), e);
+			}
 		}
 	}
 
@@ -275,20 +291,14 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 		return clientRegistrationRepository;
 	}
 
-	private McpOAuth2DcrClientManager getMcpOAuth2ClientManager(HttpSecurity http,
-			ClientRegistrationRepository clientRegistrationRepository) {
-		McpOAuth2DcrClientManager clientManager = getOptionalBean(http, McpOAuth2DcrClientManager.class);
-		if (clientManager != null) {
-			return clientManager;
+	private DcrMcpOAuth2ClientManager getDcrClientManager(HttpSecurity http,
+			McpClientRegistrationRepository repository) {
+		var clientManager = getOptionalBean(http, McpOAuth2ClientManager.class);
+		if (clientManager instanceof DcrMcpOAuth2ClientManager dcrClientManager) {
+			return dcrClientManager;
 		}
-		if (clientRegistrationRepository instanceof McpClientRegistrationRepository mcpRepo) {
-			return new DefaultMcpOAuth2DcrClientManager(mcpRepo, getDynamicClientRegistrationService(http),
-					getMcpMetadataDiscovery(http), getUrlValidator(http));
-		}
-		throw new IllegalStateException(
-				"Cannot create a DefaultMcpOAuth2ClientManager: the ClientRegistrationRepository is not an McpClientRegistrationRepository. "
-						+ "Found a bean of type [%s]. ".formatted(clientRegistrationRepository.getClass().getName())
-						+ "Provide an McpOAuth2ClientManager bean or an McpClientRegistrationRepository bean.");
+		return new DcrMcpOAuth2ClientManager(repository, getDynamicClientRegistrationService(http),
+				getMcpMetadataDiscovery(http), getUrlValidator(http));
 	}
 
 	private McpMetadataDiscoveryService getMcpMetadataDiscovery(HttpSecurity http) {
@@ -354,7 +364,7 @@ public class McpClientOAuth2Configurer extends AbstractHttpConfigurer<McpClientO
 	 * get the port of the running server for redirect urls.
 	 */
 	private static void registerClientsOnServerStartup(ConfigurableApplicationContext context,
-			McpOAuth2DcrClientManager clientManager, Map<String, String> registrations) {
+			DcrMcpOAuth2ClientManager clientManager, Map<String, String> registrations) {
 		context.addApplicationListener(event -> {
 			if (event instanceof org.springframework.boot.web.server.servlet.context.ServletWebServerInitializedEvent webServerEvent) {
 				var port = webServerEvent.getWebServer().getPort();

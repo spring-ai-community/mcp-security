@@ -6,7 +6,7 @@
 
     <groupId>org.springaicommunity</groupId>
     <artifactId>mcp-security-parent</artifactId>
-    <version>0.1.15-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
 
     <packaging>pom</packaging>
     <url>https://github.com/spring-ai-community/mcp-security</url>
@@ -24,11 +24,13 @@
 
         <!-- Samples -->
         <module>samples/sample-authorization-server</module>
-        <module>samples/sample-mcp-server</module>
-        <module>samples/sample-mcp-server-secured-tools</module>
-        <module>samples/sample-mcp-server-api-key</module>
-        <module>samples/sample-mcp-client</module>
-        <module>samples/sample-mcp-client-webclient</module>
+        <module>samples/legacy/sample-mcp-server</module>
+        <module>samples/legacy/sample-mcp-server-secured-tools</module>
+        <module>samples/legacy/sample-mcp-server-api-key</module>
+        <module>samples/legacy/sample-mcp-client</module>
+        <module>samples/legacy/sample-mcp-client-webclient</module>
+        <module>samples/modern/sample-mcp-server-modern</module>
+        <module>samples/modern/sample-mcp-client-modern</module>
         <module>samples/integration-tests</module>
     </modules>
 
@@ -80,8 +82,8 @@
         <maven.compiler.target>17</maven.compiler.target>
 
         <mcp.java.sdk.version>2.2.0</mcp.java.sdk.version>
-        <spring-ai.version>2.0.1</spring-ai.version>
-        <spring-boot.version>4.1.0</spring-boot.version>
+        <spring-ai.version>2.1.0</spring-ai.version>
+        <spring-boot.version>4.2.0</spring-boot.version>
         <spring-boot-testjars.version>0.4.0.0</spring-boot-testjars.version>
 
         <!-- plugin versions -->
@@ -362,7 +364,7 @@
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <excludeArtifacts>
-                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webclient,sample-mcp-server-secured-tools,sample-mcp-server-api-key,integration-tests
+                                mcp-security-parent,sample-mcp-client,sample-authorization-server,sample-mcp-server,sample-mcp-client-webclient,sample-mcp-server-secured-tools,sample-mcp-server-api-key,sample-mcp-server-modern,sample-mcp-client-modern,sample-mcp-client-modern-conformance,integration-tests
                             </excludeArtifacts>
                             <autoPublish>true</autoPublish>
                         </configuration>

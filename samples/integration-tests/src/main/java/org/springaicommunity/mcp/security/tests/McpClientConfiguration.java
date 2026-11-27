@@ -21,11 +21,11 @@ import java.util.ArrayList;
 import io.modelcontextprotocol.client.McpClient;
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 import org.springaicommunity.mcp.security.common.url.DefaultUrlValidator;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -45,7 +45,8 @@ import org.springframework.security.web.SecurityFilterChain;
  * @author Daniel Garnier-Moiroux
  */
 @Configuration
-@Import({ InMemoryMcpClientRepository.class, McpController.class })
+@Import({ InMemoryMcpClientRepository.class, McpController.class, InMemoryModernMcpClientRepository.class,
+		ModernMcpController.class })
 @EnableWebSecurity
 @EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class McpClientConfiguration {
@@ -72,8 +73,8 @@ public class McpClientConfiguration {
 	}
 
 	@Bean
-	McpOAuth2DcrClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
-		return new DefaultMcpOAuth2DcrClientManager(mcpClientRegistrationRepository,
+	McpOAuth2ClientManager mcpOAuth2ClientManager(McpClientRegistrationRepository mcpClientRegistrationRepository) {
+		return new DcrMcpOAuth2ClientManager(mcpClientRegistrationRepository,
 				new DynamicClientRegistrationService(new DefaultUrlValidator(true)),
 				new McpMetadataDiscoveryService(new DefaultUrlValidator(true)), new DefaultUrlValidator(true));
 	}

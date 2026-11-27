@@ -18,9 +18,9 @@ package org.springaicommunity.mcp.security.client.boot;
 
 import org.springaicommunity.mcp.security.client.sync.AuthenticationMcpTransportContextProvider;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpClientCommonProperties;
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
@@ -41,7 +41,7 @@ import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResp
  * <li>{@link McpClientRegistrationRepository}
  * <li>{@link DynamicClientRegistrationService}
  * <li>{@link McpMetadataDiscoveryService}
- * <li>{@link McpOAuth2DcrClientManager}
+ * <li>{@link McpOAuth2ClientManager}
  * <li>{@link OAuth2AccessTokenResponseClient} beans for refresh token and client
  * credentials requests, which add the MCP server's {@code resource} parameter. Spring
  * Security's default {@link OAuth2AuthorizedClientManager} picks them up.
@@ -56,6 +56,7 @@ import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResp
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties({ McpOAuth2ClientProperties.class, OAuth2ClientProperties.class })
 @Import({ McpOAuth2ClientConfigurations.ClientRegistrationRepositoryConfiguration.class,
+		McpOAuth2ClientConfigurations.McpMetadataDiscoveryConfiguration.class,
 		McpOAuth2ClientConfigurations.DynamicClientRegistrationConfiguration.class,
 		McpOAuth2ClientConfigurations.OAuth2ClientManagerConfiguration.class,
 		McpOAuth2ClientConfigurations.RefreshTokenConfiguration.class,

@@ -25,12 +25,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.security.client.sync.oauth2.metadata.McpMetadataDiscoveryService;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DefaultMcpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DynamicClientRegistrationService;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.DelegatingMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.cimd.CimdMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DcrMcpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.dcr.DynamicClientRegistrationService;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.InMemoryMcpClientRegistrationRepository;
 import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpClientRegistrationRepository;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2DcrClientManager;
-import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2DcrClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.McpOAuth2ClientManager;
+import org.springaicommunity.mcp.security.client.sync.oauth2.registration.ScopeStepUpMcpOAuth2ClientManager;
 
 import org.springframework.ai.mcp.customizer.McpClientCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -96,24 +98,58 @@ class McpOAuth2ClientAutoConfigurationTests {
 	@Test
 	void defaults() {
 		this.contextRunner.run(context -> {
-			assertThat(context).doesNotHaveBean(McpMetadataDiscoveryService.class);
+			assertThat(context).hasSingleBean(McpMetadataDiscoveryService.class);
 			assertThat(context).doesNotHaveBean(DynamicClientRegistrationService.class);
 			assertThat(context).hasSingleBean(ClientRegistrationRepository.class)
 				.getBean(ClientRegistrationRepository.class)
 				.isInstanceOf(InMemoryMcpClientRegistrationRepository.class);
-			assertThat(context).hasSingleBean(McpOAuth2DcrClientManager.class)
-				.getBean(McpOAuth2DcrClientManager.class)
-				.isInstanceOf(ScopeStepUpMcpOAuth2DcrClientManager.class);
+			assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+				.getBean(McpOAuth2ClientManager.class)
+				.isInstanceOf(CimdMcpOAuth2ClientManager.class);
 		});
+	}
+
+	@Test
+	void existingMcpClientRegistrationRepositoryCimd() {
+		this.contextRunner.withUserConfiguration(CustomMcpClientRegistrationRepositoryConfiguration.class)
+			.run(context -> {
+				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+					.getBean(McpOAuth2ClientManager.class)
+					.isInstanceOf(CimdMcpOAuth2ClientManager.class);
+			});
 	}
 
 	@Test
 	void existingMcpClientRegistrationRepositoryScopeStepUp() {
 		this.contextRunner.withUserConfiguration(CustomMcpClientRegistrationRepositoryConfiguration.class)
+			.withPropertyValues("spring.ai.mcp.client.authorization.cimd.enabled=false")
 			.run(context -> {
-				assertThat(context).hasSingleBean(McpOAuth2DcrClientManager.class)
-					.getBean(McpOAuth2DcrClientManager.class)
-					.isInstanceOf(ScopeStepUpMcpOAuth2DcrClientManager.class);
+				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+					.getBean(McpOAuth2ClientManager.class)
+					.isInstanceOf(ScopeStepUpMcpOAuth2ClientManager.class);
+			});
+	}
+
+	@Test
+	void cimdAndDynamicClientRegistrationEnabled() {
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true")
+			.run(context -> {
+				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+					.getBean(McpOAuth2ClientManager.class)
+					.isInstanceOf(DelegatingMcpOAuth2ClientManager.class);
+			});
+	}
+
+	@Test
+	void cimdDisabledDynamicClientRegistrationEnabled() {
+		this.contextRunner
+			.withPropertyValues("spring.ai.mcp.client.authorization.cimd.enabled=false",
+					"spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=true")
+			.run(context -> {
+				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+					.getBean(McpOAuth2ClientManager.class)
+					.isInstanceOf(DcrMcpOAuth2ClientManager.class);
 			});
 	}
 
@@ -122,19 +158,20 @@ class McpOAuth2ClientAutoConfigurationTests {
 		this.contextRunner
 			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(McpMetadataDiscoveryService.class);
+				assertThat(context).hasSingleBean(McpMetadataDiscoveryService.class);
 				assertThat(context).doesNotHaveBean(DynamicClientRegistrationService.class);
 			});
 	}
 
 	@Test
-	void dynamicClientRegistrationDisabledScopeStepUp() {
+	void cimdAndDynamicClientRegistrationDisabledScopeStepUp() {
 		this.contextRunner
-			.withPropertyValues("spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
+			.withPropertyValues("spring.ai.mcp.client.authorization.cimd.enabled=false",
+					"spring.ai.mcp.client.authorization.dynamic-client-registration.enabled=false")
 			.run(context -> {
-				assertThat(context).hasSingleBean(McpOAuth2DcrClientManager.class)
-					.getBean(McpOAuth2DcrClientManager.class)
-					.isInstanceOf(ScopeStepUpMcpOAuth2DcrClientManager.class);
+				assertThat(context).hasSingleBean(McpOAuth2ClientManager.class)
+					.getBean(McpOAuth2ClientManager.class)
+					.isInstanceOf(ScopeStepUpMcpOAuth2ClientManager.class);
 			});
 	}
 
@@ -195,10 +232,12 @@ class McpOAuth2ClientAutoConfigurationTests {
 	@Test
 	void backsOffMcpOAuth2ClientManager() {
 		this.contextRunner.withUserConfiguration(CustomMcpOAuth2ClientManagerConfiguration.class).run(context -> {
-			assertThat(context).hasSingleBean(McpOAuth2DcrClientManager.class);
-			assertThat(context).doesNotHaveBean(DefaultMcpOAuth2DcrClientManager.class);
-			assertThat(context).doesNotHaveBean(ScopeStepUpMcpOAuth2DcrClientManager.class);
-			assertThat(context.getBean(McpOAuth2DcrClientManager.class))
+			assertThat(context).hasSingleBean(McpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(CimdMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(DcrMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(DelegatingMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(ScopeStepUpMcpOAuth2ClientManager.class);
+			assertThat(context.getBean(McpOAuth2ClientManager.class))
 				.isSameAs(context.getBean(CustomMcpOAuth2ClientManagerConfiguration.class).customManager);
 		});
 	}
@@ -365,7 +404,7 @@ class McpOAuth2ClientAutoConfigurationTests {
 	void nonServlet() {
 		new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(McpOAuth2ClientAutoConfiguration.class))
 			.run(context -> {
-				assertThat(context).doesNotHaveBean(McpOAuth2DcrClientManager.class);
+				assertThat(context).doesNotHaveBean(McpOAuth2ClientManager.class);
 				assertThat(context).doesNotHaveBean(McpOAuth2ClientProperties.class);
 				assertThat(context).doesNotHaveBean(McpClientRegistrationRepository.class);
 			});
@@ -374,9 +413,11 @@ class McpOAuth2ClientAutoConfigurationTests {
 	@Test
 	void existingClientRegistrationRepository() {
 		this.contextRunner.withUserConfiguration(CustomClientRegistrationRepositoryConfiguration.class).run(context -> {
-			assertThat(context).doesNotHaveBean(McpOAuth2DcrClientManager.class);
-			assertThat(context).doesNotHaveBean(DefaultMcpOAuth2DcrClientManager.class);
-			assertThat(context).doesNotHaveBean(ScopeStepUpMcpOAuth2DcrClientManager.class);
+			assertThat(context).doesNotHaveBean(McpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(CimdMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(DcrMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(DelegatingMcpOAuth2ClientManager.class);
+			assertThat(context).doesNotHaveBean(ScopeStepUpMcpOAuth2ClientManager.class);
 		});
 	}
 
@@ -471,10 +512,10 @@ class McpOAuth2ClientAutoConfigurationTests {
 	@Configuration
 	static class CustomMcpOAuth2ClientManagerConfiguration {
 
-		final McpOAuth2DcrClientManager customManager = mock(McpOAuth2DcrClientManager.class);
+		final McpOAuth2ClientManager customManager = mock(McpOAuth2ClientManager.class);
 
 		@Bean
-		McpOAuth2DcrClientManager mcpOAuth2ClientManager() {
+		McpOAuth2ClientManager mcpOAuth2ClientManager() {
 			return this.customManager;
 		}
 
